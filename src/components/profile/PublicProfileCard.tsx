@@ -1,0 +1,107 @@
+"use client";
+
+import type { User } from "@/lib/types";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Linkedin, Mail, MessageSquare, Briefcase, GraduationCap, Star, MapPin, Phone } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+
+interface PublicProfileCardProps {
+  user: User;
+}
+
+export default function PublicProfileCard({ user }: PublicProfileCardProps) {
+  const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("") : "PN";
+
+  return (
+    <Card className="w-full max-w-3xl mx-auto shadow-xl">
+      <CardHeader className="items-center text-center">
+        <Avatar className="w-32 h-32 mb-4 border-4 border-primary shadow-md">
+          <AvatarImage src={user.profilePictureUrl || `https://placehold.co/128x128.png?text=${fallbackName}`} alt={user.fullName} />
+          <AvatarFallback className="text-4xl">{fallbackName}</AvatarFallback>
+        </Avatar>
+        <CardTitle className="text-3xl font-headline">{user.fullName}</CardTitle>
+        <CardDescription className="text-lg text-accent-foreground">{user.profession || "Profession not specified"}</CardDescription>
+        {user.location?.address && (
+          <div className="flex items-center text-muted-foreground mt-1">
+            <MapPin className="h-4 w-4 mr-1" />
+            <span>{user.location.address}</span>
+          </div>
+        )}
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {user.professionalDetails && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2 font-headline">About Me</h3>
+            <p className="text-foreground/90 whitespace-pre-wrap">{user.professionalDetails}</p>
+          </div>
+        )}
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {user.education && (
+            <div className="flex items-start">
+              <GraduationCap className="h-6 w-6 mr-3 mt-1 text-primary flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold">Education</h4>
+                <p className="text-foreground/80">{user.education}</p>
+              </div>
+            </div>
+          )}
+          {user.yearsOfExperience !== undefined && (
+             <div className="flex items-start">
+              <Star className="h-6 w-6 mr-3 mt-1 text-primary flex-shrink-0" />
+              <div>
+                <h4 className="font-semibold">Experience</h4>
+                <p className="text-foreground/80">{user.yearsOfExperience} {user.yearsOfExperience === 1 ? "year" : "years"}</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {(user.profilePrivacySettings?.showContact === 'all' || user.profilePrivacySettings?.showContact === undefined /*default to show for mock*/) && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2 font-headline">Contact Information</h3>
+            <div className="space-y-2">
+              {user.email && (
+                <div className="flex items-center">
+                  <Mail className="h-5 w-5 mr-2 text-primary" />
+                  <a href={`mailto:${user.email}`} className="text-foreground/80 hover:text-primary transition-colors">{user.email}</a>
+                </div>
+              )}
+              {user.phoneNumber && (
+                <div className="flex items-center">
+                  <Phone className="h-5 w-5 mr-2 text-primary" />
+                  <span className="text-foreground/80">{user.phoneNumber}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+      </CardContent>
+      <CardFooter className="flex flex-col sm:flex-row justify-center gap-3 pt-6 border-t">
+        {user.linkedinProfileUrl && (
+          <Button variant="outline" asChild>
+            <a href={user.linkedinProfileUrl} target="_blank" rel="noopener noreferrer">
+              <Linkedin className="mr-2 h-5 w-5" /> LinkedIn
+            </a>
+          </Button>
+        )}
+        {user.email && (
+           <Button variant="outline" asChild>
+            <a href={`mailto:${user.email}`}>
+              <Mail className="mr-2 h-5 w-5" /> Email
+            </a>
+          </Button>
+        )}
+        <Button asChild>
+          <Link href={`/messages?chatWith=${user.id}`}> {/* Or /messages/new?userId=${user.id} */}
+            <MessageSquare className="mr-2 h-5 w-5" /> Message
+          </Link>
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+}
