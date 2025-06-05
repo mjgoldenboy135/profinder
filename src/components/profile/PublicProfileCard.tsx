@@ -1,10 +1,11 @@
+
 "use client";
 
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Linkedin, Mail, MessageSquare, Briefcase, GraduationCap, Star, MapPin, Phone } from "lucide-react";
+import { Linkedin, Mail, MessageSquare, Briefcase, GraduationCap, Star, MapPin } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -60,7 +61,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           )}
         </div>
 
-        {(user.profilePrivacySettings?.showContact === 'all' || user.profilePrivacySettings?.showContact === undefined /*default to show for mock*/) && (
+        {(user.profilePrivacySettings?.showContact === 'all' || user.profilePrivacySettings?.showContact === undefined /*default to show for mock*/) && user.email && (
           <div>
             <h3 className="text-lg font-semibold mb-2 font-headline">Contact Information</h3>
             <div className="space-y-2">
@@ -68,12 +69,6 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
                 <div className="flex items-center">
                   <Mail className="h-5 w-5 mr-2 text-primary" />
                   <a href={`mailto:${user.email}`} className="text-foreground/80 hover:text-primary transition-colors">{user.email}</a>
-                </div>
-              )}
-              {user.phoneNumber && (
-                <div className="flex items-center">
-                  <Phone className="h-5 w-5 mr-2 text-primary" />
-                  <span className="text-foreground/80">{user.phoneNumber}</span>
                 </div>
               )}
             </div>
