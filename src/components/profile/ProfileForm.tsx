@@ -4,7 +4,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -25,6 +25,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Globe } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
@@ -167,7 +168,7 @@ export default function ProfileForm() {
                     name="profilePicture"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel htmlFor="profilePictureInput" className={Button({variant: "outline", size:"sm"}).className + " cursor-pointer"}>
+                        <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer")}>
                             {previewImage ? "Change" : "Upload"} Picture
                         </FormLabel>
                         <FormControl>
@@ -364,3 +365,5 @@ export default function ProfileForm() {
     </Card>
   );
 }
+
+    
