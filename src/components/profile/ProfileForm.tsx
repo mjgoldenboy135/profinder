@@ -40,7 +40,6 @@ const profileSchema = z.object({
   phoneNumber: z.string().optional(),
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
-  showLocation: z.boolean().optional().default(false),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -59,7 +58,6 @@ export default function ProfileForm() {
       yearsOfExperience: user.yearsOfExperience ?? 0,
       isOnline: user.isOnline || false,
       showContact: user.profilePrivacySettings?.showContact === 'all',
-      showLocation: user.profilePrivacySettings?.showLocation === 'all',
     });
   }, []);
 
@@ -78,7 +76,6 @@ export default function ProfileForm() {
       profilePictureUrl: "",
       isOnline: false,
       showContact: false,
-      showLocation: false,
     },
   });
 
@@ -89,7 +86,6 @@ export default function ProfileForm() {
             yearsOfExperience: currentUser.yearsOfExperience ?? 0,
             isOnline: currentUser.isOnline || false,
             showContact: currentUser.profilePrivacySettings?.showContact === 'all',
-            showLocation: currentUser.profilePrivacySettings?.showLocation === 'all',
         });
         setPreviewImage(currentUser.profilePictureUrl || null);
     }
@@ -331,21 +327,6 @@ export default function ProfileForm() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="showLocation"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                      <div className="space-y-0.5">
-                        <FormLabel>Share General Location</FormLabel>
-                        <FormDescription>Allow others to see your city/region on your profile and map.</FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
               </CardContent>
             </Card>
 
@@ -358,3 +339,4 @@ export default function ProfileForm() {
     </Card>
   );
 }
+
