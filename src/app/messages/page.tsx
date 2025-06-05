@@ -1,9 +1,11 @@
+
 "use client";
 
 import ChatListItem from "@/components/messaging/ChatListItem";
 import { placeholderChats, getCurrentUser } from "@/lib/placeholder-data";
 import type { Chat } from "@/lib/types";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation"; // Added import
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,11 +13,12 @@ import { MessageCircle, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
-export default function MessagesPage({ searchParams }: { searchParams?: { chatId?: string } }) {
+export default function MessagesPage() { // Removed searchParams prop
+  const searchParams = useSearchParams(); // Use the hook
   const [chats, setChats] = useState<Chat[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [activeChatId, setActiveChatId] = useState<string | undefined>(searchParams?.chatId);
+  const [activeChatId, setActiveChatId] = useState<string | undefined>(searchParams.get("chatId") || undefined); // Get chatId using the hook
 
 
   useEffect(() => {
@@ -26,13 +29,14 @@ export default function MessagesPage({ searchParams }: { searchParams?: { chatId
     const userChats = placeholderChats.filter(chat => chat.participantIds.includes(user.id));
     setChats(userChats);
 
-    if (searchParams?.chatId) {
-        setActiveChatId(searchParams.chatId);
+    const chatIdFromParams = searchParams.get("chatId"); // Get chatId from hook
+    if (chatIdFromParams) {
+        setActiveChatId(chatIdFromParams);
     } else if (userChats.length > 0) {
         // setActiveChatId(userChats[0].id); // Optionally select the first chat
     }
 
-  }, [searchParams?.chatId]);
+  }, [searchParams]); // Added searchParams to dependency array
 
   const filteredChats = chats.filter(chat => {
     const otherParticipant = chat.participants?.find(p => p.id !== currentUserId);
