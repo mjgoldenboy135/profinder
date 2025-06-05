@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
-import Image from "next/image"; // Added Image import
+import Image from "next/image"; 
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -71,7 +71,7 @@ export default function SignUpForm() {
             width={150} 
             height={100} 
             className="rounded-md"
-            data-ai-hint="team collaboration"
+            data-ai-hint="AI abstract illustration"
           />
         </div>
         <CardTitle className="text-3xl font-headline text-center">Create an Account</CardTitle>
