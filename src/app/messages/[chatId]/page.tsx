@@ -1,9 +1,10 @@
+
 "use client";
 
+import { useEffect, useState, use } from "react";
 import ChatInterface from "@/components/messaging/ChatInterface";
-import { placeholderChats, placeholderMessages, getCurrentUser } from "@/lib/placeholder-data";
+import { placeholderChats, placeholderMessages, getCurrentUser, placeholderUsers } from "@/lib/placeholder-data";
 import type { Chat, Message, User } from "@/lib/types";
-import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 import Link from "next/link";
@@ -15,7 +16,10 @@ interface IndividualChatPageProps {
   };
 }
 
-export default function IndividualChatPage({ params }: IndividualChatPageProps) {
+export default function IndividualChatPage({ params: paramsProp }: IndividualChatPageProps) {
+  const params = use(paramsProp);
+  const { chatId } = params;
+
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -25,18 +29,34 @@ export default function IndividualChatPage({ params }: IndividualChatPageProps) 
     const fetchedUser = getCurrentUser();
     setCurrentUser(fetchedUser);
 
-    const foundChat = placeholderChats.find(c => c.id === params.chatId && c.participantIds.includes(fetchedUser.id));
-    if (foundChat) {
-      setChat(foundChat);
-      // Filter messages for this specific chat
-      const chatMessages = placeholderMessages.filter(m => m.chatId === params.chatId).sort((a,b) => a.timestamp - b.timestamp);
+    const rawFoundChat = placeholderChats.find(c => c.id === chatId && c.participantIds.includes(fetchedUser.id));
+
+    if (rawFoundChat) {
+      let populatedChat = { ...rawFoundChat };
+      // Populate participants if not already present or empty
+      if (!populatedChat.participants || populatedChat.participants.length === 0) {
+        const participantDetails = populatedChat.participantIds
+          .map(id => placeholderUsers.find(u => u.id === id))
+          .filter(Boolean) as User[];
+        populatedChat.participants = participantDetails.map(p => ({
+          id: p.id,
+          fullName: p.fullName,
+          profilePictureUrl: p.profilePictureUrl,
+        }));
+      }
+      setChat(populatedChat);
+
+      const chatMessages = placeholderMessages.filter(m => m.chatId === chatId).sort((a,b) => a.timestamp - b.timestamp);
       setMessages(chatMessages);
+    } else {
+      setChat(null); 
+      setMessages([]); 
     }
     setLoading(false);
-  }, [params.chatId]);
+  }, [chatId]);
 
   if (loading) {
-    return <p className="text-center py-10">Loading chat...</p>; // Or a skeleton loader
+    return <p className="text-center py-10">Loading chat...</p>;
   }
 
   if (!chat || !currentUser) {
@@ -56,14 +76,6 @@ export default function IndividualChatPage({ params }: IndividualChatPageProps) 
     );
   }
   
-  // Ensure participants are populated for ChatInterface
-  // This would typically be handled by the backend or a more sophisticated data fetching layer
-  if (chat && !chat.participants) {
-      const participantDetails = chat.participantIds.map(id => placeholderUsers.find(u => u.id === id)).filter(Boolean) as User[];
-      chat.participants = participantDetails.map(p => ({ id: p.id, fullName: p.fullName, profilePictureUrl: p.profilePictureUrl }));
-  }
-
-
   return (
     <div className="py-0 md:py-8 h-full"> {/* Adjust padding for different screen sizes */}
       <ChatInterface chat={chat} initialMessages={messages} currentUserId={currentUser.id} />
