@@ -1,3 +1,4 @@
+
 'use client'; // Needed for potential auth state logic and Link usage
 
 import Link from 'next/link';
@@ -5,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, Lightbulb, UserCircle, LogOut, LogIn } from 'lucide-react';
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, LogIn } from 'lucide-react'; // Removed Lightbulb
 import { useState, useEffect } from 'react'; // For managing auth state (mocked)
 
 // Mock auth state. In a real app, this would come from a context or auth library.
@@ -30,7 +31,7 @@ const navLinks = [
   { href: '/map', label: 'Map', icon: MapPin, authRequired: true },
   { href: '/users', label: 'Users', icon: Users, authRequired: true },
   { href: '/messages', label: 'Messages', icon: MessageCircle, authRequired: true },
-  { href: '/suggestions', label: 'Suggestions', icon: Lightbulb, authRequired: true },
+  // { href: '/suggestions', label: 'Suggestions', icon: Lightbulb, authRequired: true }, // Removed
   { href: '/profile', label: 'Profile', icon: UserCircle, authRequired: true },
 ];
 
