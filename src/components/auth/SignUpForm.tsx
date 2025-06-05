@@ -1,9 +1,11 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import Link from "next/link";
+import Image from "next/image"; // Added Image import
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -62,8 +64,18 @@ export default function SignUpForm() {
   return (
     <Card className="w-full max-w-md shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline">Create an Account</CardTitle>
-        <CardDescription>Join Proximity Network to connect with professionals.</CardDescription>
+        <div className="mb-4 flex justify-center">
+          <Image 
+            src="https://placehold.co/150x100.png" 
+            alt="Sign Up Illustration" 
+            width={150} 
+            height={100} 
+            className="rounded-md"
+            data-ai-hint="team collaboration"
+          />
+        </div>
+        <CardTitle className="text-3xl font-headline text-center">Create an Account</CardTitle>
+        <CardDescription className="text-center">Join Proximity Network to connect with professionals.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
