@@ -19,8 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import type { User } from "@/lib/types"; // Changed from ProfileFormData to User for broader currentUser type
-import { getCurrentUser } from "@/lib/placeholder-data"; // For fetching initial data
+import type { User } from "@/lib/types";
+import { getCurrentUser } from "@/lib/placeholder-data";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
@@ -38,7 +38,7 @@ const profileSchema = z.object({
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(), 
   phoneNumber: z.string().optional(),
-  isOnline: z.boolean().optional().default(false), // Added for online status
+  isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
   showLocation: z.boolean().optional().default(false),
 });
@@ -47,7 +47,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function ProfileForm() {
   const { toast } = useToast();
-  const [currentUser, setCurrentUser] = useState<User | null>(null); // Changed type to User
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -83,8 +83,6 @@ export default function ProfileForm() {
   });
 
   useEffect(() => {
-    // Re-initialize form if currentUser changes and form is not dirty
-    // This helps if user data is fetched asynchronously or updated elsewhere
     if (currentUser && !form.formState.isDirty) {
         form.reset({
             ...currentUser,
@@ -125,12 +123,8 @@ export default function ProfileForm() {
         dataToSave.profilePictureUrl = ""; 
     }
     
-    // Simulate updating the current user in the "database" (placeholder)
-    // In a real app, this would be an API call, and the global state/cache would update.
     if(currentUser) {
         const updatedUser = { ...currentUser, ...dataToSave };
-        // This is a mock update; ideally, placeholderUsers would be updated if it's the source of truth for other components
-        // For now, ProfileForm's internal currentUser state is updated.
         setCurrentUser(updatedUser); 
     }
 
@@ -193,7 +187,8 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
-                  <FormControl><Input placeholder="Your full name" {...field} /></FormControl>
+                  <FormControl><Input placeholder="Your full name" {...field} disabled /></FormControl>
+                  <FormDescription>Full name cannot be changed after sign up (for this demo).</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -365,5 +360,7 @@ export default function ProfileForm() {
     </Card>
   );
 }
+
+    
 
     
