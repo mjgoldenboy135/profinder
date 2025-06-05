@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -17,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase"; // Import Firebase auth
+import { signInWithEmailAndPassword } from "firebase/auth"; // Import Firebase auth functions
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -37,19 +40,29 @@ export default function LoginForm() {
   });
 
   async function onSubmit(values: LoginFormValues) {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log("Login data:", values);
-
-    // In a real app, you would set some auth state here (e.g., in context or localStorage)
-    // For now, we just navigate. The header has a mock auth toggle.
-    // localStorage.setItem('isAuthenticated', 'true'); // Example: very basic auth flag
-
-    toast({
-      title: "Login Successful!",
-      description: "Welcome back to Proximity Network.",
-    });
-    router.push("/map"); // Redirect to a relevant page after login
+    form.clearErrors(); // Clear previous errors
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      toast({
+        title: "Login Successful!",
+        description: "Welcome back to Proximity Network.",
+      });
+      router.push("/map"); // Redirect to a relevant page after login
+    } catch (error: any) {
+      console.error("Login error:", error);
+      let errorMessage = "Invalid email or password. Please try again.";
+      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
+        form.setError("email", { type: "manual", message: " " }); // Add error to one field to trigger general message
+        form.setError("password", { type: "manual", message: " " }); // Add error to one field to trigger general message
+      } else {
+         errorMessage = "An unexpected error occurred. Please try again.";
+      }
+      toast({
+        title: "Login Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
   }
 
   return (
