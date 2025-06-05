@@ -29,14 +29,14 @@ import { cn } from "@/lib/utils";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
-  profilePicture: z.any().optional(), 
+  profilePicture: z.any().optional(),
   profilePictureUrl: z.string().url().optional().or(z.literal("")),
   education: z.string().optional(),
   profession: z.string().optional(),
   professionalDetails: z.string().optional(),
   yearsOfExperience: z.coerce.number().min(0).optional(),
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
-  email: z.string().email(), 
+  email: z.string().email(),
   phoneNumber: z.string().optional(),
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
@@ -51,7 +51,7 @@ export default function ProfileForm() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
-    const user = getCurrentUser(); 
+    const user = getCurrentUser();
     setCurrentUser(user);
     setPreviewImage(user.profilePictureUrl || null);
     form.reset({
@@ -106,7 +106,7 @@ export default function ProfileForm() {
       reader.readAsDataURL(file);
       form.setValue("profilePicture", event.target.files);
     } else {
-      setPreviewImage(currentUser?.profilePictureUrl || null); 
+      setPreviewImage(currentUser?.profilePictureUrl || null);
        form.setValue("profilePicture", undefined);
     }
   };
@@ -117,15 +117,15 @@ export default function ProfileForm() {
     
     if (profilePicture && profilePicture.length > 0) {
       if (previewImage && previewImage.startsWith('data:')) {
-        dataToSave.profilePictureUrl = 'https://placehold.co/150x150.png?text=NewPic'; 
+        dataToSave.profilePictureUrl = 'https://placehold.co/150x150.png?text=NewPic';
       }
     } else if (!previewImage && currentUser?.profilePictureUrl) {
-        dataToSave.profilePictureUrl = ""; 
+        dataToSave.profilePictureUrl = "";
     }
     
     if(currentUser) {
         const updatedUser = { ...currentUser, ...dataToSave };
-        setCurrentUser(updatedUser); 
+        setCurrentUser(updatedUser);
     }
 
 
@@ -137,7 +137,7 @@ export default function ProfileForm() {
   }
 
   if (!currentUser) {
-    return <p>Loading profile...</p>; 
+    return <p>Loading profile...</p>;
   }
 
   return (
@@ -175,8 +175,8 @@ export default function ProfileForm() {
                 {previewImage && (
                     <Button variant="ghost" size="sm" onClick={() => {
                         setPreviewImage(null);
-                        form.setValue("profilePicture", undefined); 
-                        form.setValue("profilePictureUrl", ""); 
+                        form.setValue("profilePicture", undefined);
+                        form.setValue("profilePictureUrl", "");
                     }}>Remove Picture</Button>
                 )}
             </div>
@@ -188,7 +188,6 @@ export default function ProfileForm() {
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
                   <FormControl><Input placeholder="Your full name" {...field} disabled /></FormControl>
-                  <FormDescription>Full name cannot be changed after sign up (for this demo).</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -200,7 +199,6 @@ export default function ProfileForm() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled /></FormControl>
-                  <FormDescription>Email cannot be changed after sign up (for this demo).</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -252,7 +250,7 @@ export default function ProfileForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {[...Array(21).keys()].map(year => ( 
+                      {[...Array(21).keys()].map(year => (
                         <SelectItem key={year} value={String(year)}>{year} {year === 1 ? 'year' : 'years'}</SelectItem>
                       ))}
                        <SelectItem value="21">20+ years</SelectItem>
@@ -278,9 +276,9 @@ export default function ProfileForm() {
               name="phoneNumber"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone Number (Optional, kept private)</FormLabel>
+                  <FormLabel>Phone Number (Optional)</FormLabel>
                   <FormControl><Input type="tel" placeholder="Your phone number" {...field} /></FormControl>
-                  <FormDescription>Your phone number will not be shown on your public profile.</FormDescription>
+                  <FormDescription>Your phone number will not be shown on your public profile and is kept private.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -304,8 +302,8 @@ export default function ProfileForm() {
                         </FormDescription>
                       </div>
                       <FormControl>
-                        <Switch 
-                          checked={field.value} 
+                        <Switch
+                          checked={field.value}
                           onCheckedChange={(checked) => {
                             field.onChange(checked);
                             toast({
@@ -360,7 +358,3 @@ export default function ProfileForm() {
     </Card>
   );
 }
-
-    
-
-    
