@@ -400,7 +400,14 @@ export default function ProfileForm() {
                         <FormDescription>Allow others to see your email on your profile.</FormDescription>
                       </div>
                       <FormControl>
-                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                        <Switch 
+                          checked={field.value} 
+                          onCheckedChange={(checked) => {
+                            setTimeout(() => { // Defer the RHF update
+                              field.onChange(checked);
+                            }, 0);
+                          }} 
+                        />
                       </FormControl>
                     </FormItem>
                   )}
@@ -417,3 +424,5 @@ export default function ProfileForm() {
     </Card>
   );
 }
+
+    
