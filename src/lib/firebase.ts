@@ -1,79 +1,34 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore'; // Import Firestore
-// import { getStorage } from 'firebase/storage';
+import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getAnalytics, type Analytics } from "firebase/analytics";
 
 // Your web app's Firebase configuration
-// IMPORTANT: Replace these with your actual Firebase project credentials
-// and store them in environment variables (e.g., .env.local)
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyAF37yBNVryFJ43CjiEb_IK6JD42J7wF84",
+  authDomain: "profinder-90fe7.firebaseapp.com",
+  projectId: "profinder-90fe7",
+  storageBucket: "profinder-90fe7.firebasestorage.app", // Corrected as per your snippet
+  messagingSenderId: "89536222969",
+  appId: "1:89536222969:web:bd5cdd7cf2bd99f246f428",
+  measurementId: "G-7KC71SP72F"
 };
 
-// Log the config for debugging purposes ONLY.
-// This will help you see if the environment variables are being loaded correctly.
-// Check your browser console (for client-side errors) or server console.
-console.log("Attempting to initialize Firebase with config:", {
-  apiKey: firebaseConfig.apiKey ? '********' : undefined, // Mask API key in logs
-  authDomain: firebaseConfig.authDomain,
-  projectId: firebaseConfig.projectId,
-  appId: firebaseConfig.appId,
-});
-
-if (!firebaseConfig.apiKey) {
-  console.error(
-    "Firebase API Key (NEXT_PUBLIC_FIREBASE_API_KEY) is missing or undefined. " +
-    "Please ensure it is set correctly in your .env.local file and that you have restarted your development server."
-  );
-}
-if (!firebaseConfig.authDomain) {
-  console.error("Firebase Auth Domain (NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) is missing.");
-}
-// Add more checks if necessary for other critical config values
-
-
 // Initialize Firebase
-let app: FirebaseApp | undefined;
+let app: FirebaseApp;
 if (!getApps().length) {
-  try {
-    app = initializeApp(firebaseConfig);
-    console.log("Firebase app initialized successfully.");
-  } catch (error) {
-    console.error("Firebase initialization error:", error);
-    // If initialization fails, 'app' will be undefined.
-  }
+  app = initializeApp(firebaseConfig);
 } else {
   app = getApp();
-  console.log("Firebase app already initialized.");
 }
 
-let auth: Auth | undefined;
-let db: Firestore | undefined; // Declare Firestore db instance
-
-if (app) {
-  try {
-    auth = getAuth(app);
-    console.log("Firebase Auth instance obtained successfully.");
-  } catch (error) {
-    // This is where the (auth/invalid-api-key) error typically surfaces if init was okay but auth fails
-    console.error("Error getting Firebase Auth instance:", error);
-  }
-  try {
-    db = getFirestore(app); // Initialize Firestore
-    console.log("Firestore instance obtained successfully.");
-  } catch (error) {
-    console.error("Error getting Firestore instance:", error);
-  }
-} else {
-  console.error("Firebase app was not initialized. Auth and Firestore cannot be configured. Review previous logs for initialization errors.");
+const auth: Auth = getAuth(app);
+const db: Firestore = getFirestore(app);
+let analytics: Analytics | undefined;
+if (typeof window !== 'undefined') {
+  analytics = getAnalytics(app);
 }
 
-// const storage = getStorage(app);
-
-export { app, auth, db /*, storage */ };
+export { app, auth, db, analytics };
