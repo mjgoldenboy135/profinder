@@ -88,9 +88,9 @@ export default function SignUpForm() {
 
       toast({
         title: "Sign Up Successful!",
-        description: "Welcome to Proximity Network. Please log in.",
+        description: "Welcome to Profinder!",
       });
-      router.push("/login");
+      router.push("/"); // Redirect to homepage
     } catch (error: any) {
       console.error("Sign up error:", error);
       let errorMessage = "An unexpected error occurred. Please try again.";
@@ -123,7 +123,7 @@ export default function SignUpForm() {
           />
         </div>
         <CardTitle className="text-3xl font-headline text-center">Create an Account</CardTitle>
-        <CardDescription className="text-center">Join Proximity Network to connect with professionals.</CardDescription>
+        <CardDescription className="text-center">Join Profinder to connect with professionals.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
