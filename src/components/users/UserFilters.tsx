@@ -7,16 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Search, FilterX } from "lucide-react";
-import { placeholderUsers } from "@/lib/placeholder-data"; // To get unique professions, etc. for filters
+import type { User } from "@/lib/types";
+import { useMemo } from "react";
 
 interface UserFiltersProps {
   onFilterChange: (filters: any) => void; // Replace 'any' with a proper filter type
   initialFilters: any; // Replace 'any'
+  users: User[]; // Add users prop to receive the list of users
 }
 
-const uniqueProfessions = Array.from(new Set(placeholderUsers.map(u => u.profession).filter(Boolean)));
 const experienceRanges = [
-  { label: "Any Experience", value: "__ANY_EXPERIENCE__" }, // Changed value
+  { label: "Any Experience", value: "__ANY_EXPERIENCE__" }, 
   { label: "0-2 years", value: "0-2" },
   { label: "3-5 years", value: "3-5" },
   { label: "6-10 years", value: "6-10" },
@@ -26,7 +27,14 @@ const ANY_PROFESSION_VALUE = "__ANY_PROFESSION__";
 const ANY_EXPERIENCE_VALUE = "__ANY_EXPERIENCE__";
 
 
-export default function UserFilters({ onFilterChange, initialFilters }: UserFiltersProps) {
+export default function UserFilters({ onFilterChange, initialFilters, users }: UserFiltersProps) {
+  
+  const uniqueProfessions = useMemo(() => {
+    if (!users || users.length === 0) return [];
+    // Filter out undefined/null professions and then get unique values
+    return Array.from(new Set(users.map(u => u.profession).filter(Boolean as (value: string | undefined) => value is string)));
+  }, [users]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onFilterChange({ ...initialFilters, [e.target.name]: e.target.value });
   };
@@ -77,14 +85,14 @@ export default function UserFilters({ onFilterChange, initialFilters }: UserFilt
           <Label htmlFor="profession">Profession</Label>
           <Select 
             name="profession" 
-            value={initialFilters.profession} 
+            value={initialFilters.profession || ANY_PROFESSION_VALUE} 
             onValueChange={(value) => handleSelectChange("profession", value)}
           >
             <SelectTrigger id="profession">
               <SelectValue placeholder="Any Profession" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANY_PROFESSION_VALUE}>Any Profession</SelectItem> {/* Changed value */}
+              <SelectItem value={ANY_PROFESSION_VALUE}>Any Profession</SelectItem>
               {uniqueProfessions.map(prof => (
                 prof && <SelectItem key={prof} value={prof}>{prof}</SelectItem>
               ))}
@@ -96,7 +104,7 @@ export default function UserFilters({ onFilterChange, initialFilters }: UserFilt
           <Label htmlFor="experience">Years of Experience</Label>
           <Select 
             name="experience" 
-            value={initialFilters.experience} 
+            value={initialFilters.experience || ANY_EXPERIENCE_VALUE} 
             onValueChange={(value) => handleSelectChange("experience", value)}
           >
             <SelectTrigger id="experience">
