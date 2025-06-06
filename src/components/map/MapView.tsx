@@ -59,7 +59,7 @@ export default function MapView() {
             <Map 
               defaultCenter={mapCenter} 
               defaultZoom={9} 
-              mapId={MAP_ID} 
+              mapId="33c92de93501aa775c52ee6a"
               gestureHandling="greedy" 
               className="h-full w-full"
               mapTypeControl={false}

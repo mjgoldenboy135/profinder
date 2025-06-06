@@ -1,3 +1,4 @@
+
 import type { User, Chat, Message } from './types';
 
 export const placeholderUsers: User[] = [
@@ -73,7 +74,8 @@ export const placeholderUsers: User[] = [
   }
 ];
 
-export const placeholderChats: Chat[] = [
+// Made placeholderChats mutable for simulation purposes
+export let placeholderChats: Chat[] = [
   {
     id: 'chat1',
     participantIds: ['1', '2'],
@@ -114,7 +116,8 @@ export const placeholderChats: Chat[] = [
   },
 ];
 
-export const placeholderMessages: Message[] = [
+// Made placeholderMessages mutable for simulation purposes
+export let placeholderMessages: Message[] = [
   {
     id: 'msgA1',
     chatId: 'chat1',
