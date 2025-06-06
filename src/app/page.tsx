@@ -12,6 +12,7 @@ export default function HomePage() {
         alt="Professional Networking" 
         width={300} 
         height={200} 
+        priority={true}
         className="mb-8 rounded-lg shadow-lg"
         data-ai-hint="networking connections" 
       />

@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Link from "next/link";
 import { Button } from "../ui/button";
-import { placeholderUsers } from "@/lib/placeholder-data"; 
 import { useState, useEffect } from "react";
+import { getOnlineUsersWithLocation } from "@/services/userService";
 import { MapPin as MapPinIcon } from "lucide-react";
 import { useRouter } from 'next/navigation'; // For navigation if needed
 
@@ -22,8 +22,16 @@ export default function MapView() {
   const router = useRouter(); // Initialize router
 
   useEffect(() => {
-    // In a real app, fetch this data from your backend
-    setOnlineUsers(placeholderUsers.filter(u => u.isOnline && u.location));
+    const fetchUsers = async () => {
+      try {
+        const users = await getOnlineUsersWithLocation();
+        setOnlineUsers(users);
+      } catch (error) {
+        console.error("Error fetching online users with location:", error);
+        // Optionally set an error state or show a toast
+      }
+    };
+    fetchUsers();
   }, []);
 
   const defaultCenter = { lat: 37.7749, lng: -122.4194 }; // San Francisco

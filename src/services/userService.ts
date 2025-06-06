@@ -1,7 +1,7 @@
 
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // Added
-import { db, storage } from '@/lib/firebase'; // Added storage
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; 
+import { db, storage } from '@/lib/firebase'; 
 import type { User } from '@/lib/types';
 
 // Explicitly check if db is initialized.
@@ -40,7 +40,7 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
  */
 export async function createUserProfile(userId: string, data: Partial<Omit<User, 'id'>>): Promise<void> {
   const userRef = doc(db, USERS_COLLECTION, userId); 
-  const profileData: Partial<User> & { createdAt: any; updatedAt: any } = {
+  const profileData: Partial<User> & { id: string; createdAt: any; updatedAt: any } = {
     ...data,
     id: userId, 
     createdAt: serverTimestamp(),
@@ -75,4 +75,26 @@ export async function updateUserProfile(userId: string, data: Partial<User>): Pr
     ...data,
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Fetches users who are online and have location data.
+ * @returns A promise that resolves with an array of User objects.
+ */
+export async function getOnlineUsersWithLocation(): Promise<User[]> {
+  const usersRef = collection(db, USERS_COLLECTION);
+  // Query for users who are online.
+  const q = query(usersRef, where("isOnline", "==", true));
+  
+  const querySnapshot = await getDocs(q);
+  const onlineUsers: User[] = [];
+  querySnapshot.forEach((doc) => {
+    const userData = doc.data() as User;
+    // Ensure the user has a location property before adding them
+    // and that location is not null/undefined
+    if (userData.location && userData.location.lat != null && userData.location.lng != null) {
+      onlineUsers.push({ id: doc.id, ...userData });
+    }
+  });
+  return onlineUsers;
 }

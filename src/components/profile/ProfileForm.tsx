@@ -275,7 +275,7 @@ export default function ProfileForm() {
             <div className="flex flex-col items-center space-y-4">
                 {previewImage ? (
                     <Image src={previewImage} alt="Profile Preview" width={150} height={150} className="rounded-full object-cover ring-2 ring-primary" />
-                ) : (
+ ) : (
                     <div className="w-[150px] h-[150px] rounded-full bg-muted flex items-center justify-center text-muted-foreground text-4xl ring-2 ring-border">
                         {initials}
                     </div>
