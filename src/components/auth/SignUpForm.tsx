@@ -60,39 +60,45 @@ export default function SignUpForm() {
     }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
       
-      if (userCredential.user) {
+      if (user) {
         // Update Firebase Auth user's profile (displayName)
-        await updateAuthProfile(userCredential.user, {
+        const authProfilePromise = updateAuthProfile(user, {
           displayName: values.fullName,
         });
 
         // Create user profile document in Firestore
-        await createUserProfile(userCredential.user.uid, {
+        const firestoreProfilePromise = createUserProfile(user.uid, {
           fullName: values.fullName,
           email: values.email,
-          // Initialize other fields as needed, e.g., empty strings or default values
-          profilePictureUrl: "", // Or a default placeholder
+          profilePictureUrl: "", 
           education: "",
           profession: "",
           professionalDetails: "",
           yearsOfExperience: 0,
           linkedinProfileUrl: "",
           phoneNumber: "",
-          isOnline: false, // Default online status
-          showContact: false, // Default contact visibility
+          isOnline: false, 
+          showContact: false, 
           bio: "",
           interests: [],
         });
+
+        await Promise.all([authProfilePromise, firestoreProfilePromise]);
+      } else {
+        // This case should ideally not happen if createUserWithEmailAndPassword resolves successfully
+        throw new Error("User creation succeeded but no user object was returned from Firebase Auth.");
       }
 
       toast({
         title: "Sign Up Successful!",
         description: "Welcome to Profinder!",
       });
-      router.push("/"); // Redirect to homepage
+      console.log("Attempting to redirect to / from SignUpForm"); // Diagnostic log
+      router.push("/"); 
     } catch (error: any) {
-      console.error("Sign up error:", error);
+      console.error("Sign up process error details:", error); // More detailed error logging
       let errorMessage = "An unexpected error occurred. Please try again.";
       if (error.code === "auth/email-already-in-use") {
         errorMessage = "This email address is already in use. Please try another.";
@@ -100,7 +106,14 @@ export default function SignUpForm() {
       } else if (error.code === "auth/weak-password") {
         errorMessage = "The password is too weak. Please choose a stronger password.";
          form.setError("password", { type: "manual", message: errorMessage });
+      } else if (error.message && (error.message.toLowerCase().includes("firestore") || error.message.toLowerCase().includes("client is offline"))) {
+        errorMessage = "Your account was created, but there was an issue saving your full profile. You can try updating it from your profile page later.";
+        // Potentially still redirect if account creation was the main goal and profile can be fixed later.
+        // For now, showing error and not redirecting for this specific case.
+      } else if (error.message === "User creation succeeded but no user object was returned from Firebase Auth.") {
+        errorMessage = "User account could not be fully initialized. Please try again.";
       }
+      
       toast({
         title: "Sign Up Failed",
         description: errorMessage,
