@@ -1,50 +1,51 @@
+
 export interface User {
-  id: string;
+  id: string; // Firebase Auth UID
   fullName: string;
   email: string;
   profilePictureUrl?: string;
   education?: string; 
   profession?: string;
-  professionalDetails?: string; 
+  professionalDetails?: string; // Or experience details
   yearsOfExperience?: number;
   linkedinProfileUrl?: string;
-  phoneNumber?: string; 
+  phoneNumber?: string; // Store if needed, but control visibility
   location?: { 
     lat: number; 
     lng: number; 
     address?: string; // For display, e.g. "San Francisco, CA"
   };
   isOnline?: boolean;
-  profilePrivacySettings?: {
-    showContact?: 'all' | 'connections' | 'none';
+  profilePrivacySettings?: { // Kept for potential future use
+    showContact?: 'all' | 'connections' | 'none'; // if 'all', email might be shown
     showLocation?: 'all' | 'connections' | 'none';
   };
-  // For AI suggestions
-  bio?: string; // Could be part of professionalDetails or separate
+  showContact?: boolean; // Simpler boolean for current implementation for email
+  bio?: string; 
   interests?: string[];
+  createdAt?: any; // Firestore serverTimestamp
+  updatedAt?: any; // Firestore serverTimestamp
 }
 
 export interface Message {
   id: string;
   chatId: string;
   senderId: string;
-  receiverId: string; // Can be derived if participantIds are just two
+  receiverId: string; 
   text: string;
-  timestamp: number; // Use number for easier Firebase/JSON serialization
+  timestamp: number; 
   status?: 'sent' | 'delivered' | 'read';
 }
 
 export interface Chat {
   id:string;
-  // Store IDs of participants
   participantIds: string[]; 
-  // For easier display, could store basic info of participants, or fetch separately
   participants?: Pick<User, 'id' | 'fullName' | 'profilePictureUrl'>[]; 
   lastMessage?: Message;
-  // Timestamps for sorting chats
   createdAt: number;
   updatedAt: number; 
 }
 
 // Placeholder for profile data, useful for forms
-export type ProfileFormData = Omit<User, 'id' | 'isOnline' | 'location' | 'profilePrivacySettings'>;
+// This might not be directly used if ProfileFormValues is derived from Zod schema based on User type
+export type ProfileFormData = Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'profilePrivacySettings'>;

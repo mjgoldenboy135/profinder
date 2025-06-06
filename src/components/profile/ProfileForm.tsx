@@ -24,75 +24,97 @@ import { useState, useEffect } from "react";
 import { Switch } from "@/components/ui/switch";
 import { Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuthContext } from "@/contexts/AuthContext"; // Import AuthContext
-import { auth } from "@/lib/firebase"; // For potential updates to Firebase user profile
-import { updateProfile } from "firebase/auth";
+import { useAuthContext } from "@/contexts/AuthContext"; 
+import { auth } from "@/lib/firebase"; 
+import { updateProfile as updateAuthProfile } from "firebase/auth";
+import { getUserProfile, updateUserProfile } from "@/services/userService"; // Import userService functions
+import type { User } from "@/lib/types";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
-  profilePicture: z.any().optional(),
-  profilePictureUrl: z.string().url().optional().or(z.literal("")),
+  profilePicture: z.any().optional(), // For file input
+  profilePictureUrl: z.string().url().optional().or(z.literal("")), // For displaying/storing URL
   education: z.string().optional(),
   profession: z.string().optional(),
   professionalDetails: z.string().optional(),
   yearsOfExperience: z.coerce.number().min(0).optional(),
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(),
-  phoneNumber: z.string().optional(),
+  phoneNumber: z.string().optional(), // Keep in schema if you might use it later, but don't display publicly
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
+  bio: z.string().optional(),
+  // interests are not directly in this form yet, but could be added
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
+
+const defaultFormValues: ProfileFormValues = {
+  fullName: "",
+  email: "",
+  profilePictureUrl: "",
+  education: "",
+  profession: "",
+  professionalDetails: "",
+  yearsOfExperience: 0,
+  linkedinProfileUrl: "",
+  phoneNumber: "",
+  isOnline: false,
+  showContact: false,
+  bio: "",
+};
 
 export default function ProfileForm() {
   const { toast } = useToast();
   const { currentUser: authUser, loading: authLoading } = useAuthContext();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isFetchingProfile, setIsFetchingProfile] = useState(true);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
-    defaultValues: {
-      fullName: "",
-      email: "",
-      profilePictureUrl: "",
-      education: "",
-      profession: "",
-      professionalDetails: "",
-      yearsOfExperience: 0,
-      linkedinProfileUrl: "",
-      phoneNumber: "",
-      isOnline: false,
-      showContact: false,
-    },
+    defaultValues: defaultFormValues,
   });
 
   useEffect(() => {
     if (!authLoading && authUser) {
-      form.reset({
-        fullName: authUser.displayName || "",
-        email: authUser.email || "",
-        profilePictureUrl: authUser.photoURL || "",
-        // Initialize other fields to defaults or empty,
-        // as they aren't in Firebase Auth directly.
-        // These would typically be loaded from Firestore.
-        education: "", // Populate from Firestore data if available
-        profession: "", // Populate from Firestore data if available
-        professionalDetails: "", // Populate from Firestore data if available
-        yearsOfExperience: 0, // Populate from Firestore data if available
-        linkedinProfileUrl: "", // Populate from Firestore data if available
-        phoneNumber: "", // Keep empty/hidden by default
-        isOnline: false, // Populate from Firestore data if available
-        showContact: false, // Populate from Firestore data if available
-      });
-      setPreviewImage(authUser.photoURL || null);
+      setIsFetchingProfile(true);
+      getUserProfile(authUser.uid)
+        .then(firestoreProfile => {
+          const initialData: ProfileFormValues = {
+            ...defaultFormValues, // Start with defaults
+            fullName: authUser.displayName || "",
+            email: authUser.email || "",
+            profilePictureUrl: authUser.photoURL || "", // Auth photoURL is source of truth for display initially
+            ...(firestoreProfile || {}), // Spread Firestore data, overriding defaults/Auth data where applicable
+            // Ensure specific Auth fields take precedence if Firestore hasn't been updated yet or for display
+            fullName: authUser.displayName || firestoreProfile?.fullName || "",
+            email: authUser.email || firestoreProfile?.email || "",
+            profilePictureUrl: authUser.photoURL || firestoreProfile?.profilePictureUrl || "",
+          };
+          form.reset(initialData);
+          setPreviewImage(initialData.profilePictureUrl || null);
+        })
+        .catch(error => {
+          console.error("Error fetching profile from Firestore:", error);
+          // Fallback to Auth data if Firestore fetch fails
+          form.reset({
+            ...defaultFormValues,
+            fullName: authUser.displayName || "",
+            email: authUser.email || "",
+            profilePictureUrl: authUser.photoURL || "",
+          });
+          setPreviewImage(authUser.photoURL || null);
+          toast({ title: "Error", description: "Could not load full profile from database.", variant: "destructive" });
+        })
+        .finally(() => {
+          setIsFetchingProfile(false);
+        });
     } else if (!authLoading && !authUser) {
-      // Handle user not logged in (e.g., redirect or show placeholder)
-      // For now, just reset to default values
-      form.reset();
+      form.reset(defaultFormValues);
       setPreviewImage(null);
+      setIsFetchingProfile(false);
     }
-  }, [authUser, authLoading, form]);
+  }, [authUser, authLoading, form, toast]);
 
 
   const handleProfilePictureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -103,62 +125,70 @@ export default function ProfileForm() {
         setPreviewImage(reader.result as string);
       };
       reader.readAsDataURL(file);
-      form.setValue("profilePicture", event.target.files);
+      form.setValue("profilePicture", event.target.files); // Store FileList for upload
+      form.setValue("profilePictureUrl", ""); // Clear existing URL if new file is chosen
     } else {
+      // If file selection is cancelled, reset preview to existing URL or Auth URL
       setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null);
       form.setValue("profilePicture", undefined);
     }
   };
 
   async function onSubmit(values: ProfileFormValues) {
-    if (!authUser) {
+    if (!authUser || !auth) {
         toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
         return;
     }
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API delay
     
-    const { profilePicture, ...dataToSave } = values;
-    let newProfilePictureUrl = values.profilePictureUrl;
+    const { profilePicture, ...dataToSaveToFirestore } = values;
+    let newAuthPhotoURL = values.profilePictureUrl; // Start with current URL in form
 
+    // Simulate profile picture upload for now
     if (profilePicture && profilePicture.length > 0 && previewImage && previewImage.startsWith('data:')) {
-      // In a real app, upload profilePicture to Firebase Storage
-      // then get the download URL and set it to newProfilePictureUrl
-      // For now, simulate with a placeholder.
-      newProfilePictureUrl = 'https://placehold.co/150x150.png?text=NewPic';
-      // Example: await uploadBytes(storageRef, profilePicture[0]); newProfilePictureUrl = await getDownloadURL(storageRef);
-      try {
-        await updateProfile(authUser, { photoURL: newProfilePictureUrl });
-         toast({ title: "Note", description: "Profile picture update simulated. Firebase Storage integration needed." });
-      } catch (error) {
-        console.error("Error updating Firebase Auth profile picture:", error);
-        toast({ title: "Error", description: "Failed to update profile picture in Auth.", variant: "destructive" });
-      }
+      // In a real app, upload profilePicture to Firebase Storage:
+      // 1. Generate a unique file name (e.g., `users/${authUser.uid}/profile.${fileExtension}`)
+      // 2. const storageRef = ref(storage, `users/${authUser.uid}/profilePicture`);
+      // 3. await uploadBytes(storageRef, profilePicture[0]);
+      // 4. newAuthPhotoURL = await getDownloadURL(storageRef);
+      // For now, we'll use a placeholder and assume previewImage is the data URI
+      newAuthPhotoURL = 'https://placehold.co/150x150.png?text=NewPicSim'; // Simulated new URL
+      dataToSaveToFirestore.profilePictureUrl = newAuthPhotoURL; // Update URL for Firestore
+      toast({ title: "Note", description: "Profile picture upload simulated. Firebase Storage integration needed." });
     } else if (!previewImage && (authUser.photoURL || values.profilePictureUrl)) {
         // User removed picture
-        newProfilePictureUrl = "";
-         try {
-            await updateProfile(authUser, { photoURL: newProfilePictureUrl });
-        } catch (error) {
-            console.error("Error removing Firebase Auth profile picture:", error);
-        }
+        newAuthPhotoURL = "";
+        dataToSaveToFirestore.profilePictureUrl = "";
     }
-    dataToSave.profilePictureUrl = newProfilePictureUrl;
 
-    // Here you would save `dataToSave` (excluding fullName and email if they are non-editable)
-    // to your Firestore database document for this user (authUser.uid).
-    // For example: await setDoc(doc(db, "users", authUser.uid), dataToSave, { merge: true });
 
-    console.log("Profile update data (to be saved to Firestore):", dataToSave);
-    toast({
-      title: "Profile Updated (Simulated)",
-      description: "Your profile information has been 'saved'. Firestore integration is the next step.",
-    });
-    // Optionally, re-fetch or update AuthContext if displayName/photoURL changed in Firebase Auth and you want immediate reflection
-    // Or simply rely on the form state for display until next refresh.
-    form.reset(dataToSave); // Update form with "saved" values, including new pic URL
+    try {
+      // Update Firebase Auth profile (displayName, photoURL) if they changed
+      const authUpdates: { displayName?: string; photoURL?: string } = {};
+      if (values.fullName !== authUser.displayName) {
+        authUpdates.displayName = values.fullName;
+      }
+      if (newAuthPhotoURL !== authUser.photoURL) {
+        authUpdates.photoURL = newAuthPhotoURL;
+      }
+      if (Object.keys(authUpdates).length > 0) {
+        await updateAuthProfile(authUser, authUpdates);
+      }
+
+      // Save all other profile data to Firestore
+      await updateUserProfile(authUser.uid, dataToSaveToFirestore as Partial<User>);
+      
+      toast({
+        title: "Profile Updated",
+        description: "Your profile information has been saved.",
+      });
+      form.reset(values); // Update form with "saved" values, including new pic URL if simulated
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      toast({ title: "Error", description: "Failed to update profile. Please try again.", variant: "destructive" });
+    }
   }
 
-  if (authLoading) {
+  if (authLoading || isFetchingProfile) {
     return <p className="text-center py-10">Loading profile...</p>;
   }
 
@@ -180,13 +210,13 @@ export default function ProfileForm() {
                     <Image src={previewImage} alt="Profile Preview" width={150} height={150} className="rounded-full object-cover ring-2 ring-primary" />
                 ) : (
                     <div className="w-[150px] h-[150px] rounded-full bg-muted flex items-center justify-center text-muted-foreground text-4xl ring-2 ring-border">
-                        {authUser?.displayName?.[0].toUpperCase() || '?'}
+                        {(form.getValues("fullName")?.[0] || authUser?.displayName?.[0] || '?').toUpperCase()}
                     </div>
                 )}
                  <FormField
                     control={form.control}
                     name="profilePicture"
-                    render={({ field }) => (
+                    render={({ field }) => ( // field is not directly used for Input type="file" but keep for consistency
                         <FormItem>
                         <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer")}>
                             {previewImage ? "Change" : "Upload"} Picture
@@ -202,7 +232,7 @@ export default function ProfileForm() {
                     <Button variant="ghost" size="sm" onClick={() => {
                         setPreviewImage(null);
                         form.setValue("profilePicture", undefined);
-                        form.setValue("profilePictureUrl", ""); // Clear the URL too
+                        form.setValue("profilePictureUrl", ""); 
                     }}>Remove Picture</Button>
                 )}
             </div>
@@ -225,6 +255,17 @@ export default function ProfileForm() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl><Input type="email" placeholder="your.email@example.com" {...field} disabled /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+             <FormField
+              control={form.control}
+              name="bio"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bio / Short Summary</FormLabel>
+                  <FormControl><Textarea placeholder="A brief introduction about yourself." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -257,7 +298,7 @@ export default function ProfileForm() {
               name="professionalDetails"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Professional Details / Bio</FormLabel>
+                  <FormLabel>Professional Details / Experience</FormLabel>
                   <FormControl><Textarea rows={5} placeholder="Describe your skills, work history, achievements, and professional interests." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -297,7 +338,6 @@ export default function ProfileForm() {
                 </FormItem>
               )}
             />
-            {/* Phone number field is in schema but not rendered for privacy */}
             
             <Card>
               <CardHeader><CardTitle className="text-lg font-headline">Status & Privacy</CardTitle></CardHeader>
@@ -323,7 +363,7 @@ export default function ProfileForm() {
                             field.onChange(checked);
                             toast({
                               title: `You are now ${checked ? 'Online' : 'Offline'}`,
-                              description: checked ? 'Your location may be visible on the map if shared.' : 'You will not be visible on the map.',
+                              description: checked ? 'Your general location may be visible on the map if shared.' : 'You will not be visible on the map.',
                             });
                           }}
                         />
@@ -349,7 +389,7 @@ export default function ProfileForm() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || authLoading}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || authLoading || isFetchingProfile}>
               {form.formState.isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </form>
@@ -358,5 +398,3 @@ export default function ProfileForm() {
     </Card>
   );
 }
-
-    

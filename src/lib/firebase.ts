@@ -1,7 +1,7 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
-// import { getFirestore } from 'firebase/firestore';
+import { getFirestore, type Firestore } from 'firebase/firestore'; // Import Firestore
 // import { getStorage } from 'firebase/storage';
 
 // Your web app's Firebase configuration
@@ -20,7 +20,7 @@ const firebaseConfig = {
 // This will help you see if the environment variables are being loaded correctly.
 // Check your browser console (for client-side errors) or server console.
 console.log("Attempting to initialize Firebase with config:", {
-  apiKey: firebaseConfig.apiKey ? 'AIzaSyAF37yBNVryFJ43CjiEb_IK6JD42J7wF84' : undefined, // Mask API key in logs
+  apiKey: firebaseConfig.apiKey ? '********' : undefined, // Mask API key in logs
   authDomain: firebaseConfig.authDomain,
   projectId: firebaseConfig.projectId,
   appId: firebaseConfig.appId,
@@ -54,6 +54,8 @@ if (!getApps().length) {
 }
 
 let auth: Auth | undefined;
+let db: Firestore | undefined; // Declare Firestore db instance
+
 if (app) {
   try {
     auth = getAuth(app);
@@ -62,11 +64,16 @@ if (app) {
     // This is where the (auth/invalid-api-key) error typically surfaces if init was okay but auth fails
     console.error("Error getting Firebase Auth instance:", error);
   }
+  try {
+    db = getFirestore(app); // Initialize Firestore
+    console.log("Firestore instance obtained successfully.");
+  } catch (error) {
+    console.error("Error getting Firestore instance:", error);
+  }
 } else {
-  console.error("Firebase app was not initialized. Auth cannot be configured. Review previous logs for initialization errors.");
+  console.error("Firebase app was not initialized. Auth and Firestore cannot be configured. Review previous logs for initialization errors.");
 }
 
-// const db = getFirestore(app);
 // const storage = getStorage(app);
 
-export { app, auth /*, db, storage */ };
+export { app, auth, db /*, storage */ };

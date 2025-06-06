@@ -19,8 +19,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase"; // Import Firebase auth
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"; // Import Firebase auth functions
+import { auth } from "@/lib/firebase"; 
+import { createUserWithEmailAndPassword, updateProfile as updateAuthProfile } from "firebase/auth"; 
+import { createUserProfile } from "@/services/userService"; // Import userService
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
@@ -31,8 +32,6 @@ const signUpSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number.")
     .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character."),
   confirmPassword: z.string(),
-  // profilePicture field is for file input, actual upload and URL generation would be a separate step
-  // For now, Firebase user profile will just have displayName from fullName.
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",
   path: ["confirmPassword"],
@@ -54,18 +53,38 @@ export default function SignUpForm() {
   });
 
   async function onSubmit(values: SignUpFormValues) {
-    form.clearErrors(); // Clear previous errors
+    form.clearErrors();
+    if (!auth) {
+      toast({ title: "Error", description: "Firebase Auth is not initialized.", variant: "destructive" });
+      return;
+    }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      // Update Firebase user's profile with full name
+      
       if (userCredential.user) {
-        await updateProfile(userCredential.user, {
+        // Update Firebase Auth user's profile (displayName)
+        await updateAuthProfile(userCredential.user, {
           displayName: values.fullName,
         });
+
+        // Create user profile document in Firestore
+        await createUserProfile(userCredential.user.uid, {
+          fullName: values.fullName,
+          email: values.email,
+          // Initialize other fields as needed, e.g., empty strings or default values
+          profilePictureUrl: "", // Or a default placeholder
+          education: "",
+          profession: "",
+          professionalDetails: "",
+          yearsOfExperience: 0,
+          linkedinProfileUrl: "",
+          phoneNumber: "",
+          isOnline: false, // Default online status
+          showContact: false, // Default contact visibility
+          bio: "",
+          interests: [],
+        });
       }
-      // In a real app, you might also create a user document in Firestore here
-      // with additional details like professionalDetails, education, etc.
-      // For example: await createUserDocumentInFirestore(userCredential.user, values);
 
       toast({
         title: "Sign Up Successful!",
@@ -161,20 +180,6 @@ export default function SignUpForm() {
                 </FormItem>
               )}
             />
-            {/* Profile picture upload would be a separate step post-signup, typically involving Firebase Storage */}
-            {/* <FormField
-              control={form.control}
-              name="profilePicture"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Profile Picture (Optional)</FormLabel>
-                  <FormControl>
-                    <Input type="file" accept="image/*" {...form.register("profilePicture")} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            /> */}
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Signing Up..." : "Sign Up"}
             </Button>
