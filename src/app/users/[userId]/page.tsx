@@ -1,10 +1,12 @@
+
 import PublicProfileCard from "@/components/profile/PublicProfileCard";
-import { placeholderUsers } from "@/lib/placeholder-data";
+// import { placeholderUsers } from "@/lib/placeholder-data"; // No longer needed for direct data
 import type { User } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { getUserProfile } from "@/services/userService"; // Import the Firestore service
 
 interface UserProfilePageProps {
   params: {
@@ -12,14 +14,19 @@ interface UserProfilePageProps {
   };
 }
 
-// This would be an async server component fetching data in a real app
-// async function getUser(userId: string): Promise<User | null> {
-//   // API call to fetch user by ID
-//   return placeholderUsers.find(user => user.id === userId) || null;
-// }
+// This is now an async server component
+async function fetchUser(userId: string): Promise<User | null> {
+  try {
+    const user = await getUserProfile(userId);
+    return user;
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return null;
+  }
+}
 
-export default function UserProfilePage({ params }: UserProfilePageProps) {
-  const user = placeholderUsers.find(u => u.id === params.userId);
+export default async function UserProfilePage({ params }: UserProfilePageProps) {
+  const user = await fetchUser(params.userId);
 
   if (!user) {
     return (
@@ -29,6 +36,7 @@ export default function UserProfilePage({ params }: UserProfilePageProps) {
           <AlertTitle>User Not Found</AlertTitle>
           <AlertDescription>
             The profile you are looking for does not exist or could not be loaded.
+            This might be due to an incorrect ID or an issue fetching the data.
           </AlertDescription>
         </Alert>
         <Button variant="link" asChild className="mt-4">
