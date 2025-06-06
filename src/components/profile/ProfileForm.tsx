@@ -112,7 +112,7 @@ export default function ProfileForm() {
         })
         .catch(error => {
           console.error("[ProfileForm useEffect] Error fetching profile from Firestore:", error);
-          resetFormWithProfileData(null); 
+          resetFormWithProfileData(null);
           toast({ title: "Error", description: "Could not load full profile from database. Using basic info.", variant: "destructive" });
         })
         .finally(() => {
@@ -137,7 +137,7 @@ export default function ProfileForm() {
       };
       reader.readAsDataURL(file);
       form.setValue("profilePicture", event.target.files);
-      form.setValue("profilePictureUrl", ""); 
+      form.setValue("profilePictureUrl", "");
     } else {
       const existingUrl = form.getValues("profilePictureUrl") || authUser?.photoURL;
       setPreviewImage(existingUrl || null);
@@ -157,9 +157,10 @@ export default function ProfileForm() {
     let { profilePicture, ...dataForFirestore } = values;
     let newAuthPhotoURL = values.profilePictureUrl || authUser.photoURL || "";
 
+    // Handle profile picture upload first
     if (profilePicture && profilePicture.length > 0) {
       const fileToUpload = profilePicture[0];
-      setIsUploading(true);
+      setIsUploading(true); // Set BEFORE upload
       console.log("[ProfileForm onSubmit] Starting profile picture upload for file:", fileToUpload.name);
       try {
         toast({ title: "Uploading...", description: "Your new profile picture is being uploaded." });
@@ -169,14 +170,18 @@ export default function ProfileForm() {
       } catch (uploadError: any) {
         console.error("[ProfileForm onSubmit] Error uploading profile picture:", uploadError);
         toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
-        setIsUploading(false);
+        setIsUploading(false); // Reset on UPLOAD error
         console.log("[ProfileForm onSubmit] Aborted after upload error.");
-        return; 
+        return; // Exit onSubmit, RHF should set isSubmitting to false
       }
+      setIsUploading(false); // Explicitly set false after successful upload, BEFORE next steps
+      console.log("[ProfileForm onSubmit] Finished profile picture upload section. isUploading is NOW false.");
     } else if (previewImage === null && (authUser.photoURL || values.profilePictureUrl)) {
       console.log("[ProfileForm onSubmit] Profile picture marked for removal.");
       newAuthPhotoURL = "";
+      // isUploading remains false (its default) or was already reset if an upload just happened.
     }
+
 
     console.log(`[ProfileForm onSubmit] State before Auth/Firestore updates: isUploading=${isUploading}`);
     console.log(`[ProfileForm onSubmit] AuthUser current: photoURL='${authUser.photoURL}', displayName='${authUser.displayName}'`);
@@ -184,15 +189,18 @@ export default function ProfileForm() {
     console.log(`[ProfileForm onSubmit] Calculated newAuthPhotoURL for update='${newAuthPhotoURL}'`);
 
     try {
-      console.log("[ProfileForm onSubmit] TRY block entered.");
+      console.log("[ProfileForm onSubmit] TRY block entered for Auth/Firestore updates.");
 
       const authUpdates: { displayName?: string; photoURL?: string } = {};
       if (values.fullName !== (authUser.displayName || "")) {
         authUpdates.displayName = values.fullName;
       }
-      if (newAuthPhotoURL !== (authUser.photoURL || "")) {
-        authUpdates.photoURL = newAuthPhotoURL;
+      // Ensure newAuthPhotoURL is not undefined; Firebase expects string or null for photoURL.
+      const photoURLForAuth = newAuthPhotoURL === undefined ? null : newAuthPhotoURL;
+      if (photoURLForAuth !== (authUser.photoURL || null)) { // Compare with null if authUser.photoURL is undefined/null
+        authUpdates.photoURL = photoURLForAuth;
       }
+
 
       if (Object.keys(authUpdates).length > 0) {
         console.log("[ProfileForm onSubmit] BEGIN: Firebase Auth profile update with:", authUpdates);
@@ -204,8 +212,8 @@ export default function ProfileForm() {
 
       const finalDataToSaveToFirestore: Partial<User> = {
         ...dataForFirestore,
-        fullName: values.fullName, 
-        profilePictureUrl: newAuthPhotoURL,
+        fullName: values.fullName,
+        profilePictureUrl: newAuthPhotoURL, // Save the final URL to Firestore
       };
       
       console.log("[ProfileForm onSubmit] BEGIN: Firestore profile update for user:", authUser.uid, "with data:", JSON.stringify(finalDataToSaveToFirestore, null, 2));
@@ -218,21 +226,26 @@ export default function ProfileForm() {
       });
 
       const newResetValues = { ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined, fullName: values.fullName };
-      console.log("[ProfileForm onSubmit] Resetting form with new values:", JSON.stringify(newResetValues, null, 2));
+      console.log("[ProfileForm onSubmit] Resetting form with new values after successful save:", JSON.stringify(newResetValues, null, 2));
       form.reset(newResetValues);
-      console.log("[ProfileForm onSubmit] Setting preview image to:", newAuthPhotoURL);
+      console.log("[ProfileForm onSubmit] Setting preview image to after successful save:", newAuthPhotoURL);
       setPreviewImage(newAuthPhotoURL || null);
-      console.log("[ProfileForm onSubmit] TRY block finished successfully.");
+      console.log("[ProfileForm onSubmit] TRY block for Auth/Firestore finished successfully.");
 
     } catch (error: any) {
-      console.error("[ProfileForm onSubmit] CATCH block: Error during profile update (Auth or Firestore):", error);
+      console.error("[ProfileForm onSubmit] CATCH block: Error during Auth or Firestore profile update:", error);
       if (error.name && error.message) {
         console.error("[ProfileForm onSubmit] Error details - Name:", error.name, "Message:", error.message, "Code:", error.code);
       }
       toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
     } finally {
-      console.log("[ProfileForm onSubmit] FINALLY block entered. Setting isUploading to false.");
-      setIsUploading(false);
+      console.log("[ProfileForm onSubmit] FINALLY block entered. Current isUploading state:", isUploading);
+      // isUploading should have been set to false after the upload part if an upload was attempted.
+      // This is a final safeguard.
+      if (isUploading) { // If it's somehow still true, reset it.
+          setIsUploading(false);
+          console.log("[ProfileForm onSubmit] FINALLY block: Reset isUploading to false as a safeguard.");
+      }
       console.log("[ProfileForm onSubmit] Form submission flow logically complete (end of try/catch/finally).");
     }
   }
@@ -272,8 +285,8 @@ export default function ProfileForm() {
                     name="profilePicture"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", isUploading && "opacity-50 cursor-not-allowed")}>
-                            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", (isUploading || form.formState.isSubmitting) && "opacity-50 cursor-not-allowed")}>
+                            {(isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {previewImage ? "Change" : "Upload"} Picture
                         </FormLabel>
                         <FormControl>
@@ -283,7 +296,7 @@ export default function ProfileForm() {
                                 accept="image/*"
                                 className="hidden"
                                 onChange={handleProfilePictureChange}
-                                disabled={isUploading}
+                                disabled={isUploading || form.formState.isSubmitting}
                             />
                         </FormControl>
                         <FormMessage />
@@ -294,8 +307,8 @@ export default function ProfileForm() {
                     <Button variant="ghost" size="sm" onClick={() => {
                         setPreviewImage(null);
                         form.setValue("profilePicture", undefined);
-                        form.setValue("profilePictureUrl", ""); 
-                    }} disabled={isUploading}>Remove Picture</Button>
+                        form.setValue("profilePictureUrl", "");
+                    }} disabled={isUploading || form.formState.isSubmitting}>Remove Picture</Button>
                 )}
             </div>
 
@@ -433,8 +446,9 @@ export default function ProfileForm() {
                         <Switch
                           checked={field.value}
                           onCheckedChange={(checked) => {
-                            field.onChange(checked);
+                            // Defer toast to avoid flushSync error
                             setTimeout(() => {
+                              field.onChange(checked); // RHF update
                               toast({
                                 title: `You are now ${checked ? 'Online' : 'Offline'}`,
                                 description: checked ? 'Your general location may be visible on the map if shared.' : 'You will not be visible on the map.',
@@ -459,7 +473,8 @@ export default function ProfileForm() {
                         <Switch
                           checked={field.value}
                           onCheckedChange={(checked) => {
-                             setTimeout(() => {
+                            // Defer RHF update to avoid flushSync
+                            setTimeout(() => {
                                 field.onChange(checked);
                             }, 0);
                           }}
@@ -481,5 +496,4 @@ export default function ProfileForm() {
     </Card>
   );
 }
-
     
