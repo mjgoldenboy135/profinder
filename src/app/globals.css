@@ -1,32 +1,29 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer base {
   :root {
-    --background: 220 29% 95%; /* Light Gray #F0F2F5 */
-    --foreground: 220 10% 20%; /* Dark Gray for text */
+    --background: 210 40% 98%; /* Very Light Blue-Gray */
+    --foreground: 210 30% 20%; /* Dark Slate Blue */
     --card: 0 0% 100%; /* White */
-    --card-foreground: 220 10% 20%; /* Dark Gray */
+    --card-foreground: 210 30% 20%; /* Dark Slate Blue */
     --popover: 0 0% 100%; /* White */
-    --popover-foreground: 220 10% 20%; /* Dark Gray */
-    --primary: 221 44% 41%;    /* Navy Blue #3B5998 */
-    --primary-foreground: 0 0% 98%; /* White-ish for text on primary */
-    --secondary: 220 20% 88%; /* Lighter gray than background for secondary elements */
-    --secondary-foreground: 220 10% 20%; /* Dark Gray */
-    --muted: 220 20% 92%; /* Slightly darker muted gray */
-    --muted-foreground: 220 10% 40%; /* Medium Gray */
-    --accent: 194 66% 61%;     /* Sky Blue #5BC0DE */
-    --accent-foreground: 220 10% 10%; /* Darker for text on accent */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 220 20% 85%;
-    --input: 220 20% 88%;
-    --ring: 221 44% 41%; /* Navy Blue for rings */
+    --popover-foreground: 210 30% 20%; /* Dark Slate Blue */
+    --primary: 190 70% 40%;    /* Deep Teal */
+    --primary-foreground: 200 100% 95%; /* Very Light Cyan for text on primary */
+    --secondary: 210 30% 90%; /* Light Gray-Blue */
+    --secondary-foreground: 210 30% 30%; /* Darker Gray-Blue for text on secondary */
+    --muted: 210 30% 94%; /* Lighter Muted Blue-Gray */
+    --muted-foreground: 210 25% 55%; /* Medium Gray-Blue */
+    --accent: 30 90% 60%;     /* Soft Orange */
+    --accent-foreground: 20 30% 20%; /* Dark Brown for text on accent */
+    --destructive: 0 70% 50%; /* Destructive Red */
+    --destructive-foreground: 0 0% 98%; /* Light text for destructive */
+    --border: 210 20% 88%; /* Light border */
+    --input: 210 20% 92%; /* Light input background */
+    --ring: 190 70% 45%; /* Slightly brighter teal for rings */
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
     --chart-3: 197 37% 24%;
@@ -34,47 +31,47 @@ body {
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
 
-    /* Sidebar specific colors - can be adjusted if a dedicated sidebar is built */
-    --sidebar-background: 221 44% 35%; /* Slightly darker navy */
-    --sidebar-foreground: 0 0% 95%; /* Light text for sidebar */
-    --sidebar-primary: 194 66% 61%; /* Accent sky blue for active items */
-    --sidebar-primary-foreground: 221 44% 15%; /* Dark text on accent */
-    --sidebar-accent: 221 44% 45%; /* Lighter navy for hover */
-    --sidebar-accent-foreground: 0 0% 98%; /* White text on hover */
-    --sidebar-border: 221 44% 30%;
-    --sidebar-ring: 194 66% 61%;
+    /* Sidebar specific colors */
+    --sidebar-background: 190 70% 30%; /* Darker Teal */
+    --sidebar-foreground: 190 20% 95%; /* Light text for sidebar */
+    --sidebar-primary: 30 90% 60%; /* Accent orange for active items */
+    --sidebar-primary-foreground: 20 30% 15%; /* Dark text on accent */
+    --sidebar-accent: 190 70% 38%; /* Lighter teal for hover */
+    --sidebar-accent-foreground: 190 20% 98%; /* White text on hover */
+    --sidebar-border: 190 70% 25%;
+    --sidebar-ring: 30 90% 60%;
   }
 
   .dark {
-    --background: 220 10% 12%; /* Dark Gray for background */
-    --foreground: 0 0% 95%; /* Light Gray for text */
-    --card: 220 10% 15%; /* Slightly lighter dark gray for cards */
-    --card-foreground: 0 0% 95%;
-    --popover: 220 10% 15%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 194 66% 61%;    /* Sky Blue as primary in dark mode */
-    --primary-foreground: 220 10% 10%; /* Dark text for primary */
-    --secondary: 220 10% 25%;
-    --secondary-foreground: 0 0% 95%;
-    --muted: 220 10% 20%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 221 44% 51%;     /* Navy blue as accent in dark mode */
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --background: 210 30% 12%; /* Dark Slate Blue */
+    --foreground: 210 25% 92%; /* Light Gray-Blue */
+    --card: 210 30% 16%; /* Slightly lighter dark blue-gray for cards */
+    --card-foreground: 210 25% 92%;
+    --popover: 210 30% 16%;
+    --popover-foreground: 210 25% 92%;
+    --primary: 190 65% 55%;    /* Brighter Teal for Dark Mode */
+    --primary-foreground: 210 30% 10%; /* Dark for text on primary */
+    --secondary: 210 25% 25%; /* Darker Gray-Blue */
+    --secondary-foreground: 210 25% 90%; /* Light text for secondary */
+    --muted: 210 25% 20%; /* Dark Muted Blue-Gray */
+    --muted-foreground: 210 20% 65%; /* Lighter Gray-Blue */
+    --accent: 30 85% 65%;     /* Brighter Soft Orange for Dark Mode */
+    --accent-foreground: 20 30% 15%; /* Very Dark Brown for text on accent */
+    --destructive: 0 60% 45%; /* Dark Destructive Red */
     --destructive-foreground: 0 0% 98%;
-    --border: 220 10% 25%;
-    --input: 220 10% 25%;
-    --ring: 194 66% 61%; /* Sky Blue for rings */
+    --border: 210 20% 30%;
+    --input: 210 20% 28%;
+    --ring: 190 65% 60%; /* Brighter Teal for rings */
 
     /* Sidebar specific colors for dark mode */
-    --sidebar-background: 220 10% 10%; 
-    --sidebar-foreground: 0 0% 90%; 
-    --sidebar-primary: 194 66% 61%; 
-    --sidebar-primary-foreground: 220 10% 5%; 
-    --sidebar-accent: 220 10% 20%;
-    --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 220 10% 25%;
-    --sidebar-ring: 194 66% 61%;
+    --sidebar-background: 190 60% 20%; 
+    --sidebar-foreground: 190 15% 88%; 
+    --sidebar-primary: 30 85% 65%; 
+    --sidebar-primary-foreground: 20 30% 10%; 
+    --sidebar-accent: 190 55% 30%;
+    --sidebar-accent-foreground: 190 15% 90%;
+    --sidebar-border: 190 60% 25%;
+    --sidebar-ring: 30 85% 65%;
   }
 }
 
@@ -84,5 +81,6 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    /* font-family removed to allow Inter from layout.tsx to take precedence */
   }
 }

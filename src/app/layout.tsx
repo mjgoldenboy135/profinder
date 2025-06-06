@@ -6,7 +6,7 @@ import Header from '@/components/layout/Header';
 import { AuthProvider } from '@/contexts/AuthContext'; // Import AuthProvider
 
 export const metadata: Metadata = {
-  title: 'Proximity Network',
+  title: 'Profinder',
   description: 'A professional social networking platform.',
 };
 
