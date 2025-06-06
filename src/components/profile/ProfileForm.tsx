@@ -76,17 +76,20 @@ export default function ProfileForm() {
   });
 
   useEffect(() => {
+    console.log("[ProfileForm useEffect] Running effect.", { authLoading, authUserExists: !!authUser, isFetchingProfile });
+
     if (!authLoading && authUser) {
-      setIsFetchingProfile(true);
+      console.log("[ProfileForm useEffect] Auth loaded and user exists. Fetching profile for UID:", authUser.uid);
+      setIsFetchingProfile(true); // Set to true before fetching
       getUserProfile(authUser.uid)
         .then(firestoreProfile => {
+          console.log("[ProfileForm useEffect] Successfully fetched Firestore profile:", firestoreProfile);
           const initialData: ProfileFormValues = {
-            ...defaultFormValues, // Start with defaults
+            ...defaultFormValues,
             fullName: authUser.displayName || "",
             email: authUser.email || "",
-            profilePictureUrl: authUser.photoURL || "", // Auth photoURL is source of truth for display initially
-            ...(firestoreProfile || {}), // Spread Firestore data, overriding defaults/Auth data where applicable
-            // Ensure specific Auth fields take precedence if Firestore hasn't been updated yet or for display
+            profilePictureUrl: authUser.photoURL || "", 
+            ...(firestoreProfile || {}), 
             fullName: authUser.displayName || firestoreProfile?.fullName || "",
             email: authUser.email || firestoreProfile?.email || "",
             profilePictureUrl: authUser.photoURL || firestoreProfile?.profilePictureUrl || "",
@@ -95,8 +98,7 @@ export default function ProfileForm() {
           setPreviewImage(initialData.profilePictureUrl || null);
         })
         .catch(error => {
-          console.error("Error fetching profile from Firestore:", error);
-          // Fallback to Auth data if Firestore fetch fails
+          console.error("[ProfileForm useEffect] Error fetching profile from Firestore:", error);
           form.reset({
             ...defaultFormValues,
             fullName: authUser.displayName || "",
@@ -104,15 +106,19 @@ export default function ProfileForm() {
             profilePictureUrl: authUser.photoURL || "",
           });
           setPreviewImage(authUser.photoURL || null);
-          toast({ title: "Error", description: "Could not load full profile from database.", variant: "destructive" });
+          toast({ title: "Error", description: "Could not load full profile from database. Using basic info.", variant: "destructive" });
         })
         .finally(() => {
+          console.log("[ProfileForm useEffect] Firestore fetch attempt finished. Setting isFetchingProfile to false.");
           setIsFetchingProfile(false);
         });
     } else if (!authLoading && !authUser) {
+      console.log("[ProfileForm useEffect] Auth loaded but no user. Resetting form and setting isFetchingProfile to false.");
       form.reset(defaultFormValues);
       setPreviewImage(null);
       setIsFetchingProfile(false);
+    } else {
+      console.log("[ProfileForm useEffect] Auth is still loading or conditions not met for profile fetch yet.");
     }
   }, [authUser, authLoading, form, toast]);
 
@@ -125,10 +131,9 @@ export default function ProfileForm() {
         setPreviewImage(reader.result as string);
       };
       reader.readAsDataURL(file);
-      form.setValue("profilePicture", event.target.files); // Store FileList for upload
-      form.setValue("profilePictureUrl", ""); // Clear existing URL if new file is chosen
+      form.setValue("profilePicture", event.target.files); 
+      form.setValue("profilePictureUrl", ""); 
     } else {
-      // If file selection is cancelled, reset preview to existing URL or Auth URL
       setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null);
       form.setValue("profilePicture", undefined);
     }
@@ -141,28 +146,19 @@ export default function ProfileForm() {
     }
     
     const { profilePicture, ...dataToSaveToFirestore } = values;
-    let newAuthPhotoURL = values.profilePictureUrl; // Start with current URL in form
+    let newAuthPhotoURL = values.profilePictureUrl; 
 
-    // Simulate profile picture upload for now
     if (profilePicture && profilePicture.length > 0 && previewImage && previewImage.startsWith('data:')) {
-      // In a real app, upload profilePicture to Firebase Storage:
-      // 1. Generate a unique file name (e.g., `users/${authUser.uid}/profile.${fileExtension}`)
-      // 2. const storageRef = ref(storage, `users/${authUser.uid}/profilePicture`);
-      // 3. await uploadBytes(storageRef, profilePicture[0]);
-      // 4. newAuthPhotoURL = await getDownloadURL(storageRef);
-      // For now, we'll use a placeholder and assume previewImage is the data URI
-      newAuthPhotoURL = 'https://placehold.co/150x150.png?text=NewPicSim'; // Simulated new URL
-      dataToSaveToFirestore.profilePictureUrl = newAuthPhotoURL; // Update URL for Firestore
+      newAuthPhotoURL = 'https://placehold.co/150x150.png?text=NewPicSim'; 
+      dataToSaveToFirestore.profilePictureUrl = newAuthPhotoURL; 
       toast({ title: "Note", description: "Profile picture upload simulated. Firebase Storage integration needed." });
     } else if (!previewImage && (authUser.photoURL || values.profilePictureUrl)) {
-        // User removed picture
         newAuthPhotoURL = "";
         dataToSaveToFirestore.profilePictureUrl = "";
     }
 
 
     try {
-      // Update Firebase Auth profile (displayName, photoURL) if they changed
       const authUpdates: { displayName?: string; photoURL?: string } = {};
       if (values.fullName !== authUser.displayName) {
         authUpdates.displayName = values.fullName;
@@ -174,20 +170,20 @@ export default function ProfileForm() {
         await updateAuthProfile(authUser, authUpdates);
       }
 
-      // Save all other profile data to Firestore
       await updateUserProfile(authUser.uid, dataToSaveToFirestore as Partial<User>);
       
       toast({
         title: "Profile Updated",
         description: "Your profile information has been saved.",
       });
-      form.reset(values); // Update form with "saved" values, including new pic URL if simulated
+      form.reset(values); 
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({ title: "Error", description: "Failed to update profile. Please try again.", variant: "destructive" });
     }
   }
 
+  console.log("[ProfileForm render] Checking loading state:", { authLoading, isFetchingProfile });
   if (authLoading || isFetchingProfile) {
     return <p className="text-center py-10">Loading profile...</p>;
   }
@@ -216,7 +212,7 @@ export default function ProfileForm() {
                  <FormField
                     control={form.control}
                     name="profilePicture"
-                    render={({ field }) => ( // field is not directly used for Input type="file" but keep for consistency
+                    render={({ field }) => ( 
                         <FormItem>
                         <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer")}>
                             {previewImage ? "Change" : "Upload"} Picture
