@@ -378,10 +378,12 @@ export default function ProfileForm() {
                           checked={field.value}
                           onCheckedChange={(checked) => {
                             field.onChange(checked);
-                            toast({
-                              title: `You are now ${checked ? 'Online' : 'Offline'}`,
-                              description: checked ? 'Your general location may be visible on the map if shared.' : 'You will not be visible on the map.',
-                            });
+                            setTimeout(() => {
+                              toast({
+                                title: `You are now ${checked ? 'Online' : 'Offline'}`,
+                                description: checked ? 'Your general location may be visible on the map if shared.' : 'You will not be visible on the map.',
+                              });
+                            }, 0);
                           }}
                         />
                       </FormControl>
