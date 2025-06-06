@@ -40,7 +40,7 @@ const profileSchema = z.object({
   yearsOfExperience: z.coerce.number().min(0).optional(),
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(),
-  phoneNumber: z.string().optional(), 
+  phoneNumber: z.string().optional(), // Added phoneNumber
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
   bio: z.string().optional(),
@@ -57,7 +57,7 @@ const defaultFormValues: ProfileFormValues = {
   professionalDetails: "",
   yearsOfExperience: 0,
   linkedinProfileUrl: "",
-  phoneNumber: "",
+  phoneNumber: "", // Added phoneNumber default
   isOnline: false,
   showContact: false,
   bio: "",
@@ -89,6 +89,7 @@ export default function ProfileForm() {
             email: authUser.email || "",
             profilePictureUrl: authUser.photoURL || "", 
             ...(firestoreProfile || {}), 
+            // Ensure auth source of truth for these fields if firestore is lagging or empty initially for them
             fullName: authUser.displayName || firestoreProfile?.fullName || "",
             email: authUser.email || firestoreProfile?.email || "",
             profilePictureUrl: authUser.photoURL || firestoreProfile?.profilePictureUrl || "",
@@ -131,9 +132,8 @@ export default function ProfileForm() {
       };
       reader.readAsDataURL(file);
       form.setValue("profilePicture", event.target.files); 
-      form.setValue("profilePictureUrl", ""); // Clear existing URL if a new file is chosen
+      form.setValue("profilePictureUrl", ""); 
     } else {
-      // If no file is selected (e.g., user cancels file dialog), reset to existing URL or auth photoURL
       const existingUrl = form.getValues("profilePictureUrl") || authUser?.photoURL;
       setPreviewImage(existingUrl || null);
       form.setValue("profilePicture", undefined);
@@ -147,25 +147,23 @@ export default function ProfileForm() {
     }
     
     let { profilePicture, ...dataToSaveToFirestore } = values;
-    let newAuthPhotoURL = values.profilePictureUrl; // Start with current URL in form
+    let newAuthPhotoURL = values.profilePictureUrl; 
 
-    // Check if a new file was selected for upload
     if (profilePicture && profilePicture.length > 0) {
       const fileToUpload = profilePicture[0];
       try {
         toast({ title: "Uploading...", description: "Your new profile picture is being uploaded." });
         const downloadURL = await uploadProfilePicture(authUser.uid, fileToUpload);
         newAuthPhotoURL = downloadURL;
-        dataToSaveToFirestore.profilePictureUrl = downloadURL; // Update for Firestore
+        (dataToSaveToFirestore as any).profilePictureUrl = downloadURL; 
       } catch (uploadError) {
         console.error("Error uploading profile picture:", uploadError);
         toast({ title: "Upload Failed", description: "Could not upload profile picture. Please try again.", variant: "destructive" });
-        return; // Stop if upload fails
+        return; 
       }
     } else if (!previewImage && (authUser.photoURL || values.profilePictureUrl)) {
-        // This handles the case where the "Remove Picture" button was used
         newAuthPhotoURL = "";
-        dataToSaveToFirestore.profilePictureUrl = "";
+        (dataToSaveToFirestore as any).profilePictureUrl = "";
     }
 
     try {
@@ -173,7 +171,7 @@ export default function ProfileForm() {
       if (values.fullName !== authUser.displayName) {
         authUpdates.displayName = values.fullName;
       }
-      // Only update photoURL in auth if it has actually changed
+      
       if (newAuthPhotoURL !== authUser.photoURL) {
         authUpdates.photoURL = newAuthPhotoURL;
       }
@@ -181,6 +179,8 @@ export default function ProfileForm() {
       if (Object.keys(authUpdates).length > 0) {
         await updateAuthProfile(authUser, authUpdates);
       }
+      
+      console.log("[ProfileForm onSubmit] Data being sent to updateUserProfile:", dataToSaveToFirestore);
 
       await updateUserProfile(authUser.uid, dataToSaveToFirestore as Partial<User>);
       
@@ -188,11 +188,17 @@ export default function ProfileForm() {
         title: "Profile Updated",
         description: "Your profile information has been saved.",
       });
-       // Reset form with potentially new values (like new profilePictureUrl from upload)
       form.reset({ ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined }); 
-      setPreviewImage(newAuthPhotoURL || null); // Update preview with the new URL
+      setPreviewImage(newAuthPhotoURL || null); 
     } catch (error) {
       console.error("Error updating profile:", error);
+      if (error instanceof Error) {
+        console.error("Error name:", error.name);
+        console.error("Error message:", error.message);
+        if ((error as any).code) {
+          console.error("Error code:", (error as any).code);
+        }
+      }
       toast({ title: "Error", description: "Failed to update profile. Please try again.", variant: "destructive" });
     }
   }
@@ -225,7 +231,7 @@ export default function ProfileForm() {
                 )}
                  <FormField
                     control={form.control}
-                    name="profilePicture" // This field now holds the FileList
+                    name="profilePicture" 
                     render={({ field }) => ( 
                         <FormItem>
                         <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer")}>
@@ -238,7 +244,6 @@ export default function ProfileForm() {
                                 accept="image/*" 
                                 className="hidden" 
                                 onChange={handleProfilePictureChange} 
-                                // ref is managed by react-hook-form Controller if needed, but for file input, direct onChange is common
                             />
                         </FormControl>
                         <FormMessage />
@@ -248,8 +253,8 @@ export default function ProfileForm() {
                 {previewImage && (
                     <Button variant="ghost" size="sm" onClick={() => {
                         setPreviewImage(null);
-                        form.setValue("profilePicture", undefined); // Clear the FileList
-                        form.setValue("profilePictureUrl", ""); // Clear the URL
+                        form.setValue("profilePicture", undefined); 
+                        form.setValue("profilePictureUrl", ""); 
                     }}>Remove Picture</Button>
                 )}
             </div>
@@ -260,7 +265,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
-                  <FormControl><Input placeholder="Your full name" {...field} /></FormControl> {/* Make editable */}
+                  <FormControl><Input placeholder="Your full name" {...field} /></FormControl> 
                   <FormMessage />
                 </FormItem>
               )}
@@ -355,6 +360,17 @@ export default function ProfileForm() {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="phoneNumber"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone Number (Optional)</FormLabel>
+                  <FormControl><Input type="tel" placeholder="Your contact phone number" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <Card>
               <CardHeader><CardTitle className="text-lg font-headline">Status & Privacy</CardTitle></CardHeader>
@@ -403,7 +419,7 @@ export default function ProfileForm() {
                         <Switch 
                           checked={field.value} 
                           onCheckedChange={(checked) => {
-                            setTimeout(() => { // Defer the RHF update
+                            setTimeout(() => { 
                               field.onChange(checked);
                             }, 0);
                           }} 
@@ -424,5 +440,3 @@ export default function ProfileForm() {
     </Card>
   );
 }
-
-    
