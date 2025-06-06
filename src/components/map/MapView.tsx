@@ -13,7 +13,9 @@ import { MapPin as MapPinIcon } from "lucide-react";
 import { useRouter } from 'next/navigation'; // For navigation if needed
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || ""; // Optional custom map ID
+const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
+const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId : undefined;
+
 
 export default function MapView() {
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
