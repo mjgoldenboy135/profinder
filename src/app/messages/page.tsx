@@ -2,111 +2,110 @@
 "use client";
 
 import ChatListItem from "@/components/messaging/ChatListItem";
-import { placeholderChats, getCurrentUser, placeholderUsers } from "@/lib/placeholder-data";
 import type { Chat, User } from "@/lib/types";
 import { useState, useEffect } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation"; // Added usePathname
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle, Search } from "lucide-react";
+import { MessageCircle, Search, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { getUserChats, findOrCreateChat } from "@/services/chatService";
+import { getUserProfile } from "@/services/userService"; // To get user details for new chat
 
 export default function MessagesPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const currentPathname = usePathname(); // Use Next.js hook
+  const { currentUser, loading: authLoading } = useAuthContext();
+
   const [chats, setChats] = useState<Chat[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
-  const pathname = typeof window !== "undefined" ? window.location.pathname : "";
-
 
   useEffect(() => {
-    const user = getCurrentUser();
-    setCurrentUserId(user.id);
-    const userChats = placeholderChats.filter(chat => chat.participantIds.includes(user.id));
-    setChats(userChats);
-
-    const chatWithId = searchParams.get("chatWith");
-    const navigatedChatId = searchParams.get("navigatedChatId");
-
-    if (chatWithId && user.id && !navigatedChatId) {
-      const existingChat = placeholderChats.find(
-        (c) =>
-          c.participantIds.includes(user.id) &&
-          c.participantIds.includes(chatWithId)
-      );
-
-      if (existingChat) {
-        router.replace(`/messages/${existingChat.id}?navigatedChatId=${existingChat.id}`);
-      } else {
-        const currentUserDetails = placeholderUsers.find(u => u.id === user.id);
-        const otherUserDetails = placeholderUsers.find(u => u.id === chatWithId);
-
-        if (currentUserDetails && otherUserDetails) {
-          const newChatId = `new-${user.id}-${chatWithId}-${Date.now()}`;
-          const newChat: Chat = {
-            id: newChatId,
-            participantIds: [user.id, chatWithId],
-            participants: [
-              { id: currentUserDetails.id, fullName: currentUserDetails.fullName, profilePictureUrl: currentUserDetails.profilePictureUrl },
-              { id: otherUserDetails.id, fullName: otherUserDetails.fullName, profilePictureUrl: otherUserDetails.profilePictureUrl }
-            ],
-            lastMessage: undefined,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          };
-
-          if (!placeholderChats.find(c => c.id === newChatId)) {
-            placeholderChats.unshift(newChat);
-          }
-          setChats(prevChats => [newChat, ...prevChats.filter(c => c.id !== newChatId)]);
-          router.replace(`/messages/${newChatId}?navigatedChatId=${newChatId}`);
-        } else {
-          const directChatIdParam = searchParams.get("chatId");
-           if (directChatIdParam) {
-            setActiveChatId(directChatIdParam);
-          }
-        }
+    const initializeChats = async () => {
+      if (authLoading || !currentUser) {
+        setIsLoading(true);
+        return;
       }
-    } else {
-      // Handle direct navigation to /messages/[chatId] or general /messages page
-      const directChatId = searchParams.get("chatId") || (pathname.startsWith('/messages/') && pathname.split('/')[2] ? pathname.split('/')[2] : undefined);
-      if (directChatId && placeholderChats.some(c => c.id === directChatId && c.participantIds.includes(user.id))) {
-        setActiveChatId(directChatId);
-      } else if (userChats.length > 0 && !directChatId && !chatWithId) {
-        // Optionally select the first chat if no specific chat is targeted
-        // setActiveChatId(userChats[0].id);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, currentUserId, router, pathname]);
+      setIsLoading(true);
 
+      try {
+        const userChats = await getUserChats(currentUser.uid);
+        setChats(userChats);
 
-  // Effect to set active chat based on current URL (e.g. /messages/chat123)
-  // This is useful if the user navigates directly to a chat URL
-  useEffect(() => {
-    if (pathname.startsWith('/messages/')) {
-      const pathSegments = pathname.split('/');
-      if (pathSegments.length > 2 && pathSegments[2]) {
-        const chatIdFromPath = pathSegments[2];
-        if (currentUserId && placeholderChats.find(c => c.id === chatIdFromPath && c.participantIds.includes(currentUserId))) {
+        const chatWithId = searchParams.get("chatWith");
+        // Use currentPathname from Next.js router, not window.location
+        const pathSegments = currentPathname.split('/');
+        const chatIdFromPath = pathSegments.length > 2 && pathSegments[2] ? pathSegments[2] : undefined;
+
+        if (chatWithId && !chatIdFromPath) { // Prioritize creating/finding chat if chatWith is present and not already on a chat page
+          const existingChat = userChats.find(
+            (c) => c.participantIds.includes(currentUser.uid) && c.participantIds.includes(chatWithId)
+          );
+          if (existingChat) {
+            router.replace(`/messages/${existingChat.id}`);
+            setActiveChatId(existingChat.id);
+          } else {
+            const newChatId = await findOrCreateChat(currentUser.uid, chatWithId);
+            // Refetch chats to include the new one or update local state
+            const updatedChats = await getUserChats(currentUser.uid);
+            setChats(updatedChats);
+            router.replace(`/messages/${newChatId}`);
+            setActiveChatId(newChatId);
+          }
+        } else if (chatIdFromPath) {
            setActiveChatId(chatIdFromPath);
+        } else if (userChats.length > 0 && !chatIdFromPath && !chatWithId) {
+           // Optionally, navigate to the first chat or leave as is
+           // router.replace(`/messages/${userChats[0].id}`);
+           // setActiveChatId(userChats[0].id);
         }
+      } catch (error) {
+        console.error("Error initializing chats:", error);
+        // Handle error (e.g., show toast)
+      } finally {
+        setIsLoading(false);
       }
-    }
-  }, [pathname, currentUserId]);
+    };
+
+    initializeChats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, authLoading, searchParams, currentPathname, router]);
 
 
   const filteredChats = chats.filter(chat => {
-    const otherParticipant = chat.participants?.find(p => p.id !== currentUserId);
+    if (!currentUser) return false;
+    const otherParticipant = chat.participantsData?.find(p => p.id !== currentUser.uid);
     return otherParticipant?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
-  }).sort((a, b) => (b.lastMessage?.timestamp || 0) - (a.lastMessage?.timestamp || 0));
+  }).sort((a, b) => {
+    const timeA = a.lastMessageTimestamp?.toMillis ? a.lastMessageTimestamp.toMillis() : (typeof a.lastMessageTimestamp === 'number' ? a.lastMessageTimestamp : 0);
+    const timeB = b.lastMessageTimestamp?.toMillis ? b.lastMessageTimestamp.toMillis() : (typeof b.lastMessageTimestamp === 'number' ? b.lastMessageTimestamp : 0);
+    return timeB - timeA;
+  });
 
+  if (authLoading || isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 min-h-[calc(100vh-10rem)]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Loading conversations...</p>
+      </div>
+    );
+  }
 
-  if (!currentUserId) return <p>Loading...</p>;
+  if (!currentUser) {
+     return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <p>Please log in to view your messages.</p>
+        <Button asChild className="mt-4"><Link href="/login">Login</Link></Button>
+      </div>
+    );
+  }
+
 
   return (
     <div className="py-8">
@@ -138,7 +137,7 @@ export default function MessagesPage() {
                             <ChatListItem
                                 key={chat.id}
                                 chat={chat}
-                                currentUserId={currentUserId}
+                                currentUserId={currentUser.uid}
                                 isActive={chat.id === activeChatId}
                             />
                         ))}

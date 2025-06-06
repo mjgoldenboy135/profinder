@@ -4,15 +4,15 @@ export interface User {
   fullName: string;
   email: string;
   profilePictureUrl?: string;
-  education?: string; 
+  education?: string;
   profession?: string;
   professionalDetails?: string; // Or experience details
   yearsOfExperience?: number;
   linkedinProfileUrl?: string;
   phoneNumber?: string; // Store if needed, but control visibility
-  location?: { 
-    lat: number; 
-    lng: number; 
+  location?: {
+    lat: number;
+    lng: number;
     address?: string; // For display, e.g. "San Francisco, CA"
   };
   isOnline?: boolean;
@@ -21,7 +21,7 @@ export interface User {
     showLocation?: 'all' | 'connections' | 'none';
   };
   showContact?: boolean; // Simpler boolean for current implementation for email
-  bio?: string; 
+  bio?: string;
   interests?: string[];
   createdAt?: any; // Firestore serverTimestamp
   updatedAt?: any; // Firestore serverTimestamp
@@ -29,21 +29,31 @@ export interface User {
 
 export interface Message {
   id: string;
-  chatId: string;
+  chatId: string; // Keep if messages are in a top-level collection, optional if subcollection
   senderId: string;
-  receiverId: string; 
+  receiverId: string; // Can be useful for notifications or specific logic
   text: string;
-  timestamp: number; 
+  timestamp: any; // Firestore serverTimestamp or Date
   status?: 'sent' | 'delivered' | 'read';
+}
+
+export interface ChatParticipantData {
+  id: string;
+  fullName: string;
+  profilePictureUrl?: string;
 }
 
 export interface Chat {
   id:string;
-  participantIds: string[]; 
-  participants?: Pick<User, 'id' | 'fullName' | 'profilePictureUrl'>[]; 
-  lastMessage?: Message;
-  createdAt: number;
-  updatedAt: number; 
+  participantIds: string[];
+  participantsData?: ChatParticipantData[]; // Denormalized data for quick display
+  lastMessageText?: string;
+  lastMessageSenderId?: string;
+  lastMessageTimestamp?: any; // Firestore serverTimestamp or Date
+  createdAt: any; // Firestore serverTimestamp or Date
+  updatedAt: any; // Firestore serverTimestamp or Date
+  // For querying: A map where keys are user IDs involved in the chat
+  userConversations?: { [key: string]: boolean };
 }
 
 // Placeholder for profile data, useful for forms
