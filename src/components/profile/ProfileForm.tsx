@@ -27,12 +27,12 @@ import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext"; 
 import { auth } from "@/lib/firebase"; 
 import { updateProfile as updateAuthProfile } from "firebase/auth";
-import { getUserProfile, updateUserProfile } from "@/services/userService"; // Import userService functions
+import { getUserProfile, updateUserProfile, uploadProfilePicture } from "@/services/userService"; // Import userService functions
 import type { User } from "@/lib/types";
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
-  profilePicture: z.any().optional(), // For file input
+  profilePicture: z.custom<FileList | undefined>().optional(), // For file input
   profilePictureUrl: z.string().url().optional().or(z.literal("")), // For displaying/storing URL
   education: z.string().optional(),
   profession: z.string().optional(),
@@ -40,11 +40,10 @@ const profileSchema = z.object({
   yearsOfExperience: z.coerce.number().min(0).optional(),
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(),
-  phoneNumber: z.string().optional(), // Keep in schema if you might use it later, but don't display publicly
+  phoneNumber: z.string().optional(), 
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
   bio: z.string().optional(),
-  // interests are not directly in this form yet, but could be added
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -80,7 +79,7 @@ export default function ProfileForm() {
 
     if (!authLoading && authUser) {
       console.log("[ProfileForm useEffect] Auth loaded and user exists. Fetching profile for UID:", authUser.uid);
-      setIsFetchingProfile(true); // Set to true before fetching
+      setIsFetchingProfile(true); 
       getUserProfile(authUser.uid)
         .then(firestoreProfile => {
           console.log("[ProfileForm useEffect] Successfully fetched Firestore profile:", firestoreProfile);
@@ -132,9 +131,11 @@ export default function ProfileForm() {
       };
       reader.readAsDataURL(file);
       form.setValue("profilePicture", event.target.files); 
-      form.setValue("profilePictureUrl", ""); 
+      form.setValue("profilePictureUrl", ""); // Clear existing URL if a new file is chosen
     } else {
-      setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null);
+      // If no file is selected (e.g., user cancels file dialog), reset to existing URL or auth photoURL
+      const existingUrl = form.getValues("profilePictureUrl") || authUser?.photoURL;
+      setPreviewImage(existingUrl || null);
       form.setValue("profilePicture", undefined);
     }
   };
@@ -145,27 +146,38 @@ export default function ProfileForm() {
         return;
     }
     
-    const { profilePicture, ...dataToSaveToFirestore } = values;
-    let newAuthPhotoURL = values.profilePictureUrl; 
+    let { profilePicture, ...dataToSaveToFirestore } = values;
+    let newAuthPhotoURL = values.profilePictureUrl; // Start with current URL in form
 
-    if (profilePicture && profilePicture.length > 0 && previewImage && previewImage.startsWith('data:')) {
-      newAuthPhotoURL = 'https://placehold.co/150x150.png?text=NewPicSim'; 
-      dataToSaveToFirestore.profilePictureUrl = newAuthPhotoURL; 
-      toast({ title: "Note", description: "Profile picture upload simulated. Firebase Storage integration needed." });
+    // Check if a new file was selected for upload
+    if (profilePicture && profilePicture.length > 0) {
+      const fileToUpload = profilePicture[0];
+      try {
+        toast({ title: "Uploading...", description: "Your new profile picture is being uploaded." });
+        const downloadURL = await uploadProfilePicture(authUser.uid, fileToUpload);
+        newAuthPhotoURL = downloadURL;
+        dataToSaveToFirestore.profilePictureUrl = downloadURL; // Update for Firestore
+      } catch (uploadError) {
+        console.error("Error uploading profile picture:", uploadError);
+        toast({ title: "Upload Failed", description: "Could not upload profile picture. Please try again.", variant: "destructive" });
+        return; // Stop if upload fails
+      }
     } else if (!previewImage && (authUser.photoURL || values.profilePictureUrl)) {
+        // This handles the case where the "Remove Picture" button was used
         newAuthPhotoURL = "";
         dataToSaveToFirestore.profilePictureUrl = "";
     }
-
 
     try {
       const authUpdates: { displayName?: string; photoURL?: string } = {};
       if (values.fullName !== authUser.displayName) {
         authUpdates.displayName = values.fullName;
       }
+      // Only update photoURL in auth if it has actually changed
       if (newAuthPhotoURL !== authUser.photoURL) {
         authUpdates.photoURL = newAuthPhotoURL;
       }
+
       if (Object.keys(authUpdates).length > 0) {
         await updateAuthProfile(authUser, authUpdates);
       }
@@ -176,7 +188,9 @@ export default function ProfileForm() {
         title: "Profile Updated",
         description: "Your profile information has been saved.",
       });
-      form.reset(values); 
+       // Reset form with potentially new values (like new profilePictureUrl from upload)
+      form.reset({ ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined }); 
+      setPreviewImage(newAuthPhotoURL || null); // Update preview with the new URL
     } catch (error) {
       console.error("Error updating profile:", error);
       toast({ title: "Error", description: "Failed to update profile. Please try again.", variant: "destructive" });
@@ -211,14 +225,21 @@ export default function ProfileForm() {
                 )}
                  <FormField
                     control={form.control}
-                    name="profilePicture"
+                    name="profilePicture" // This field now holds the FileList
                     render={({ field }) => ( 
                         <FormItem>
                         <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer")}>
                             {previewImage ? "Change" : "Upload"} Picture
                         </FormLabel>
                         <FormControl>
-                            <Input id="profilePictureInput" type="file" accept="image/*" className="hidden" onChange={handleProfilePictureChange} />
+                            <Input 
+                                id="profilePictureInput" 
+                                type="file" 
+                                accept="image/*" 
+                                className="hidden" 
+                                onChange={handleProfilePictureChange} 
+                                // ref is managed by react-hook-form Controller if needed, but for file input, direct onChange is common
+                            />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -227,8 +248,8 @@ export default function ProfileForm() {
                 {previewImage && (
                     <Button variant="ghost" size="sm" onClick={() => {
                         setPreviewImage(null);
-                        form.setValue("profilePicture", undefined);
-                        form.setValue("profilePictureUrl", ""); 
+                        form.setValue("profilePicture", undefined); // Clear the FileList
+                        form.setValue("profilePictureUrl", ""); // Clear the URL
                     }}>Remove Picture</Button>
                 )}
             </div>
@@ -239,7 +260,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
-                  <FormControl><Input placeholder="Your full name" {...field} disabled /></FormControl>
+                  <FormControl><Input placeholder="Your full name" {...field} /></FormControl> {/* Make editable */}
                   <FormMessage />
                 </FormItem>
               )}
@@ -316,7 +337,7 @@ export default function ProfileForm() {
                       {[...Array(21).keys()].map(year => (
                         <SelectItem key={year} value={String(year)}>{year} {year === 1 ? 'year' : 'years'}</SelectItem>
                       ))}
-                       <SelectItem value="21">20+ years</SelectItem>
+                       <SelectItem value="21">20+ years</SelectItem> 
                     </SelectContent>
                   </Select>
                   <FormMessage />
