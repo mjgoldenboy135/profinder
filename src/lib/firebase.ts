@@ -20,7 +20,7 @@ const firebaseConfig = {
 // This will help you see if the environment variables are being loaded correctly.
 // Check your browser console (for client-side errors) or server console.
 console.log("Attempting to initialize Firebase with config:", {
-  apiKey: firebaseConfig.apiKey ? '********' : undefined, // Mask API key in logs
+  apiKey: firebaseConfig.apiKey ? 'AIzaSyAF37yBNVryFJ43CjiEb_IK6JD42J7wF84' : undefined, // Mask API key in logs
   authDomain: firebaseConfig.authDomain,
   projectId: firebaseConfig.projectId,
   appId: firebaseConfig.appId,
