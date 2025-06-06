@@ -1,12 +1,12 @@
 
 import PublicProfileCard from "@/components/profile/PublicProfileCard";
-// import { placeholderUsers } from "@/lib/placeholder-data"; // No longer needed for direct data
 import type { User } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Terminal } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { getUserProfile } from "@/services/userService"; // Import the Firestore service
+import { Timestamp } from 'firebase/firestore'; // Import Timestamp
 
 interface UserProfilePageProps {
   params: {
@@ -14,19 +14,29 @@ interface UserProfilePageProps {
   };
 }
 
-// This is now an async server component
-async function fetchUser(userId: string): Promise<User | null> {
-  try {
-    const user = await getUserProfile(userId);
-    return user;
-  } catch (error) {
-    console.error("Error fetching user profile:", error);
-    return null;
-  }
-}
-
 export default async function UserProfilePage({ params }: UserProfilePageProps) {
-  const user = await fetchUser(params.userId);
+  let user: User | null = null;
+  try {
+    user = await getUserProfile(params.userId);
+
+    if (user) {
+      // Create a mutable copy for serialization
+      const serializableUser = { ...user };
+
+      // Convert Firestore Timestamps to numbers (milliseconds)
+      if (serializableUser.createdAt && serializableUser.createdAt instanceof Timestamp) {
+        serializableUser.createdAt = serializableUser.createdAt.toMillis() as any;
+      }
+      if (serializableUser.updatedAt && serializableUser.updatedAt instanceof Timestamp) {
+        serializableUser.updatedAt = serializableUser.updatedAt.toMillis() as any;
+      }
+      user = serializableUser; // Use the serialized version
+    }
+  } catch (error) {
+    console.error("Error processing user profile in UserProfilePage:", error);
+    // User will remain null, leading to the "User Not Found" display
+  }
+
 
   if (!user) {
     return (
