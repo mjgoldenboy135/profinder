@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Globe, Loader2, MapPin } from "lucide-react";
+import { Globe, Loader2, MapPin, LocateFixed } from "lucide-react"; // Added LocateFixed
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
@@ -75,6 +75,7 @@ export default function ProfileForm() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -148,7 +149,50 @@ export default function ProfileForm() {
     }
   };
 
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "Geolocation Not Supported",
+        description: "Your browser does not support geolocation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsFetchingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        form.setValue("locationLat", position.coords.latitude);
+        form.setValue("locationLng", position.coords.longitude);
+        // Optionally, try to fetch address here using a geocoding service, or clear address field
+        // form.setValue("locationAddress", "Fetched from GPS"); // Placeholder
+        toast({
+          title: "Location Fetched",
+          description: "Latitude and Longitude updated with your current location.",
+        });
+        setIsFetchingLocation(false);
+      },
+      (error) => {
+        let message = "Could not get your location.";
+        if (error.code === error.PERMISSION_DENIED) {
+          message = "Permission to access location was denied.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          message = "Location information is unavailable.";
+        } else if (error.code === error.TIMEOUT) {
+          message = "The request to get user location timed out.";
+        }
+        toast({
+          title: "Location Error",
+          description: message,
+          variant: "destructive",
+        });
+        setIsFetchingLocation(false);
+      }
+    );
+  };
+
   async function onSubmit(values: ProfileFormValues) {
+    console.log("[ProfileForm onSubmit] Form submission process initiated...");
     if (!authUser || !auth) {
       toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
       return;
@@ -157,23 +201,21 @@ export default function ProfileForm() {
     let { profilePicture, locationLat, locationLng, locationAddress, ...dataForAuthAndFirestore } = values;
     let newAuthPhotoURL = values.profilePictureUrl || authUser.photoURL || "";
 
-    setIsUploading(true); // Combined uploading state for picture and overall save
-    console.log("[ProfileForm onSubmit] BEGIN: Overall submission process.");
-    console.log("[ProfileForm onSubmit] Values from form:", JSON.stringify(values, null, 2));
-
+    console.log("[ProfileForm onSubmit] BEGIN: Form submission process. Values:", JSON.stringify(values, null, 2));
+    setIsUploading(true); // For the overall save process, including potential picture upload
 
     if (profilePicture && profilePicture.length > 0) {
       const fileToUpload = profilePicture[0];
       console.log("[ProfileForm onSubmit] BEGIN: Profile picture upload for file:", fileToUpload.name);
+      toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
       try {
-        toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
         const downloadURL = await uploadProfilePicture(authUser.uid, fileToUpload);
         console.log("[ProfileForm onSubmit] END: Profile picture uploaded. Download URL:", downloadURL);
         newAuthPhotoURL = downloadURL;
       } catch (uploadError: any) {
         console.error("[ProfileForm onSubmit] CATCH: Error uploading profile picture:", uploadError);
         toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
-        setIsUploading(false); 
+        setIsUploading(false);
         return;
       }
     } else if (previewImage === null && (authUser.photoURL || values.profilePictureUrl)) {
@@ -181,6 +223,8 @@ export default function ProfileForm() {
       newAuthPhotoURL = "";
     }
     
+    // setIsUploading(false); // Set to false after picture upload section is done.
+
     // Construct location object
     let locationData: User['location'] | undefined = undefined;
     if (locationLat !== undefined && locationLng !== undefined) {
@@ -195,7 +239,7 @@ export default function ProfileForm() {
     console.log("[ProfileForm onSubmit] Calculated locationData for update:", locationData);
 
     try {
-      console.log("[ProfileForm onSubmit] BEGIN: Auth/Firestore updates.");
+      console.log("[ProfileForm onSubmit] TRY block entered.");
       const authUpdates: { displayName?: string; photoURL?: string | null } = {};
       if (values.fullName !== (authUser.displayName || "")) {
         authUpdates.displayName = values.fullName;
@@ -215,9 +259,9 @@ export default function ProfileForm() {
 
       const finalDataToSaveToFirestore: Partial<User> = {
         ...dataForAuthAndFirestore,
-        fullName: values.fullName, // Ensure fullName is from values
+        fullName: values.fullName, 
         profilePictureUrl: newAuthPhotoURL,
-        location: locationData, // Add location data
+        location: locationData, 
       };
       
       console.log("[ProfileForm onSubmit] BEGIN: Firestore profile update for user:", authUser.uid, "with data:", JSON.stringify(finalDataToSaveToFirestore, null, 2));
@@ -232,14 +276,15 @@ export default function ProfileForm() {
       const newResetValues = { ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined };
       form.reset(newResetValues);
       setPreviewImage(newAuthPhotoURL || null);
-      console.log("[ProfileForm onSubmit] END: Auth/Firestore updates completed successfully.");
+      console.log("[ProfileForm onSubmit] TRY block finished successfully.");
 
     } catch (error: any) {
       console.error("[ProfileForm onSubmit] CATCH: Error during Auth or Firestore profile update:", error);
       toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
     } finally {
-      setIsUploading(false);
-      console.log("[ProfileForm onSubmit] FINALLY: Submission process complete. isUploading set to false.");
+      console.log("[ProfileForm onSubmit] FINALLY block entered.");
+      setIsUploading(false); // Ensure this is reset regardless of outcome
+      console.log("[ProfileForm onSubmit] Form submission flow logically complete. isUploading set to false.");
     }
   }
 
@@ -267,7 +312,7 @@ export default function ProfileForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="flex flex-col items-center space-y-4">
                 {previewImage ? (
-                    <Image src={previewImage} alt="Profile Preview" width={150} height={150} className="rounded-full object-cover ring-2 ring-primary" />
+                    <Image src={previewImage} alt="Profile Preview" width={150} height={150} className="rounded-full object-cover ring-2 ring-primary" data-ai-hint="user avatar"/>
  ) : (
                     <div className="w-[150px] h-[150px] rounded-full bg-muted flex items-center justify-center text-muted-foreground text-4xl ring-2 ring-border">
                         {initials}
@@ -419,7 +464,15 @@ export default function ProfileForm() {
             />
 
             <Card>
-              <CardHeader><CardTitle className="text-lg font-headline flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> Location for Map</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                    <CardTitle className="text-lg font-headline flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> Location for Map</CardTitle>
+                    <Button type="button" variant="outline" size="sm" onClick={handleUseCurrentLocation} disabled={isFetchingLocation}>
+                        {isFetchingLocation ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LocateFixed className="mr-2 h-4 w-4" />}
+                        Use Current Location
+                    </Button>
+                </div>
+              </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
@@ -491,7 +544,7 @@ export default function ProfileForm() {
                             if (checked && (!form.getValues("locationLat") || !form.getValues("locationLng"))) {
                                 toast({
                                     title: "Location Needed",
-                                    description: "To appear on the map, please provide your latitude and longitude.",
+                                    description: "To appear on the map, please provide your latitude and longitude or use current location.",
                                     variant: "destructive"
                                 });
                             } else {
@@ -527,7 +580,7 @@ export default function ProfileForm() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || authLoading || isFetchingProfile || isUploading}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || authLoading || isFetchingProfile || isUploading || isFetchingLocation}>
               {(form.formState.isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {form.formState.isSubmitting || isUploading ? "Saving..." : "Save Changes"}
             </Button>
@@ -537,3 +590,5 @@ export default function ProfileForm() {
     </Card>
   );
 }
+
+      
