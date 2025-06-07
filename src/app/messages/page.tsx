@@ -28,6 +28,9 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const initializeChats = async () => {
+      console.log(
+        `[MessagesPage] Initializing chats. authLoading: ${authLoading}, currentUser: ${currentUser ? currentUser.uid : 'null'}`
+      );
       if (authLoading || !currentUser) {
         setIsLoading(true);
         return;
@@ -35,6 +38,7 @@ export default function MessagesPage() {
       setIsLoading(true);
 
       try {
+        console.log(`[MessagesPage] Attempting to fetch chats for user: ${currentUser.uid}`);
         const userChats = await getUserChats(currentUser.uid);
         setChats(userChats);
 
@@ -66,7 +70,7 @@ export default function MessagesPage() {
            // setActiveChatId(userChats[0].id);
         }
       } catch (error) {
-        console.error("Error initializing chats:", error);
+        console.error("[MessagesPage] Error initializing chats:", error);
         // Handle error (e.g., show toast)
       } finally {
         setIsLoading(false);
@@ -83,6 +87,11 @@ export default function MessagesPage() {
     const otherParticipant = chat.participantsData?.find(p => p.id !== currentUser.uid);
     return otherParticipant?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
   }).sort((a, b) => {
+    // Firestore now handles sorting by updatedAt if orderBy is effective
+    // If orderBy is removed or fails, this client-side sort is a fallback
+    // but it's better if Firestore handles it.
+    // The `getUserChats` has orderBy, so this sort might be redundant or
+    // could be removed if confident in Firestore's ordering.
     const timeA = a.lastMessageTimestamp?.toMillis ? a.lastMessageTimestamp.toMillis() : (typeof a.lastMessageTimestamp === 'number' ? a.lastMessageTimestamp : 0);
     const timeB = b.lastMessageTimestamp?.toMillis ? b.lastMessageTimestamp.toMillis() : (typeof b.lastMessageTimestamp === 'number' ? b.lastMessageTimestamp : 0);
     return timeB - timeA;

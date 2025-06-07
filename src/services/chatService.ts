@@ -43,8 +43,8 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
   // Query chats where the participantIds array contains the userId.
   const q = query(
     chatsRef,
-    where('participantIds', 'array-contains', userId)
-    // orderBy('updatedAt', 'desc') // Re-add if indexing is confirmed/resolved
+    where('participantIds', 'array-contains', userId),
+    orderBy('updatedAt', 'desc') // Re-enabled orderBy
   );
 
   try {
@@ -54,12 +54,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
       chats.push({ id: doc.id, ...doc.data() } as Chat);
     });
     console.log(`[chatService] Found ${chats.length} chats for userId: ${userId}`);
-    // Manually sort by updatedAt if orderBy is removed, for consistent (though client-side) ordering
-    chats.sort((a, b) => {
-        const timeA = a.updatedAt instanceof Timestamp ? a.updatedAt.toMillis() : (typeof a.updatedAt === 'number' ? a.updatedAt : 0);
-        const timeB = b.updatedAt instanceof Timestamp ? b.updatedAt.toMillis() : (typeof b.updatedAt === 'number' ? b.updatedAt : 0);
-        return timeB - timeA;
-    });
+    // Client-side sort removed as Firestore will now handle it
     return chats;
   } catch (error) {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
@@ -67,8 +62,16 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
       const firebaseError = error as { code: string; message: string };
       console.error("[chatService] Firebase error code:", firebaseError.code);
       console.error("[chatService] Firebase error message:", firebaseError.message);
+      // Check if the error message contains information about a missing index
+      if (firebaseError.message && firebaseError.message.includes('requires an index')) {
+        console.warn(
+            "[chatService] Firestore Missing Index: The query in getUserChats likely requires a composite index. " +
+            "Please check the Firebase console for a link to create it. The index would be on the 'chats' collection, " +
+            "with fields 'participantIds' (array-contains) and 'updatedAt' (descending)."
+        );
+      }
     }
-    throw error; 
+    throw error;
   }
 }
 
@@ -117,8 +120,8 @@ export async function sendMessage(
   const batch = writeBatch(db);
   const chatRef = doc(db, CHATS_COLLECTION, chatId);
   const messagesRef = collection(db, CHATS_COLLECTION, chatId, MESSAGES_SUBCOLLECTION);
-  
-  const newMessageRef = doc(messagesRef); 
+
+  const newMessageRef = doc(messagesRef);
 
   const messagePayload: Omit<Message, 'id' | 'chatId'> = {
     ...messageData,
@@ -132,7 +135,7 @@ export async function sendMessage(
     lastMessageSenderId: messageData.senderId,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    participantIds: arrayUnion(messageData.senderId, messageData.receiverId) 
+    participantIds: arrayUnion(messageData.senderId, messageData.receiverId)
   });
 
   await batch.commit();
@@ -154,7 +157,9 @@ export async function findOrCreateChat(
   }
   console.log(`[chatService] findOrCreateChat called for users: ${currentUserId}, ${otherUserId}`);
   const chatsRef = collection(db, CHATS_COLLECTION);
-  
+
+  // Firestore doesn't support two array-contains clauses on the same field in a single query.
+  // So, we query for chats containing currentUserId and then filter client-side.
   const q = query(chatsRef, where('participantIds', 'array-contains', currentUserId));
   const querySnapshot = await getDocs(q);
 
@@ -162,7 +167,7 @@ export async function findOrCreateChat(
     const data = doc.data() as Chat;
     return data.participantIds.includes(otherUserId);
   });
-  
+
   if (existingChatDoc) {
     console.log(`[chatService] Found existing chat with ID: ${existingChatDoc.id}`);
     return existingChatDoc.id;
@@ -180,14 +185,19 @@ export async function findOrCreateChat(
     { id: currentUserProfile.id, fullName: currentUserProfile.fullName, profilePictureUrl: currentUserProfile.profilePictureUrl },
     { id: otherUserProfile.id, fullName: otherUserProfile.fullName, profilePictureUrl: otherUserProfile.profilePictureUrl },
   ];
-  
-  const participantIds = [currentUserId, otherUserId].sort(); 
+
+  // Ensure participantIds are sorted to make them canonical for potential future queries, though not strictly necessary for array-contains.
+  const participantIds = [currentUserId, otherUserId].sort();
 
   const newChatData: Omit<Chat, 'id'> = {
     participantIds,
     participantsData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    // Initialize lastMessage fields as null or empty if preferred
+    lastMessageText: "",
+    lastMessageSenderId: "",
+    lastMessageTimestamp: null,
   };
 
   const newChatRef = await addDoc(chatsRef, newChatData);
