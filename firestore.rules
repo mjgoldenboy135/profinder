@@ -1,0 +1,56 @@
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users collection
+    match /users/{userId} {
+      // Anyone can read user profiles (e.g., for viewing public profiles)
+      allow read: if true; 
+
+      // Only the authenticated user themselves can create or update their own profile.
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      
+      // Users should not be able to delete their own (or other's) profiles directly.
+      allow delete: if false; 
+    }
+
+    // Chats collection
+    match /chats/{chatId} {
+      // Allow read if the user is a participant in the chat
+      allow read: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+      // Allow create if the user is one of the participantIds in the new chat document
+      // and the participantIds array includes the authenticated user.
+      allow create: if request.auth != null && 
+                     request.resource.data.participantIds.hasAny([request.auth.uid]);
+
+      // Allow update (e.g., for lastMessage, updatedAt) if the user is a participant
+      allow update: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+      // Generally, disallow deleting entire chat threads directly from client,
+      // unless specific conditions are met (e.g., by an admin or a feature).
+      allow delete: if false;
+
+      // Messages subcollection within each chat
+      match /messages/{messageId} {
+        // Allow read if the user is a participant of the parent chat
+        allow read: if request.auth != null && 
+                     get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+
+        // Allow create (send message) if:
+        // 1. User is authenticated.
+        // 2. User is a participant of the parent chat.
+        // 3. The senderId in the new message matches the authenticated user's UID.
+        allow create: if request.auth != null &&
+                       get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]) &&
+                       request.resource.data.senderId == request.auth.uid;
+        
+        // Disallow updating or deleting individual messages from the client for simplicity.
+        // You can add more granular rules if needed (e.g., allow sender to delete within a time limit).
+        allow update, delete: if false;
+      }
+    }
+  }
+}
