@@ -36,12 +36,11 @@ if (!db) {
  */
 export async function getUserChats(userId: string): Promise<Chat[]> {
   const chatsRef = collection(db, CHATS_COLLECTION);
-  // Query chats where the participantIds array contains the userId
-  // Firestore doesn't directly support array-contains-any for querying multiple user chats efficiently in one go like this.
-  // A common workaround is to have a map field for easier querying.
+  // Query chats where the participantIds array contains the userId.
+  // This aligns with the security rule: request.auth.uid in resource.data.participantIds
   const q = query(
     chatsRef,
-    where(`userConversations.${userId}`, '==', true),
+    where('participantIds', 'array-contains', userId),
     orderBy('updatedAt', 'desc')
   );
 
@@ -121,8 +120,8 @@ export async function sendMessage(
 
 /**
  * Creates a new chat between two users if one doesn't already exist.
- * @param currentUser User object for the current user.
- * @param otherUser User object for the other user.
+ * @param currentUserId User ID for the current user.
+ * @param otherUserId User ID for the other user.
  * @returns A promise that resolves with the ID of the existing or new chat.
  */
 export async function findOrCreateChat(
@@ -130,20 +129,23 @@ export async function findOrCreateChat(
   otherUserId: string
 ): Promise<string> {
   const chatsRef = collection(db, CHATS_COLLECTION);
-  // To check for an existing chat, we need to query for chats where both users are participants.
-  // This query can be complex. A common way is to ensure participantIds are stored sorted,
-  // or by having a compound field like `participantsHash = uid1_uid2` (sorted).
-  // For simplicity with `userConversations` map:
+  // Check for an existing chat where both users are participants.
+  // This query looks for chats where currentUserId is in participantIds AND otherUserId is in participantIds
   const q = query(
     chatsRef,
-    where(`userConversations.${currentUserId}`, '==', true),
-    where(`userConversations.${otherUserId}`, '==', true)
+    where('participantIds', 'array-contains', currentUserId)
+    // We need a second 'array-contains' for otherUserId, but Firestore doesn't allow array-contains on the same field twice.
+    // So, we'll fetch chats containing currentUserId and then filter client-side, or use a more complex data model if this becomes a performance issue.
+    // For now, let's fetch based on one user and filter.
+    // A more robust approach for direct querying might involve a sorted participants string or a map as originally planned.
+    // Given the rule change, let's keep it simple for now and filter:
   );
 
   const querySnapshot = await getDocs(q);
-  if (!querySnapshot.empty) {
-    // Chat already exists
-    return querySnapshot.docs[0].id;
+  const existingChat = querySnapshot.docs.find(doc => (doc.data().participantIds as string[]).includes(otherUserId));
+  
+  if (existingChat) {
+    return existingChat.id;
   }
 
   // Create new chat
@@ -159,18 +161,17 @@ export async function findOrCreateChat(
     { id: otherUserProfile.id, fullName: otherUserProfile.fullName, profilePictureUrl: otherUserProfile.profilePictureUrl },
   ];
   
-  const participantIds = [currentUserId, otherUserId].sort(); // Sort for consistent querying if needed
+  const participantIds = [currentUserId, otherUserId].sort(); 
 
   const newChatData: Omit<Chat, 'id'> = {
     participantIds,
     participantsData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    userConversations: {
+    userConversations: { // Keep this for potential future optimization or specific queries if needed
       [currentUserId]: true,
       [otherUserId]: true,
     },
-    // lastMessage fields will be set when the first message is sent
   };
 
   const newChatRef = await addDoc(chatsRef, newChatData);
