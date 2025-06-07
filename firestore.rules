@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -11,44 +10,43 @@ service cloud.firestore {
       allow read: if true; 
 
       // Only the authenticated user themselves can create or update their own profile.
-      // This is crucial for sign-up and profile editing.
       allow create, update: if request.auth != null && request.auth.uid == userId;
       
-      // Generally, users should not be able to delete their own (or other's) profiles directly
-      // unless you have a specific "delete account" feature that handles this carefully.
+      // Users should not delete their own profiles directly unless through a specific feature.
       allow delete: if false; 
     }
 
     // Chats collection
     match /chats/{chatId} {
-      // Allow read if the authenticated user's UID is in the participantIds array of the chat document.
+      // Allow read if the authenticated user is one of the participants in the chat.
       allow read: if request.auth != null && request.auth.uid in resource.data.participantIds;
 
-      // Allow create if the authenticated user's UID is in the participantIds array of the new document.
+      // Allow create if the authenticated user is one of the participants in the new chat document.
       allow create: if request.auth != null && request.auth.uid in request.resource.data.participantIds;
 
-      // Allow update (e.g., for lastMessage, updatedAt) if the authenticated user's UID is in the participantIds array.
-      // Be mindful of what fields can be updated. For example, participantIds should generally not be updatable after creation
-      // without specific logic.
-      allow update: if request.auth != null && request.auth.uid in resource.data.participantIds;
+      // Allow update (e.g., for lastMessageTimestamp) if the authenticated user is a participant.
+      // Ensure participantIds cannot be changed after creation by an update operation.
+      allow update: if request.auth != null && request.auth.uid in resource.data.participantIds
+                       && request.resource.data.participantIds == resource.data.participantIds;
       
-      // Disallow delete unless you have specific admin or user-driven features for it.
+      // Disallow direct deletion of chats for now. Implement as a specific feature if needed.
       allow delete: if false;
 
       // Messages subcollection within each chat
       match /messages/{messageId} {
-        // Allow read of messages if the user is a participant in the parent chat.
+        // Allow read if the authenticated user is a participant in the parent chat.
+        // Uses a get() call to check the parent chat document.
         allow read: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
 
-        // Allow create (sending) of messages if the user is a participant in the parent chat
+        // Allow create (send message) if the authenticated user is a participant in the parent chat
         // and the senderId in the new message matches the authenticated user's UID.
         allow create: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid])
-                        && request.resource.data.senderId == request.auth.uid;
+                         && request.resource.data.senderId == request.auth.uid;
         
-        // Messages are generally immutable.
-        allow update, delete: if false;
+        // Messages are generally immutable once sent.
+        allow update: if false;
+        allow delete: if false;
       }
     }
-    // Add rules for any other collections you might create in the 'profind' database here.
   }
 }
