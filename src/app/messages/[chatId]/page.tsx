@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react"; // Import 'use' from React
 import ChatInterface from "@/components/messaging/ChatInterface";
 import type { Chat, Message, User as AppUser } from "@/lib/types"; // Renamed User to AppUser to avoid conflict
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -29,7 +29,10 @@ const processMessageTimestamps = (msg: Message): Message => {
 
 
 export default function IndividualChatPage({ params }: IndividualChatPageProps) {
-  const { chatId } = params;
+  // Unwrap the params object using React.use() as suggested by the Next.js warning
+  const resolvedParams = use(params);
+  const { chatId } = resolvedParams;
+
   const { currentUser, loading: authLoading } = useAuthContext();
 
   const [chat, setChat] = useState<Chat | null>(null);
