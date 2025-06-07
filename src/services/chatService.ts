@@ -1,5 +1,4 @@
 
-'use server';
 import {
   collection,
   query,
@@ -42,11 +41,10 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
   console.log("[chatService] getUserChats called for userId:", userId);
   const chatsRef = collection(db, CHATS_COLLECTION);
   // Query chats where the participantIds array contains the userId.
-  // Temporarily removing orderBy to check for indexing issues.
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains', userId)
-    // orderBy('updatedAt', 'desc') // Temporarily commented out
+    // orderBy('updatedAt', 'desc') // Re-add if indexing is confirmed/resolved
   );
 
   try {
@@ -65,13 +63,12 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     return chats;
   } catch (error) {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
-    // Check if the error object has a more specific code or message
     if (error instanceof Error && 'code' in error) {
       const firebaseError = error as { code: string; message: string };
       console.error("[chatService] Firebase error code:", firebaseError.code);
       console.error("[chatService] Firebase error message:", firebaseError.message);
     }
-    throw error; // Re-throw the error to be caught by the calling component
+    throw error; 
   }
 }
 
@@ -121,7 +118,7 @@ export async function sendMessage(
   const chatRef = doc(db, CHATS_COLLECTION, chatId);
   const messagesRef = collection(db, CHATS_COLLECTION, chatId, MESSAGES_SUBCOLLECTION);
   
-  const newMessageRef = doc(messagesRef); // Auto-generate ID for the new message
+  const newMessageRef = doc(messagesRef); 
 
   const messagePayload: Omit<Message, 'id' | 'chatId'> = {
     ...messageData,
@@ -135,7 +132,7 @@ export async function sendMessage(
     lastMessageSenderId: messageData.senderId,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    participantIds: arrayUnion(messageData.senderId, messageData.receiverId) // Ensure participants are always up-to-date
+    participantIds: arrayUnion(messageData.senderId, messageData.receiverId) 
   });
 
   await batch.commit();
@@ -158,11 +155,9 @@ export async function findOrCreateChat(
   console.log(`[chatService] findOrCreateChat called for users: ${currentUserId}, ${otherUserId}`);
   const chatsRef = collection(db, CHATS_COLLECTION);
   
-  // Query for chats where currentUserId is a participant
   const q = query(chatsRef, where('participantIds', 'array-contains', currentUserId));
   const querySnapshot = await getDocs(q);
 
-  // Client-side filter to find a chat that also includes otherUserId
   const existingChatDoc = querySnapshot.docs.find(doc => {
     const data = doc.data() as Chat;
     return data.participantIds.includes(otherUserId);
@@ -174,7 +169,6 @@ export async function findOrCreateChat(
   }
 
   console.log(`[chatService] No existing chat found. Creating new chat for users: ${currentUserId}, ${otherUserId}`);
-  // Create new chat
   const currentUserProfile = await getUserProfile(currentUserId);
   const otherUserProfile = await getUserProfile(otherUserId);
 
@@ -187,7 +181,6 @@ export async function findOrCreateChat(
     { id: otherUserProfile.id, fullName: otherUserProfile.fullName, profilePictureUrl: otherUserProfile.profilePictureUrl },
   ];
   
-  // Sort IDs to ensure consistency for querying if needed, though array-contains doesn't strictly need it for this structure.
   const participantIds = [currentUserId, otherUserId].sort(); 
 
   const newChatData: Omit<Chat, 'id'> = {
@@ -195,11 +188,9 @@ export async function findOrCreateChat(
     participantsData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    // userConversations field is removed as per previous discussions, participantIds is primary
   };
 
   const newChatRef = await addDoc(chatsRef, newChatData);
   console.log(`[chatService] Created new chat with ID: ${newChatRef.id}`);
   return newChatRef.id;
 }
-
