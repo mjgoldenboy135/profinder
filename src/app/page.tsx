@@ -1,10 +1,16 @@
+
+"use client";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, UserCircle } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useAuthContext } from "@/contexts/AuthContext"; // Import AuthContext
 
 export default function HomePage() {
+  const { currentUser } = useAuthContext(); // Get current user
+
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center">
       <Image 
@@ -24,16 +30,26 @@ export default function HomePage() {
         Share your journey, find collaborators, and grow together.
       </p>
       <div className="space-x-4">
-        <Button size="lg" asChild>
-          <Link href="/signup">
-            Get Started <ArrowRight className="ml-2 h-5 w-5" />
-          </Link>
-        </Button>
-        <Button variant="outline" size="lg" asChild>
-          <Link href="/login">
-            Login
-          </Link>
-        </Button>
+        {!currentUser ? (
+          <>
+            <Button size="lg" asChild>
+              <Link href="/signup">
+                Get Started <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
+            </Button>
+            <Button variant="outline" size="lg" asChild>
+              <Link href="/login">
+                Login
+              </Link>
+            </Button>
+          </>
+        ) : (
+          <Button size="lg" asChild>
+            <Link href="/profile">
+              Go to Your Profile <UserCircle className="ml-2 h-5 w-5" />
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full">
