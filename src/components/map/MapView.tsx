@@ -5,10 +5,9 @@ import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Link from "next/link";
-import { Button } from "../ui/button";
 import { useState, useEffect } from "react";
-import { getOnlineUsersWithLocation } from "@/services/userService";
+import { db } from "@/lib/firebase"; // Import Firestore
+import { collection, query, where, onSnapshot, type Unsubscribe, type DocumentData } from "firebase/firestore"; // Import onSnapshot
 import { MapPin as MapPinIcon, Loader2 } from "lucide-react"; 
 import { useRouter } from 'next/navigation';
 
@@ -16,8 +15,7 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
 const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId.trim() : undefined;
 
-// Log for debugging
-if (typeof window !== 'undefined') { // Ensure this only runs on the client
+if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
   console.log('[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID);
   console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
@@ -30,26 +28,42 @@ export default function MapView() {
   const router = useRouter();
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      try {
-        const users = await getOnlineUsersWithLocation();
-        setOnlineUsers(users);
-      } catch (error) {
-        console.error("Error fetching online users with location:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    if (API_KEY) { // Only fetch users if API key is present
-      fetchUsers();
-    } else {
-      setIsLoading(false); // No API key, so not loading users
+    if (!API_KEY) {
+      setIsLoading(false);
+      return;
     }
-  }, []);
+
+    setIsLoading(true);
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("isOnline", "==", true));
+
+    const unsubscribe: Unsubscribe = onSnapshot(q, (querySnapshot) => {
+      const fetchedUsers: User[] = [];
+      querySnapshot.forEach((doc) => {
+        const userData = { id: doc.id, ...doc.data() } as User;
+        // Ensure user has valid location data to be displayed
+        if (userData.location && userData.location.lat != null && userData.location.lng != null) {
+          fetchedUsers.push(userData);
+        }
+      });
+      setOnlineUsers(fetchedUsers);
+      setIsLoading(false);
+      console.log("[MapView] Fetched real-time users:", fetchedUsers.length);
+    }, (error) => {
+      console.error("Error fetching real-time online users:", error);
+      setIsLoading(false);
+      // Optionally, show a toast or error message to the user
+    });
+
+    // Cleanup listener on component unmount
+    return () => unsubscribe();
+  }, []); // Empty dependency array means this effect runs once on mount and cleans up on unmount
 
   const defaultCenter = { lat: 37.7749, lng: -122.4194 }; 
-  const mapCenter = onlineUsers.length > 0 && onlineUsers[0].location ? onlineUsers[0].location : defaultCenter;
+  // Dynamically set map center based on users or default if no users
+  const mapCenter = onlineUsers.length > 0 && onlineUsers[0].location 
+                    ? { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng } 
+                    : defaultCenter;
 
   if (!API_KEY) {
     return (
@@ -79,13 +93,13 @@ export default function MapView() {
         {isLoading ? (
           <div className="h-[600px] w-full rounded-md border flex flex-col items-center justify-center bg-muted">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Loading map and users...</p>
+            <p className="text-muted-foreground">Loading map and live user data...</p>
           </div>
         ) : (
           <div className="h-[600px] w-full rounded-md overflow-hidden border">
             <APIProvider apiKey={API_KEY}>
               <Map 
-                defaultCenter={mapCenter} 
+                center={mapCenter} // Use dynamic center
                 defaultZoom={9} 
                 mapId={MAP_ID} 
                 gestureHandling="greedy" 
@@ -94,21 +108,20 @@ export default function MapView() {
                 streetViewControl={false}
               >
                 {onlineUsers.map(user => (
-                  user.location && user.location.lat !== undefined && user.location.lng !== undefined && ( 
-                    <AdvancedMarker
-                      key={user.id}
-                      position={{ lat: user.location.lat, lng: user.location.lng }}
-                      title={user.fullName}
-                      onClick={() => router.push(`/users/${user.id}`)}
-                    >
-                      <div className="p-1 bg-background rounded-full shadow-lg transform transition-transform hover:scale-110 cursor-pointer">
-                          <Avatar className="h-10 w-10 border-2 border-primary">
-                            <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
-                            <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
-                          </Avatar>
-                      </div>
-                    </AdvancedMarker>
-                  )
+                  // user.location should already be confirmed valid by the onSnapshot logic
+                  <AdvancedMarker
+                    key={user.id} // Important: Key should be stable
+                    position={{ lat: user.location!.lat, lng: user.location!.lng }}
+                    title={user.fullName}
+                    onClick={() => router.push(`/users/${user.id}`)}
+                  >
+                    <div className="p-1 bg-background rounded-full shadow-lg transform transition-transform hover:scale-110 cursor-pointer">
+                        <Avatar className="h-10 w-10 border-2 border-primary">
+                          <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
+                          <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
+                        </Avatar>
+                    </div>
+                  </AdvancedMarker>
                 ))}
               </Map>
             </APIProvider>
@@ -121,3 +134,4 @@ export default function MapView() {
     </Card>
   );
 }
+
