@@ -38,14 +38,14 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     console.error("getUserChats called with no userId");
     return [];
   }
-  console.log("[chatService] getUserChats called for userId:", userId);
+  console.log("[chatService] getUserChats called for userId (client-side):", userId);
   const chatsRef = collection(db, CHATS_COLLECTION);
   // Query chats where the participantIds array contains the userId.
   // Temporarily removing orderBy to diagnose permission issue. Sorting will be done client-side.
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains', userId)
-    // orderBy('updatedAt', 'desc') // Temporarily removed
+    // orderBy('updatedAt', 'desc') // Re-add this if the basic query works, and create the composite index.
   );
 
   try {
@@ -55,7 +55,8 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
       chats.push({ id: doc.id, ...doc.data() } as Chat);
     });
 
-    // Client-side sorting
+    // Client-side sorting as Firestore's orderBy was temporarily removed.
+    // Re-enable server-side orderBy and remove this client sort once indexing issue is resolved.
     chats.sort((a, b) => {
       const timeA = a.updatedAt?.toMillis ? a.updatedAt.toMillis() : (typeof a.updatedAt === 'number' ? a.updatedAt : 0);
       const timeB = b.updatedAt?.toMillis ? b.updatedAt.toMillis() : (typeof b.updatedAt === 'number' ? b.updatedAt : 0);
@@ -68,27 +69,42 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
     if (error instanceof Error && 'code' in error) {
       const firebaseError = error as { code: string; message: string };
-      console.error("[chatService] Firebase error code:", firebaseError.code);
-      console.error("[chatService] Firebase error message (IMPORTANT - CHECK THIS FOR INDEX LINKS OR DETAILS):", firebaseError.message);
       
-      // Check if the error message contains information about a missing index
+      // Log the raw Firebase error message FIRST and very prominently
+      console.error(
+        "%c[chatService] === CRITICAL FIREBASE ERROR MESSAGE START ===",
+        "color: red; font-weight: bold; font-size: 1.2em; border: 1px solid red; padding: 2px;"
+      );
+      console.error(
+        "%c" + firebaseError.message,
+        "color: red; font-weight: bold; font-size: 1.1em;"
+      );
+      console.error(
+        "%c[chatService] === CRITICAL FIREBASE ERROR MESSAGE END === (LOOK FOR AN INDEX CREATION URL IN THE MESSAGE ABOVE)",
+        "color: red; font-weight: bold; font-size: 1.2em; border: 1px solid red; padding: 2px;"
+      );
+      
+      console.error("[chatService] Firebase error code:", firebaseError.code); // Log code after detailed message
+
       if (firebaseError.message && (firebaseError.message.includes('requires an index') || firebaseError.message.includes('FIRESTORE_WARNING: Auto-generating an index'))) {
         console.warn(
-            "%c[chatService] MISSING FIRESTORE INDEX DETECTED BY ERROR MESSAGE: " +
-            "The Firestore query in `getUserChats` likely requires a composite index. " +
-            "The error message from Firebase (logged above or directly in the console) " +
+            "%c[chatService] POTENTIAL MISSING FIRESTORE INDEX: " +
+            "The Firestore query in `getUserChats` might require a composite index. " +
+            "The error message from Firebase (logged above in RED) " +
             "SHOULD PROVIDE A DIRECT LINK to create it. Please find this link in your " +
             "browser's developer console and create the index. The query was attempting to " +
-            "filter by 'participantIds' (array-contains) AND order by 'updatedAt' (descending). " +
-            "If the link is not present, you may need to manually create a composite index in the Firebase console " +
-            "on the 'chats' collection with 'participantIds' (Array) and 'updatedAt' (Descending).",
+            "filter by 'participantIds' (array-contains). If you re-added 'orderBy(\"updatedAt\")' this is even more likely.",
             "color: orange; font-weight: bold; font-size: 1.1em;"
         );
       } else if (firebaseError.code === 'permission-denied') {
          console.error(
-            "%c[chatService] PERMISSION DENIED: This error persists. If a missing index was the cause, removing orderBy might temporarily resolve this, " +
-            "BUT THE REAL FIX IS TO CREATE THE INDEX. If this still fails, double-check your Firestore security rules for the 'chats' collection in the 'profind' database. " +
-            "Ensure `request.auth.uid` is correctly evaluated and present in `resource.data.participantIds` for the chats being queried.",
+            "%c[chatService] PERMISSION DENIED & NO INDEX LINK IN MESSAGE: " +
+            "The issue is likely with your Firestore security rules for the 'chats' collection " +
+            "in the 'profind' database, or the data in `participantIds` doesn't match `request.auth.uid`. " +
+            "Verify that `request.auth.uid` (which should be '" + userId + "') " +
+            "is indeed present in the `participantIds` array for the chat documents this user should access. " +
+            "Also, ensure your rules are correctly deployed in the Firebase Console and there are no typos. " +
+            "Current relevant rule: `allow read: if request.auth != null && request.auth.uid in resource.data.participantIds;`",
             "color: red; font-weight: bold; font-size: 1.1em;"
         );
       }
