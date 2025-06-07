@@ -41,8 +41,8 @@ const profileSchema = z.object({
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(),
   phoneNumber: z.string().optional(),
-  locationAddress: z.string().optional(), // User-settable display address
-  isOnline: z.boolean().optional().default(false), // Controls live tracking and map visibility
+  locationAddress: z.string().optional(), 
+  isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
   bio: z.string().optional(),
 });
@@ -86,7 +86,7 @@ export default function ProfileForm() {
       const initialProfilePictureUrl = authUser.photoURL || firestoreProfile?.profilePictureUrl || "";
       const initialData: ProfileFormValues = {
         ...defaultFormValues,
-        ...(firestoreProfile || {}), // Spread firestore profile first
+        ...(firestoreProfile || {}),
         fullName: authUser.displayName || firestoreProfile?.fullName || "",
         email: authUser.email || firestoreProfile?.email || "",
         profilePictureUrl: initialProfilePictureUrl,
@@ -96,8 +96,8 @@ export default function ProfileForm() {
         yearsOfExperience: firestoreProfile?.yearsOfExperience || 0,
         linkedinProfileUrl: firestoreProfile?.linkedinProfileUrl || "",
         phoneNumber: firestoreProfile?.phoneNumber || "",
-        locationAddress: firestoreProfile?.location?.address || "", // Only address from profile
-        isOnline: firestoreProfile?.isOnline || false, // isOnline from profile
+        locationAddress: firestoreProfile?.location?.address || "",
+        isOnline: firestoreProfile?.isOnline || false,
         showContact: firestoreProfile?.showContact || false,
         bio: firestoreProfile?.bio || "",
       };
@@ -115,7 +115,7 @@ export default function ProfileForm() {
         })
         .catch(error => {
           console.error("[ProfileForm useEffect] Error fetching profile from Firestore:", error);
-          resetFormWithProfileData(null); // Reset with authUser data only
+          resetFormWithProfileData(null); 
           toast({ title: "Error", description: "Could not load full profile. Using basic info.", variant: "destructive" });
         })
         .finally(() => {
@@ -130,62 +130,90 @@ export default function ProfileForm() {
 
 
   useEffect(() => {
-    if (!authUser || isFetchingProfile || !form.formState.isDirty || form.formState.dirtyFields.isOnline === undefined) {
-      // Only proceed if authUser exists, profile is loaded, and the isOnline field was actually changed by the user.
-      // This prevents running on initial load unless isOnline was explicitly toggled.
+    if (!authUser || isFetchingProfile) {
       return;
     }
+    // Check if isOnline was explicitly changed by user interaction, not just on form load.
+    // form.formState.dirtyFields.isOnline ensures this runs only when user toggles the switch.
+    if (form.formState.dirtyFields.isOnline === undefined && !form.formState.isSubmitted) {
+        return;
+    }
+
 
     const manageLiveLocation = async (enable: boolean) => {
+      const currentAddress = form.getValues("locationAddress") || "";
+      console.log(`[ProfileForm Tracking] manageLiveLocation called with enable: ${enable}, user: ${authUser.uid}`);
+
       if (enable) {
-        setIsLocationPermissionDenied(false); // Reset permission denied state
+        setIsLocationPermissionDenied(false);
         if (!navigator.geolocation) {
           toast({ title: "Geolocation Not Supported", description: "Live location tracking is not available on your browser.", variant: "destructive" });
-          form.setValue("isOnline", false); // Revert switch
+          form.setValue("isOnline", false, { shouldDirty: false }); // Revert switch
           await updateUserProfile(authUser.uid, { isOnline: false });
           return;
         }
 
-        // Attempt to get current position first to check permissions and get initial fix
+        console.log("[ProfileForm Tracking] Attempting to get current position...");
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             const { latitude, longitude } = position.coords;
-            await updateUserProfile(authUser.uid, {
-              isOnline: true,
-              location: { lat: latitude, lng: longitude, address: form.getValues("locationAddress") || "" },
-            });
-            toast({ title: "You are now Online!", description: "Your location is being shared on the map." });
+            console.log(`[ProfileForm Tracking] getCurrentPosition SUCCESS: Lat: ${latitude}, Lng: ${longitude}`);
+            const locationData = { lat: latitude, lng: longitude, address: currentAddress };
+            try {
+                await updateUserProfile(authUser.uid, { isOnline: true, location: locationData });
+                toast({ title: "You are now Online!", description: "Your location is being shared." });
+                console.log("[ProfileForm Tracking] Firestore updated: isOnline: true, location:", locationData);
+            } catch (dbError) {
+                console.error("[ProfileForm Tracking] Error updating Firestore after getCurrentPosition:", dbError);
+                toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
+                form.setValue("isOnline", false, { shouldDirty: false }); // Revert on error
+                return; // Don't start watch if initial save fails
+            }
 
-            // If successful, start watching
             if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
+            console.log("[ProfileForm Tracking] Starting watchPosition...");
             locationWatchId.current = navigator.geolocation.watchPosition(
               async (pos) => {
+                const newLat = pos.coords.latitude;
+                const newLng = pos.coords.longitude;
+                console.log(`[ProfileForm Tracking] watchPosition UPDATE: Lat: ${newLat}, Lng: ${newLng}`);
+                const newLocationData = { lat: newLat, lng: newLng, address: form.getValues("locationAddress") || "" };
                 try {
-                  await updateUserProfile(authUser.uid, {
-                    location: { lat: pos.coords.latitude, lng: pos.coords.longitude, address: form.getValues("locationAddress") || "" },
-                    // isOnline remains true
-                  });
-                } catch (watchError) {
-                  console.error("[ProfileForm Tracking] Error updating live location in Firestore:", watchError);
+                  await updateUserProfile(authUser.uid, { location: newLocationData });
+                  console.log("[ProfileForm Tracking] Firestore updated via watchPosition:", newLocationData);
+                } catch (watchDbError) {
+                  console.error("[ProfileForm Tracking] Error updating Firestore via watchPosition:", watchDbError);
+                  // Potentially inform user if watch updates fail consistently
                 }
               },
-              (watchErr) => { // Error callback for watchPosition
-                console.error("[ProfileForm Tracking] Error watching position:", watchErr);
-                // Don't repeatedly toast, but log. Consider if user should be taken offline if watch fails.
+              (watchErr) => {
+                console.error("[ProfileForm Tracking] Error during watchPosition:", watchErr);
+                toast({ title: "Location Tracking Error", description: `Could not update live location: ${watchErr.message}`, variant: "destructive" });
+                // Optionally stop tracking if watch fails consistently
+                // if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
+                // form.setValue("isOnline", false); 
+                // updateUserProfile(authUser.uid, { isOnline: false });
               },
               { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
             );
           },
-          async (error) => { // Error callback for getCurrentPosition
-            console.error("[ProfileForm Tracking] Error getting current position:", error);
+          async (error) => {
+            console.error("[ProfileForm Tracking] Error in getCurrentPosition:", error);
             let message = "Could not get your location to go online.";
             if (error.code === error.PERMISSION_DENIED) {
-              message = "Location permission denied. Cannot go online on the map.";
+              message = "Location permission denied. Please enable it in your browser settings to appear on the map.";
               setIsLocationPermissionDenied(true);
+            } else {
+              message = `Could not get location: ${error.message}. Please try again.`;
             }
             toast({ title: "Location Error", description: message, variant: "destructive" });
-            form.setValue("isOnline", false); // Revert switch in UI
-            await updateUserProfile(authUser.uid, { isOnline: false }); // Revert in DB
+            form.setValue("isOnline", false, { shouldDirty: false }); // Revert switch
+            try {
+                await updateUserProfile(authUser.uid, { isOnline: false });
+                 console.log("[ProfileForm Tracking] Firestore updated: isOnline: false due to getCurrentPosition error.");
+            } catch (dbError) {
+                console.error("[ProfileForm Tracking] Error reverting isOnline status in Firestore:", dbError);
+            }
           }
         );
       } else { // Disabling: isOnline is false
@@ -194,14 +222,24 @@ export default function ProfileForm() {
           locationWatchId.current = null;
           console.log("[ProfileForm Tracking] Stopped location watch.");
         }
-        await updateUserProfile(authUser.uid, { isOnline: false });
-        toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
+        try {
+            await updateUserProfile(authUser.uid, { isOnline: false });
+            toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
+            console.log("[ProfileForm Tracking] Firestore updated: isOnline: false.");
+        } catch (dbError) {
+            console.error("[ProfileForm Tracking] Error setting user offline in Firestore:", dbError);
+            toast({ title: "Database Error", description: "Could not update offline status.", variant: "destructive" });
+        }
       }
     };
 
-    manageLiveLocation(watchedIsOnline);
+    // Only call manageLiveLocation if the 'isOnline' field was actually changed by the user
+    // or if the form was submitted (though isOnline is more of a live toggle).
+    if (form.formState.dirtyFields.isOnline || (form.formState.isSubmitted && form.getFieldState("isOnline").isDirty)) {
+         manageLiveLocation(watchedIsOnline);
+    }
 
-    // Cleanup function for the useEffect
+
     return () => {
       if (locationWatchId.current !== null) {
         navigator.geolocation.clearWatch(locationWatchId.current);
@@ -210,8 +248,9 @@ export default function ProfileForm() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, watchedIsOnline, isFetchingProfile, form.formState.isDirty, form.formState.dirtyFields.isOnline, toast, form]);
-
+  }, [authUser, watchedIsOnline, isFetchingProfile, toast, form]);
+  // Removed form.formState.dirtyFields.isOnline from deps to avoid potential loop if not careful with setValue
+  // It's checked inside the effect logic now. Added `form` to deps.
 
   const handleProfilePictureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -222,7 +261,7 @@ export default function ProfileForm() {
       };
       reader.readAsDataURL(file);
       form.setValue("profilePicture", event.target.files);
-      form.setValue("profilePictureUrl", ""); // Clear URL if new file is selected
+      form.setValue("profilePictureUrl", ""); 
     } else {
       const existingUrl = form.getValues("profilePictureUrl") || authUser?.photoURL;
       setPreviewImage(existingUrl || null);
@@ -235,10 +274,11 @@ export default function ProfileForm() {
       toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
       return;
     }
+    console.log("[ProfileForm onSubmit] Saving profile with values:", values);
 
-    // isOnline and live location are handled by the useEffect.
-    // We only save other profile details here.
-    let { profilePicture, profilePictureUrl, isOnline: formIsOnlineValue, locationAddress, ...dataForAuthAndFirestore } = values;
+    // isOnline and live lat/lng are handled by the useEffect.
+    // This onSubmit saves other profile details.
+    const { profilePicture, profilePictureUrl, isOnline: formIsOnlineValue, locationAddress, ...dataForAuthAndFirestore } = values;
     let newAuthPhotoURL = profilePictureUrl || authUser.photoURL || "";
     
     setIsUploadingPicture(true);
@@ -254,23 +294,9 @@ export default function ProfileForm() {
         return;
       }
     } else if (previewImage === null && (authUser.photoURL || profilePictureUrl)) {
-      // If preview is null (user removed picture) and there was an existing URL.
       newAuthPhotoURL = "";
     }
     setIsUploadingPicture(false);
-
-    // Location data for general profile display (address)
-    // The live lat/lng for map is handled by the useEffect for isOnline switch
-    const profileLocationData: Partial<User['location']> = {
-        address: locationAddress || "",
-    };
-    // Preserve existing lat/lng if they exist from live tracking unless explicitly cleared
-    const existingProfile = await getUserProfile(authUser.uid);
-    if (existingProfile?.location?.lat && existingProfile?.location?.lng) {
-        profileLocationData.lat = existingProfile.location.lat;
-        profileLocationData.lng = existingProfile.location.lng;
-    }
-
 
     try {
       const authUpdates: { displayName?: string; photoURL?: string | null } = {};
@@ -285,38 +311,38 @@ export default function ProfileForm() {
       if (Object.keys(authUpdates).length > 0) {
         await updateAuthProfile(authUser, authUpdates);
       }
-
-      // Data to save to Firestore:
-      // - isOnline is managed by its own useEffect.
-      // - live lat/lng for map is managed by its own useEffect.
-      // - This onSubmit saves the rest of the profile info.
+      
+      // Prepare Firestore data - preserve live lat/lng if available
+      const existingProfile = await getUserProfile(authUser.uid);
       const finalDataToSaveToFirestore: Partial<User> = {
         ...dataForAuthAndFirestore,
         fullName: values.fullName, 
         profilePictureUrl: newAuthPhotoURL,
-        location: { // Save user-provided address, preserve live lat/lng if any
-            lat: existingProfile?.location?.lat, // Keep existing live lat if available
-            lng: existingProfile?.location?.lng, // Keep existing live lng if available
+        location: { 
+            lat: existingProfile?.location?.lat, 
+            lng: existingProfile?.location?.lng, 
             address: values.locationAddress || ""
         },
-        // isOnline: values.isOnline, // This is handled by the useEffect
+        // isOnline is handled by its own useEffect, don't overwrite from form submit unless intended
+        // isOnline: values.isOnline, 
         showContact: values.showContact,
         bio: values.bio,
       };
       
       await updateUserProfile(authUser.uid, finalDataToSaveToFirestore);
+      console.log("[ProfileForm onSubmit] Profile successfully updated in Firestore with:", finalDataToSaveToFirestore);
 
       toast({
         title: "Profile Updated",
         description: "Your profile information has been saved.",
       });
 
-      // Reset form state properly after successful submission
       const newResetValues = { ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined };
       form.reset(newResetValues, { keepDirtyValues: false, keepValues: false });
       setPreviewImage(newAuthPhotoURL || null);
 
     } catch (error: any) {
+      console.error("[ProfileForm onSubmit] Error updating profile:", error);
       toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
     }
   }
@@ -376,7 +402,7 @@ export default function ProfileForm() {
                     <Button variant="ghost" size="sm" onClick={() => {
                         setPreviewImage(null);
                         form.setValue("profilePicture", undefined);
-                        form.setValue("profilePictureUrl", ""); // Clear the URL as well
+                        form.setValue("profilePictureUrl", ""); 
                     }} disabled={isUploadingPicture || form.formState.isSubmitting}>Remove Picture</Button>
                 )}
             </div>
@@ -502,7 +528,7 @@ export default function ProfileForm() {
                   <FormLabel className="flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> Location Address (Optional)</FormLabel>
                   <FormControl><Input placeholder="e.g., San Francisco, CA (for public display)" {...field} value={field.value ?? ''} /></FormControl>
                     <FormDescription>
-                        A general address for display on your profile. Your precise location for the map is handled by the "Appear Online" switch.
+                        A general address for display on your profile. Your precise map location is handled by the "Appear Online" switch.
                     </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -523,17 +549,14 @@ export default function ProfileForm() {
                           Appear Online &amp; on Map
                         </FormLabel>
                         <FormDescription>
-                          {field.value ? "You are set to appear online. Live location is active." : "You are set to appear offline."}
-                          {field.value && isLocationPermissionDenied && <span className="text-destructive block"> Location permission denied.</span>}
+                          {field.value ? "You are set to appear online. Live location is active if permission granted." : "You are set to appear offline."}
+                          {isLocationPermissionDenied && <span className="text-destructive block"> Location permission denied. Please enable it in browser settings.</span>}
                         </FormDescription>
                       </div>
                       <FormControl>
                         <Switch
                           checked={field.value}
                           onCheckedChange={(checked) => {
-                            // This directly calls react-hook-form's onChange.
-                            // The useEffect watching 'watchedIsOnline' will handle side effects (DB update, location tracking).
-                            // Need to explicitly mark form as dirty if this is the only change.
                             form.setValue("isOnline", checked, { shouldDirty: true });
                           }}
                         />
@@ -572,5 +595,4 @@ export default function ProfileForm() {
     </Card>
   );
 }
-
     
