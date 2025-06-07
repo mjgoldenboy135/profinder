@@ -33,9 +33,16 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
         )}
       </CardHeader>
       <CardContent className="space-y-6">
-        {user.professionalDetails && (
+        {user.bio && ( // Display bio if available
           <div>
             <h3 className="text-lg font-semibold mb-2 font-headline">About Me</h3>
+            <p className="text-foreground/90 whitespace-pre-wrap">{user.bio}</p>
+          </div>
+        )}
+        
+        {user.professionalDetails && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2 font-headline">Professional Details</h3>
             <p className="text-foreground/90 whitespace-pre-wrap">{user.professionalDetails}</p>
           </div>
         )}
@@ -61,7 +68,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           )}
         </div>
 
-        {(user.profilePrivacySettings?.showContact === 'all' || user.profilePrivacySettings?.showContact === undefined /*default to show for mock*/) && user.email && (
+        {user.showContact && user.email && (
           <div>
             <h3 className="text-lg font-semibold mb-2 font-headline">Contact Information</h3>
             <div className="space-y-2">
@@ -84,7 +91,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
             </a>
           </Button>
         )}
-        {user.email && (
+        {user.showContact && user.email && (
            <Button variant="outline" asChild>
             <a href={`mailto:${user.email}`}>
               <Mail className="mr-2 h-5 w-5" /> Email
@@ -92,7 +99,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           </Button>
         )}
         <Button asChild>
-          <Link href={`/messages?chatWith=${user.id}`}> {/* Or /messages/new?userId=${user.id} */}
+          <Link href={`/messages?chatWith=${user.id}`}>
             <MessageSquare className="mr-2 h-5 w-5" /> Message
           </Link>
         </Button>
