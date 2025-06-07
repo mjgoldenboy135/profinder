@@ -9,17 +9,24 @@ import Link from "next/link";
 import { Button } from "../ui/button";
 import { useState, useEffect } from "react";
 import { getOnlineUsersWithLocation } from "@/services/userService";
-import { MapPin as MapPinIcon, Loader2 } from "lucide-react"; // Added Loader2
+import { MapPin as MapPinIcon, Loader2 } from "lucide-react"; 
 import { useRouter } from 'next/navigation';
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
 const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId.trim() : undefined;
 
+// Log for debugging
+if (typeof window !== 'undefined') { // Ensure this only runs on the client
+  console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
+  console.log('[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID);
+  console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
+}
+
 
 export default function MapView() {
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // Added loading state
+  const [isLoading, setIsLoading] = useState(true); 
   const router = useRouter();
 
   useEffect(() => {
@@ -30,17 +37,18 @@ export default function MapView() {
         setOnlineUsers(users);
       } catch (error) {
         console.error("Error fetching online users with location:", error);
-        // Optionally set an error state or show a toast
       } finally {
         setIsLoading(false);
       }
     };
-    fetchUsers();
+    if (API_KEY) { // Only fetch users if API key is present
+      fetchUsers();
+    } else {
+      setIsLoading(false); // No API key, so not loading users
+    }
   }, []);
 
-  const defaultCenter = { lat: 37.7749, lng: -122.4194 }; // San Francisco
-  // Prioritize user's location if available, otherwise first online user, then default
-  // This part would be better if current user's location was passed or fetched
+  const defaultCenter = { lat: 37.7749, lng: -122.4194 }; 
   const mapCenter = onlineUsers.length > 0 && onlineUsers[0].location ? onlineUsers[0].location : defaultCenter;
 
   if (!API_KEY) {
@@ -79,14 +87,14 @@ export default function MapView() {
               <Map 
                 defaultCenter={mapCenter} 
                 defaultZoom={9} 
-                mapId={MAP_ID} // Use the MAP_ID from env, or undefined for default map
+                mapId={MAP_ID} 
                 gestureHandling="greedy" 
                 className="h-full w-full"
                 mapTypeControl={false}
                 streetViewControl={false}
               >
                 {onlineUsers.map(user => (
-                  user.location && user.location.lat !== undefined && user.location.lng !== undefined && ( // Ensure lat/lng are present
+                  user.location && user.location.lat !== undefined && user.location.lng !== undefined && ( 
                     <AdvancedMarker
                       key={user.id}
                       position={{ lat: user.location.lat, lng: user.location.lng }}
@@ -106,11 +114,10 @@ export default function MapView() {
             </APIProvider>
           </div>
         )}
-        {!isLoading && onlineUsers.length === 0 && (
+        {!isLoading && onlineUsers.length === 0 && API_KEY && (
             <p className="text-sm text-muted-foreground mt-4 text-center">No users currently online with location data to display on the map.</p>
         )}
       </CardContent>
     </Card>
   );
 }
-
