@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Globe, Loader2 } from "lucide-react";
+import { Globe, Loader2, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
@@ -41,6 +41,9 @@ const profileSchema = z.object({
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(),
   phoneNumber: z.string().optional(),
+  locationLat: z.coerce.number().min(-90).max(90).optional(),
+  locationLng: z.coerce.number().min(-180).max(180).optional(),
+  locationAddress: z.string().optional(), // Optional address string
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
   bio: z.string().optional(),
@@ -58,6 +61,9 @@ const defaultFormValues: ProfileFormValues = {
   yearsOfExperience: 0,
   linkedinProfileUrl: "",
   phoneNumber: "",
+  locationLat: undefined,
+  locationLng: undefined,
+  locationAddress: "",
   isOnline: false,
   showContact: false,
   bio: "",
@@ -90,37 +96,34 @@ export default function ProfileForm() {
         yearsOfExperience: firestoreProfile?.yearsOfExperience || 0,
         linkedinProfileUrl: firestoreProfile?.linkedinProfileUrl || "",
         phoneNumber: firestoreProfile?.phoneNumber || "",
+        locationLat: firestoreProfile?.location?.lat,
+        locationLng: firestoreProfile?.location?.lng,
+        locationAddress: firestoreProfile?.location?.address || "",
         isOnline: firestoreProfile?.isOnline || false,
         showContact: firestoreProfile?.showContact || false,
         bio: firestoreProfile?.bio || "",
       };
-      console.log("[ProfileForm resetFormWithProfileData] Resetting form with data:", JSON.stringify(initialData, null, 2));
       form.reset(initialData);
       setPreviewImage(initialProfilePictureUrl);
     }
   }, [authUser, form]);
 
   useEffect(() => {
-    console.log("[ProfileForm useEffect] Running effect.", { authLoading, authUserExists: !!authUser, isFetchingProfile });
     if (!authLoading && authUser) {
-      console.log("[ProfileForm useEffect] Auth loaded and user exists. Fetching profile for UID:", authUser.uid);
       setIsFetchingProfile(true);
       getUserProfile(authUser.uid)
         .then(firestoreProfile => {
-          console.log("[ProfileForm useEffect] Successfully fetched Firestore profile:", firestoreProfile ? JSON.stringify(firestoreProfile, null, 2) : null);
           resetFormWithProfileData(firestoreProfile);
         })
         .catch(error => {
           console.error("[ProfileForm useEffect] Error fetching profile from Firestore:", error);
           resetFormWithProfileData(null);
-          toast({ title: "Error", description: "Could not load full profile from database. Using basic info.", variant: "destructive" });
+          toast({ title: "Error", description: "Could not load full profile. Using basic info.", variant: "destructive" });
         })
         .finally(() => {
-          console.log("[ProfileForm useEffect] Firestore fetch attempt finished. Setting isFetchingProfile to false.");
           setIsFetchingProfile(false);
         });
     } else if (!authLoading && !authUser) {
-      console.log("[ProfileForm useEffect] Auth loaded but no user. Resetting form and setting isFetchingProfile to false.");
       form.reset(defaultFormValues);
       setPreviewImage(null);
       setIsFetchingProfile(false);
@@ -146,61 +149,61 @@ export default function ProfileForm() {
   };
 
   async function onSubmit(values: ProfileFormValues) {
-    console.log("[ProfileForm onSubmit] Form submission process initiated with values:", JSON.stringify(values, null, 2));
-
     if (!authUser || !auth) {
       toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
-      console.log("[ProfileForm onSubmit] Aborted: AuthUser or Auth instance is missing.");
       return;
     }
 
-    let { profilePicture, ...dataForFirestore } = values;
+    let { profilePicture, locationLat, locationLng, locationAddress, ...dataForAuthAndFirestore } = values;
     let newAuthPhotoURL = values.profilePictureUrl || authUser.photoURL || "";
 
-    // Handle profile picture upload first
+    setIsUploading(true); // Combined uploading state for picture and overall save
+    console.log("[ProfileForm onSubmit] BEGIN: Overall submission process.");
+    console.log("[ProfileForm onSubmit] Values from form:", JSON.stringify(values, null, 2));
+
+
     if (profilePicture && profilePicture.length > 0) {
       const fileToUpload = profilePicture[0];
-      setIsUploading(true); // Set BEFORE upload
-      console.log("[ProfileForm onSubmit] Starting profile picture upload for file:", fileToUpload.name);
+      console.log("[ProfileForm onSubmit] BEGIN: Profile picture upload for file:", fileToUpload.name);
       try {
-        toast({ title: "Uploading...", description: "Your new profile picture is being uploaded." });
+        toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
         const downloadURL = await uploadProfilePicture(authUser.uid, fileToUpload);
-        console.log("[ProfileForm onSubmit] Profile picture uploaded. Download URL:", downloadURL);
+        console.log("[ProfileForm onSubmit] END: Profile picture uploaded. Download URL:", downloadURL);
         newAuthPhotoURL = downloadURL;
       } catch (uploadError: any) {
-        console.error("[ProfileForm onSubmit] Error uploading profile picture:", uploadError);
+        console.error("[ProfileForm onSubmit] CATCH: Error uploading profile picture:", uploadError);
         toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
-        setIsUploading(false); // Reset on UPLOAD error
-        console.log("[ProfileForm onSubmit] Aborted after upload error.");
-        return; // Exit onSubmit, RHF should set isSubmitting to false
+        setIsUploading(false); 
+        return;
       }
-      setIsUploading(false); // Explicitly set false after successful upload, BEFORE next steps
-      console.log("[ProfileForm onSubmit] Finished profile picture upload section. isUploading is NOW false.");
     } else if (previewImage === null && (authUser.photoURL || values.profilePictureUrl)) {
-      console.log("[ProfileForm onSubmit] Profile picture marked for removal.");
+      console.log("[ProfileForm onSubmit] INFO: Profile picture marked for removal.");
       newAuthPhotoURL = "";
-      // isUploading remains false (its default) or was already reset if an upload just happened.
+    }
+    
+    // Construct location object
+    let locationData: User['location'] | undefined = undefined;
+    if (locationLat !== undefined && locationLng !== undefined) {
+        locationData = {
+            lat: locationLat,
+            lng: locationLng,
+            address: locationAddress || "", 
+        };
     }
 
-
-    console.log(`[ProfileForm onSubmit] State before Auth/Firestore updates: isUploading=${isUploading}`);
-    console.log(`[ProfileForm onSubmit] AuthUser current: photoURL='${authUser.photoURL}', displayName='${authUser.displayName}'`);
-    console.log(`[ProfileForm onSubmit] Form values to be processed: fullName='${values.fullName}', current form profilePictureUrl='${values.profilePictureUrl}'`);
-    console.log(`[ProfileForm onSubmit] Calculated newAuthPhotoURL for update='${newAuthPhotoURL}'`);
+    console.log("[ProfileForm onSubmit] Calculated newAuthPhotoURL for update:", newAuthPhotoURL);
+    console.log("[ProfileForm onSubmit] Calculated locationData for update:", locationData);
 
     try {
-      console.log("[ProfileForm onSubmit] TRY block entered for Auth/Firestore updates.");
-
-      const authUpdates: { displayName?: string; photoURL?: string } = {};
+      console.log("[ProfileForm onSubmit] BEGIN: Auth/Firestore updates.");
+      const authUpdates: { displayName?: string; photoURL?: string | null } = {};
       if (values.fullName !== (authUser.displayName || "")) {
         authUpdates.displayName = values.fullName;
       }
-      // Ensure newAuthPhotoURL is not undefined; Firebase expects string or null for photoURL.
       const photoURLForAuth = newAuthPhotoURL === undefined ? null : newAuthPhotoURL;
-      if (photoURLForAuth !== (authUser.photoURL || null)) { // Compare with null if authUser.photoURL is undefined/null
+      if (photoURLForAuth !== (authUser.photoURL || null)) {
         authUpdates.photoURL = photoURLForAuth;
       }
-
 
       if (Object.keys(authUpdates).length > 0) {
         console.log("[ProfileForm onSubmit] BEGIN: Firebase Auth profile update with:", authUpdates);
@@ -211,9 +214,10 @@ export default function ProfileForm() {
       }
 
       const finalDataToSaveToFirestore: Partial<User> = {
-        ...dataForFirestore,
-        fullName: values.fullName,
-        profilePictureUrl: newAuthPhotoURL, // Save the final URL to Firestore
+        ...dataForAuthAndFirestore,
+        fullName: values.fullName, // Ensure fullName is from values
+        profilePictureUrl: newAuthPhotoURL,
+        location: locationData, // Add location data
       };
       
       console.log("[ProfileForm onSubmit] BEGIN: Firestore profile update for user:", authUser.uid, "with data:", JSON.stringify(finalDataToSaveToFirestore, null, 2));
@@ -225,28 +229,17 @@ export default function ProfileForm() {
         description: "Your profile information has been saved.",
       });
 
-      const newResetValues = { ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined, fullName: values.fullName };
-      console.log("[ProfileForm onSubmit] Resetting form with new values after successful save:", JSON.stringify(newResetValues, null, 2));
+      const newResetValues = { ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined };
       form.reset(newResetValues);
-      console.log("[ProfileForm onSubmit] Setting preview image to after successful save:", newAuthPhotoURL);
       setPreviewImage(newAuthPhotoURL || null);
-      console.log("[ProfileForm onSubmit] TRY block for Auth/Firestore finished successfully.");
+      console.log("[ProfileForm onSubmit] END: Auth/Firestore updates completed successfully.");
 
     } catch (error: any) {
-      console.error("[ProfileForm onSubmit] CATCH block: Error during Auth or Firestore profile update:", error);
-      if (error.name && error.message) {
-        console.error("[ProfileForm onSubmit] Error details - Name:", error.name, "Message:", error.message, "Code:", error.code);
-      }
+      console.error("[ProfileForm onSubmit] CATCH: Error during Auth or Firestore profile update:", error);
       toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
     } finally {
-      console.log("[ProfileForm onSubmit] FINALLY block entered. Current isUploading state:", isUploading);
-      // isUploading should have been set to false after the upload part if an upload was attempted.
-      // This is a final safeguard.
-      if (isUploading) { // If it's somehow still true, reset it.
-          setIsUploading(false);
-          console.log("[ProfileForm onSubmit] FINALLY block: Reset isUploading to false as a safeguard.");
-      }
-      console.log("[ProfileForm onSubmit] Form submission flow logically complete (end of try/catch/finally).");
+      setIsUploading(false);
+      console.log("[ProfileForm onSubmit] FINALLY: Submission process complete. isUploading set to false.");
     }
   }
 
@@ -283,10 +276,10 @@ export default function ProfileForm() {
                  <FormField
                     control={form.control}
                     name="profilePicture"
-                    render={({ field }) => (
+                    render={() => ( // field removed as we handle value via getValues and setValue
                         <FormItem>
                         <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", (isUploading || form.formState.isSubmitting) && "opacity-50 cursor-not-allowed")}>
-                            {(isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {(isUploading && !form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {previewImage ? "Change" : "Upload"} Picture
                         </FormLabel>
                         <FormControl>
@@ -426,6 +419,53 @@ export default function ProfileForm() {
             />
 
             <Card>
+              <CardHeader><CardTitle className="text-lg font-headline flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> Location for Map</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="locationLat"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Latitude</FormLabel>
+                      <FormControl><Input type="number" step="any" placeholder="e.g., 34.0522" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="locationLng"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Longitude</FormLabel>
+                      <FormControl><Input type="number" step="any" placeholder="e.g., -118.2437" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                </div>
+                 <FormField
+                  control={form.control}
+                  name="locationAddress"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location Address (Optional)</FormLabel>
+                      <FormControl><Input placeholder="e.g., San Francisco, CA (for display)" {...field} /></FormControl>
+                       <FormDescription>A general address like city and state for display purposes.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormDescription>
+                    Your precise latitude and longitude are used to place you on the map if you choose to appear online.
+                    The address field is for display purposes only.
+                </FormDescription>
+              </CardContent>
+            </Card>
+
+
+            <Card>
               <CardHeader><CardTitle className="text-lg font-headline">Status & Privacy</CardTitle></CardHeader>
               <CardContent className="space-y-6">
                 <FormField
@@ -440,20 +480,26 @@ export default function ProfileForm() {
                         </FormLabel>
                         <FormDescription>
                           {field.value ? "You are currently set to appear online." : "You are currently set to appear offline."}
+                          {field.value && (!form.getValues("locationLat") || !form.getValues("locationLng")) && <span className="text-destructive block"> Location coordinates are missing.</span>}
                         </FormDescription>
                       </div>
                       <FormControl>
                         <Switch
                           checked={field.value}
                           onCheckedChange={(checked) => {
-                            // Defer toast to avoid flushSync error
-                            setTimeout(() => {
-                              field.onChange(checked); // RHF update
-                              toast({
-                                title: `You are now ${checked ? 'Online' : 'Offline'}`,
-                                description: checked ? 'Your general location may be visible on the map if shared.' : 'You will not be visible on the map.',
-                              });
-                            }, 0);
+                            field.onChange(checked);
+                            if (checked && (!form.getValues("locationLat") || !form.getValues("locationLng"))) {
+                                toast({
+                                    title: "Location Needed",
+                                    description: "To appear on the map, please provide your latitude and longitude.",
+                                    variant: "destructive"
+                                });
+                            } else {
+                                toast({
+                                    title: `You are now ${checked ? 'Online' : 'Offline'}`,
+                                    description: checked ? 'Your profile may be visible on the map if location is set.' : 'You will not be visible on the map.',
+                                });
+                            }
                           }}
                         />
                       </FormControl>
@@ -467,17 +513,12 @@ export default function ProfileForm() {
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                       <div className="space-y-0.5">
                         <FormLabel>Show Contact Information</FormLabel>
-                        <FormDescription>Allow others to see your email on your profile.</FormDescription>
+                        <FormDescription>Allow others to see your email on your public profile.</FormDescription>
                       </div>
                       <FormControl>
                         <Switch
                           checked={field.value}
-                          onCheckedChange={(checked) => {
-                            // Defer RHF update to avoid flushSync
-                            setTimeout(() => {
-                                field.onChange(checked);
-                            }, 0);
-                          }}
+                          onCheckedChange={field.onChange}
                         />
                       </FormControl>
                     </FormItem>
@@ -496,4 +537,3 @@ export default function ProfileForm() {
     </Card>
   );
 }
-    

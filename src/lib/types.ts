@@ -52,10 +52,9 @@ export interface Chat {
   lastMessageTimestamp?: any; // Firestore serverTimestamp or Date
   createdAt: any; // Firestore serverTimestamp or Date
   updatedAt: any; // Firestore serverTimestamp or Date
-  // For querying: A map where keys are user IDs involved in the chat
-  userConversations?: { [key: string]: boolean };
 }
 
 // Placeholder for profile data, useful for forms
 // This might not be directly used if ProfileFormValues is derived from Zod schema based on User type
 export type ProfileFormData = Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'profilePrivacySettings'>;
+
