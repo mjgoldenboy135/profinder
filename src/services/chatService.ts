@@ -13,7 +13,6 @@ import {
   writeBatch,
   arrayUnion,
   type Timestamp,
-  // runTransaction, // Removed as we are reverting the transactional findOrCreateChat
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Chat, Message, ChatParticipantData, User } from '@/lib/types';
@@ -28,8 +27,6 @@ if (!db) {
   );
   throw new Error("Firestore is not initialized.");
 }
-
-// Removed generateCanonicalChatId function
 
 /**
  * Fetches all chats for a given user, ordered by last update.
@@ -46,7 +43,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains', userId),
-    orderBy('updatedAt', 'desc') // Restored orderBy
+    orderBy('updatedAt', 'desc')
   );
 
   try {
@@ -56,7 +53,6 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
       chats.push({ id: doc.id, ...doc.data() } as Chat);
     });
     console.log(`[chatService] Found ${chats.length} chats for userId: ${userId}`);
-    // Client-side sorting removed as orderBy is back in the query
     return chats;
   } catch (error) {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
@@ -80,14 +76,15 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
         importantTextStyle
       );
       
+      // Link from the previous error:
       const indexCreationURL = "https://console.firebase.google.com/v1/r/project/profinder-90fe7/firestore/databases/profind/indexes?create_composite=Cktwcm9qZWN0cy9wcm9maW5kZXItOTBmZTcvZGF0YWJhc2VzL3Byb2ZpbmQvY29sbGVjdGlvbkdyb3Vwcy9jaGF0cy9pbmRleGVzL18QARoSCg5wYXJ0aWNpcGFudElkcxgBGg0KCXVwZGF0ZWRBdBACGgwKCF9fbmFtZV9fEAI";
 
       if (firebaseError.code === 'failed-precondition' && firebaseError.message.includes('requires an index')) {
          console.warn(
             "%c[chatService] REQUIRED FIRESTORE INDEX MISSING: " +
-            "The query needs a composite index. Firebase has provided a direct link to create it. " +
-            "Please COPY AND PASTE the following URL into your browser and create the index: \n" +
-            ` %c${indexCreationURL}`,
+            "The query needs a composite index. Firebase might provide a direct link to create it in the error message. " +
+            "Please check the error message in your browser console for a link like: " +
+            `%c${indexCreationURL}`, // Displaying the known problematic index link
             "color: orange; font-weight: bold; font-size: 1.1em;", indexLinkStyle
         );
       } else if (firebaseError.code === 'permission-denied') {
@@ -180,6 +177,7 @@ export async function sendMessage(
 
 /**
  * Finds an existing chat between two users or creates a new one if none exists.
+ * This version uses 'array-contains' and client-side filtering to avoid 'array-contains-all'.
  * @param currentUserId User ID for the current user.
  * @param otherUserId User ID for the other user.
  * @returns A promise that resolves with the ID of the existing or new chat.
@@ -197,13 +195,13 @@ export async function findOrCreateChat(
   }
 
   const chatsRef = collection(db, CHATS_COLLECTION);
-  // Query for chats that contain *exactly* these two users.
-  // Ensure participantIds are sorted before querying if you store them sorted,
-  // or use a query that handles different orders if they are not stored sorted.
-  // For this query, order doesn't strictly matter for array-contains-all but good practice.
+  // Query for chats where the current user is a participant
   const q = query(
     chatsRef,
-    where('participantIds', 'array-contains-all', [currentUserId, otherUserId])
+    where('participantIds', 'array-contains', currentUserId)
+    // Note: We cannot add orderBy('updatedAt', 'desc') here without a composite index for
+    // participantIds (array-contains) and updatedAt.
+    // This function prioritizes finding ANY chat, not necessarily the most recent if multiple somehow existed.
   );
 
   try {
@@ -212,11 +210,12 @@ export async function findOrCreateChat(
 
     querySnapshot.forEach((docSnap) => {
       const chatData = docSnap.data() as Chat;
-      // Ensure it's a 2-person chat with exactly these participants
-      if (chatData.participantIds.length === 2 &&
-          chatData.participantIds.includes(currentUserId) &&
-          chatData.participantIds.includes(otherUserId)) {
+      // Check if the other user is also in this chat AND it's a 2-person chat
+      if (chatData.participantIds.includes(otherUserId) && chatData.participantIds.length === 2) {
         existingChatId = docSnap.id;
+        // If we find one, we can break, assuming there shouldn't be multiple 1-on-1 chats
+        // between the same two users with this logic.
+        return; 
       }
     });
 
@@ -246,7 +245,7 @@ export async function findOrCreateChat(
       updatedAt: serverTimestamp(),
       lastMessageText: "",
       lastMessageSenderId: "",
-      lastMessageTimestamp: null,
+      lastMessageTimestamp: null, // Explicitly null for new chat
     };
 
     const newChatDocRef = await addDoc(collection(db, CHATS_COLLECTION), newChatData);
@@ -255,6 +254,10 @@ export async function findOrCreateChat(
 
   } catch (error: any) {
     console.error(`[chatService] Error in findOrCreateChat for users ${currentUserId}, ${otherUserId}: ${error.message}`, error);
+    // Log the specific error details for the "array-contains-all" context if it appears
+    if (error.message && error.message.includes("array-contains-all")) {
+        console.error("[chatService] CRITICAL: 'array-contains-all' context error despite attempting to avoid it in findOrCreateChat. Current query uses 'array-contains'.");
+    }
     throw new Error(`Failed to find or create chat: ${error.message || 'Unknown error'}`);
   }
 }
