@@ -12,7 +12,7 @@ import {
   serverTimestamp,
   writeBatch,
   arrayUnion,
-  Timestamp,
+  type Timestamp, // Ensure Timestamp is imported if used for type casting
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Chat, Message, ChatParticipantData, User } from '@/lib/types';
@@ -40,7 +40,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
   }
   console.log("[chatService] getUserChats called for userId:", userId);
   const chatsRef = collection(db, CHATS_COLLECTION);
-  // Query chats where the participantIds array contains the userId.
+  // Query chats where the participantIds array contains the userId, ordered by most recent.
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains', userId),
@@ -62,18 +62,18 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
       console.error("[chatService] Firebase error code:", firebaseError.code);
       console.error("[chatService] Firebase error message (IMPORTANT - CHECK THIS FOR INDEX LINKS OR DETAILS):", firebaseError.message);
       
-      // Check if the error message contains information about a missing index
-      if (firebaseError.message && (firebaseError.message.includes('requires an index') || firebaseError.message.includes('FIRESTORE_WARNING: Auto-generating an index'))) {
-        console.warn(
-            "[chatService] Firestore Missing Index Detected: The query in getUserChats requires a composite index. " +
-            "The `firebaseError.message` above or other Firebase logs in your browser console should provide a direct link to create it. " +
-            "The index would typically be on the 'chats' collection, with fields 'participantIds' (array-contains) and 'updatedAt' (descending)."
+      if (firebaseError.code === 'permission-denied') {
+        console.error(
+            "%c[chatService] PERMISSION DENIED: This often means a COMPOSITE INDEX is MISSING for the query in getUserChats. " +
+            "Carefully check your BROWSER'S DEVELOPER CONSOLE for a direct link from Firebase to create the required index. " +
+            "The index would typically be on the 'chats' collection, with fields 'participantIds' (array-contains) and 'updatedAt' (descending). " +
+            "If no link is present, double-check your Firestore security rules for the 'profind' database and ensure they are correctly deployed and allow this read operation.",
+            "color: red; font-weight: bold; font-size: 1.1em;"
         );
-      } else if (firebaseError.code === 'permission-denied') {
-        console.warn(
-            "[chatService] Permission Denied: This can happen if a required Firestore index is missing (check console for links/messages from Firebase about index creation), " +
-            "or if your Firestore security rules are not correctly configured or deployed for the 'profind' database, " +
-            "or if there are data inconsistencies in the 'chats' collection (e.g., missing 'participantIds' or 'updatedAt' fields in some documents)."
+      } else if (firebaseError.message && (firebaseError.message.includes('requires an index') || firebaseError.message.includes('FIRESTORE_WARNING: Auto-generating an index'))) {
+         console.warn(
+            "[chatService] Firestore Missing Index Detected by message: The query in getUserChats requires a composite index. " +
+            "The `firebaseError.message` above or other Firebase logs in your browser console should provide a direct link to create it. "
         );
       }
     }
@@ -127,7 +127,7 @@ export async function sendMessage(
   const chatRef = doc(db, CHATS_COLLECTION, chatId);
   const messagesRef = collection(db, CHATS_COLLECTION, chatId, MESSAGES_SUBCOLLECTION);
 
-  const newMessageRef = doc(messagesRef);
+  const newMessageRef = doc(messagesRef); // Automatically generates an ID
 
   const messagePayload: Omit<Message, 'id' | 'chatId'> = {
     ...messageData,
@@ -141,8 +141,6 @@ export async function sendMessage(
     lastMessageSenderId: messageData.senderId,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    // Ensure participantIds are updated if they weren't complete, though ideally they are set at chat creation
-    // Using arrayUnion ensures no duplicates and only adds if not present.
     participantIds: arrayUnion(messageData.senderId, messageData.receiverId) 
   });
 
@@ -167,6 +165,7 @@ export async function findOrCreateChat(
   const chatsRef = collection(db, CHATS_COLLECTION);
 
   // Query for chats containing currentUserId and then filter client-side for otherUserId.
+  // This is a common pattern when dealing with 'array-contains' for multiple values.
   const q = query(chatsRef, where('participantIds', 'array-contains', currentUserId));
   const querySnapshot = await getDocs(q);
 
@@ -194,6 +193,8 @@ export async function findOrCreateChat(
     { id: otherUserProfile.id, fullName: otherUserProfile.fullName, profilePictureUrl: otherUserProfile.profilePictureUrl },
   ];
 
+  // Ensure participantIds are sorted to maintain consistency for queries,
+  // though for array-contains, order doesn't strictly matter for individual contains checks.
   const participantIds = [currentUserId, otherUserId].sort();
 
   const newChatData: Omit<Chat, 'id'> = {
@@ -201,9 +202,9 @@ export async function findOrCreateChat(
     participantsData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    lastMessageText: "",
+    lastMessageText: "", // Initialize last message fields
     lastMessageSenderId: "",
-    lastMessageTimestamp: null, // Explicitly setting to null
+    lastMessageTimestamp: null, // Explicitly null for new chats
   };
 
   const newChatRef = await addDoc(chatsRef, newChatData);
