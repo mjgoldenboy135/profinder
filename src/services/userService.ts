@@ -1,7 +1,7 @@
 
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; 
-import { db, storage } from '@/lib/firebase'; 
+import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
 import type { User } from '@/lib/types';
 
 // Explicitly check if db is initialized.
@@ -26,7 +26,7 @@ const USERS_COLLECTION = 'users';
 export async function uploadProfilePicture(userId: string, file: File): Promise<string> {
   const filePath = `profilePictures/${userId}/${file.name}`;
   const fileRef = storageRef(storage, filePath);
-  
+
   await uploadBytes(fileRef, file);
   const downloadURL = await getDownloadURL(fileRef);
   return downloadURL;
@@ -39,10 +39,10 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
  * @param data Initial profile data (e.g., fullName, email).
  */
 export async function createUserProfile(userId: string, data: Partial<Omit<User, 'id'>>): Promise<void> {
-  const userRef = doc(db, USERS_COLLECTION, userId); 
+  const userRef = doc(db, USERS_COLLECTION, userId);
   const profileData: Partial<User> & { id: string; createdAt: any; updatedAt: any } = {
     ...data,
-    id: userId, 
+    id: userId,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -55,7 +55,7 @@ export async function createUserProfile(userId: string, data: Partial<Omit<User,
  * @returns The user's profile data or null if not found.
  */
 export async function getUserProfile(userId: string): Promise<User | null> {
-  const userRef = doc(db, USERS_COLLECTION, userId); 
+  const userRef = doc(db, USERS_COLLECTION, userId);
   const docSnap = await getDoc(userRef);
   if (docSnap.exists()) {
     return { id: docSnap.id, ...docSnap.data() } as User;
@@ -65,16 +65,20 @@ export async function getUserProfile(userId: string): Promise<User | null> {
 }
 
 /**
- * Updates a user profile in Firestore.
+ * Updates or creates a user profile in Firestore.
+ * If the document doesn't exist, it will be created.
+ * If it exists, it will be merged with the new data.
  * @param userId The Firebase Auth user ID.
- * @param data The profile data to update.
+ * @param data The profile data to update or create.
  */
 export async function updateUserProfile(userId: string, data: Partial<User>): Promise<void> {
-  const userRef = doc(db, USERS_COLLECTION, userId); 
-  await updateDoc(userRef, {
+  const userRef = doc(db, USERS_COLLECTION, userId);
+  // Use setDoc with merge: true to create the document if it doesn't exist,
+  // or update/merge if it does.
+  await setDoc(userRef, {
     ...data,
     updatedAt: serverTimestamp(),
-  });
+  }, { merge: true });
 }
 
 /**
@@ -84,14 +88,20 @@ export async function updateUserProfile(userId: string, data: Partial<User>): Pr
 export async function getOnlineUsersWithLocation(): Promise<User[]> {
   const usersRef = collection(db, USERS_COLLECTION);
   // Query for users who are online.
-  const q = query(usersRef, where("isOnline", "==", true));
-  
+  // Ensure the user has a location property and that lat/lng are not null/undefined
+  const q = query(
+    usersRef,
+    where("isOnline", "==", true)
+    // Firebase doesn't support "not-equal" or "existence" checks directly for nested fields
+    // in a way that guarantees the field isn't null.
+    // We fetch users where isOnline is true, then filter client-side for location.
+    // Alternatively, you could add a dedicated queryable field like 'hasLocation: true'.
+  );
+
   const querySnapshot = await getDocs(q);
   const onlineUsers: User[] = [];
   querySnapshot.forEach((doc) => {
     const userData = doc.data() as User;
-    // Ensure the user has a location property before adding them
-    // and that location is not null/undefined
     if (userData.location && userData.location.lat != null && userData.location.lng != null) {
       onlineUsers.push({ id: doc.id, ...userData });
     }
