@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Globe, Loader2, MapPin, LocateFixed } from "lucide-react"; // Added LocateFixed
+import { Globe, Loader2, MapPin, LocateFixed } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
@@ -43,7 +43,7 @@ const profileSchema = z.object({
   phoneNumber: z.string().optional(),
   locationLat: z.coerce.number().min(-90).max(90).optional(),
   locationLng: z.coerce.number().min(-180).max(180).optional(),
-  locationAddress: z.string().optional(), // Optional address string
+  locationAddress: z.string().optional(),
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
   bio: z.string().optional(),
@@ -74,7 +74,7 @@ export default function ProfileForm() {
   const { currentUser: authUser, loading: authLoading } = useAuthContext();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isUploadingPicture, setIsUploadingPicture] = useState(false);
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
 
   const form = useForm<ProfileFormValues>({
@@ -164,8 +164,6 @@ export default function ProfileForm() {
       (position) => {
         form.setValue("locationLat", position.coords.latitude);
         form.setValue("locationLng", position.coords.longitude);
-        // Optionally, try to fetch address here using a geocoding service, or clear address field
-        // form.setValue("locationAddress", "Fetched from GPS"); // Placeholder
         toast({
           title: "Location Fetched",
           description: "Latitude and Longitude updated with your current location.",
@@ -202,8 +200,8 @@ export default function ProfileForm() {
     let newAuthPhotoURL = values.profilePictureUrl || authUser.photoURL || "";
 
     console.log("[ProfileForm onSubmit] BEGIN: Form submission process. Values:", JSON.stringify(values, null, 2));
-    setIsUploading(true); // For the overall save process, including potential picture upload
-
+    
+    setIsUploadingPicture(true);
     if (profilePicture && profilePicture.length > 0) {
       const fileToUpload = profilePicture[0];
       console.log("[ProfileForm onSubmit] BEGIN: Profile picture upload for file:", fileToUpload.name);
@@ -215,17 +213,15 @@ export default function ProfileForm() {
       } catch (uploadError: any) {
         console.error("[ProfileForm onSubmit] CATCH: Error uploading profile picture:", uploadError);
         toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
-        setIsUploading(false);
+        setIsUploadingPicture(false);
         return;
       }
     } else if (previewImage === null && (authUser.photoURL || values.profilePictureUrl)) {
       console.log("[ProfileForm onSubmit] INFO: Profile picture marked for removal.");
       newAuthPhotoURL = "";
     }
-    
-    // setIsUploading(false); // Set to false after picture upload section is done.
+    setIsUploadingPicture(false);
 
-    // Construct location object
     let locationData: User['location'] | undefined = undefined;
     if (locationLat !== undefined && locationLng !== undefined) {
         locationData = {
@@ -283,8 +279,8 @@ export default function ProfileForm() {
       toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
     } finally {
       console.log("[ProfileForm onSubmit] FINALLY block entered.");
-      setIsUploading(false); // Ensure this is reset regardless of outcome
-      console.log("[ProfileForm onSubmit] Form submission flow logically complete. isUploading set to false.");
+      // isUploadingPicture is already set, isSubmitting is handled by react-hook-form
+      console.log("[ProfileForm onSubmit] Form submission flow logically complete.");
     }
   }
 
@@ -321,10 +317,10 @@ export default function ProfileForm() {
                  <FormField
                     control={form.control}
                     name="profilePicture"
-                    render={() => ( // field removed as we handle value via getValues and setValue
+                    render={() => ( 
                         <FormItem>
-                        <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", (isUploading || form.formState.isSubmitting) && "opacity-50 cursor-not-allowed")}>
-                            {(isUploading && !form.formState.isSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", (isUploadingPicture || form.formState.isSubmitting) && "opacity-50 cursor-not-allowed")}>
+                            {isUploadingPicture && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {previewImage ? "Change" : "Upload"} Picture
                         </FormLabel>
                         <FormControl>
@@ -334,7 +330,7 @@ export default function ProfileForm() {
                                 accept="image/*"
                                 className="hidden"
                                 onChange={handleProfilePictureChange}
-                                disabled={isUploading || form.formState.isSubmitting}
+                                disabled={isUploadingPicture || form.formState.isSubmitting}
                             />
                         </FormControl>
                         <FormMessage />
@@ -346,7 +342,7 @@ export default function ProfileForm() {
                         setPreviewImage(null);
                         form.setValue("profilePicture", undefined);
                         form.setValue("profilePictureUrl", "");
-                    }} disabled={isUploading || form.formState.isSubmitting}>Remove Picture</Button>
+                    }} disabled={isUploadingPicture || form.formState.isSubmitting}>Remove Picture</Button>
                 )}
             </div>
 
@@ -356,7 +352,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name</FormLabel>
-                  <FormControl><Input placeholder="Your full name" {...field} /></FormControl>
+                  <FormControl><Input placeholder="Your full name" {...field} value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -378,7 +374,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Bio / Short Summary</FormLabel>
-                  <FormControl><Textarea placeholder="A brief introduction about yourself." {...field} /></FormControl>
+                  <FormControl><Textarea placeholder="A brief introduction about yourself." {...field} value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -389,7 +385,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Profession</FormLabel>
-                  <FormControl><Input placeholder="e.g., Software Engineer, Marketing Manager" {...field} /></FormControl>
+                  <FormControl><Input placeholder="e.g., Software Engineer, Marketing Manager" {...field} value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -400,7 +396,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Education</FormLabel>
-                  <FormControl><Textarea placeholder="e.g., B.Sc. Computer Science from XYZ University (2020)" {...field} /></FormControl>
+                  <FormControl><Textarea placeholder="e.g., B.Sc. Computer Science from XYZ University (2020)" {...field} value={field.value ?? ''} /></FormControl>
                   <FormDescription>Mention your degree, institution, and graduation year.</FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -412,7 +408,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Professional Details / Experience</FormLabel>
-                  <FormControl><Textarea rows={5} placeholder="Describe your skills, work history, achievements, and professional interests." {...field} /></FormControl>
+                  <FormControl><Textarea rows={5} placeholder="Describe your skills, work history, achievements, and professional interests." {...field} value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -423,7 +419,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Years of Experience</FormLabel>
-                   <Select onValueChange={(value) => field.onChange(Number(value))} value={String(field.value || 0)}>
+                   <Select onValueChange={(value) => field.onChange(Number(value))} value={String(field.value ?? 0)}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select years of experience" />
@@ -446,7 +442,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>LinkedIn Profile URL</FormLabel>
-                  <FormControl><Input placeholder="https://linkedin.com/in/yourprofile" {...field} /></FormControl>
+                  <FormControl><Input placeholder="https://linkedin.com/in/yourprofile" {...field} value={field.value ?? ''}/></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -457,7 +453,7 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Phone Number (Optional)</FormLabel>
-                  <FormControl><Input type="tel" placeholder="Your contact phone number" {...field} /></FormControl>
+                  <FormControl><Input type="tel" placeholder="Your contact phone number" {...field} value={field.value ?? ''} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -481,7 +477,19 @@ export default function ProfileForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Latitude</FormLabel>
-                      <FormControl><Input type="number" step="any" placeholder="e.g., 34.0522" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="any" 
+                          placeholder="e.g., 34.0522" 
+                          {...field} 
+                          value={field.value ?? ''} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            field.onChange(val === '' ? undefined : parseFloat(val));
+                          }}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -492,7 +500,19 @@ export default function ProfileForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Longitude</FormLabel>
-                      <FormControl><Input type="number" step="any" placeholder="e.g., -118.2437" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} /></FormControl>
+                      <FormControl>
+                        <Input 
+                          type="number" 
+                          step="any" 
+                          placeholder="e.g., -118.2437" 
+                          {...field} 
+                          value={field.value ?? ''}
+                          onChange={e => {
+                            const val = e.target.value;
+                            field.onChange(val === '' ? undefined : parseFloat(val));
+                          }}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -504,7 +524,7 @@ export default function ProfileForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Location Address (Optional)</FormLabel>
-                      <FormControl><Input placeholder="e.g., San Francisco, CA (for display)" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g., San Francisco, CA (for display)" {...field} value={field.value ?? ''} /></FormControl>
                        <FormDescription>A general address like city and state for display purposes.</FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -580,9 +600,9 @@ export default function ProfileForm() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || authLoading || isFetchingProfile || isUploading || isFetchingLocation}>
-              {(form.formState.isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {form.formState.isSubmitting || isUploading ? "Saving..." : "Save Changes"}
+            <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || authLoading || isFetchingProfile || isUploadingPicture || isFetchingLocation}>
+              {(form.formState.isSubmitting || isUploadingPicture) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {form.formState.isSubmitting || isUploadingPicture ? "Saving..." : "Save Changes"}
             </Button>
           </form>
         </Form>
