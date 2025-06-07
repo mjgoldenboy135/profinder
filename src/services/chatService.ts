@@ -46,7 +46,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains', userId),
-    orderBy('updatedAt', 'desc')
+    orderBy('updatedAt', 'desc') // Restored orderBy
   );
 
   try {
@@ -56,49 +56,55 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
       chats.push({ id: doc.id, ...doc.data() } as Chat);
     });
     console.log(`[chatService] Found ${chats.length} chats for userId: ${userId}`);
+    // Client-side sorting removed as orderBy is back in the query
     return chats;
   } catch (error) {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
     if (error instanceof Error && 'code' in error) {
       const firebaseError = error as { code: string; message: string };
       
+      const criticalErrorStyle = "color: red; font-weight: bold; font-size: 1.2em; border: 2px solid red; padding: 5px; display: block;";
+      const importantTextStyle = "color: red; font-weight: bold; font-size: 1.1em;";
+      const indexLinkStyle = "color: blue; font-weight: bold; font-size: 1.1em; text-decoration: underline;";
+
       console.error(
         "%c[chatService] === CRITICAL FIREBASE ERROR MESSAGE START ===",
-        "color: red; font-weight: bold; font-size: 1.2em; border: 2px solid red; padding: 5px; display: block;"
+        criticalErrorStyle
       );
       console.error(
         "%c[chatService] Firebase error code: " + firebaseError.code,
-        "color: red; font-weight: bold; font-size: 1.1em;"
+        importantTextStyle
       );
       console.error(
         "%c[chatService] Firebase error message (IMPORTANT - CHECK THIS FOR INDEX LINKS OR DETAILS):\n" + firebaseError.message,
-        "color: red; font-weight: bold; font-size: 1.1em;"
-      );
-      console.error(
-        "%c[chatService] === CRITICAL FIREBASE ERROR MESSAGE END ===",
-        "color: red; font-weight: bold; font-size: 1.2em; border: 2px solid red; padding: 5px; display: block;"
+        importantTextStyle
       );
       
-      if (firebaseError.message && (firebaseError.message.toLowerCase().includes('index') || firebaseError.message.toLowerCase().includes('create_index='))) {
-        console.warn(
-            "%c[chatService] POTENTIAL MISSING FIRESTORE INDEX DETECTED IN ERROR MESSAGE: " +
-            "The Firebase error message above (in RED) likely contains a URL to create a required Firestore index. " +
-            "Please copy that URL, paste it into your browser, and create the index. " +
-            "The query was: participantIds array-contains " + userId + " and orderBy updatedAt desc.",
-            "color: orange; font-weight: bold; font-size: 1.1em;"
+      const indexCreationURL = "https://console.firebase.google.com/v1/r/project/profinder-90fe7/firestore/databases/profind/indexes?create_composite=Cktwcm9qZWN0cy9wcm9maW5kZXItOTBmZTcvZGF0YWJhc2VzL3Byb2ZpbmQvY29sbGVjdGlvbkdyb3Vwcy9jaGF0cy9pbmRleGVzL18QARoSCg5wYXJ0aWNpcGFudElkcxgBGg0KCXVwZGF0ZWRBdBACGgwKCF9fbmFtZV9fEAI";
+
+      if (firebaseError.code === 'failed-precondition' && firebaseError.message.includes('requires an index')) {
+         console.warn(
+            "%c[chatService] REQUIRED FIRESTORE INDEX MISSING: " +
+            "The query needs a composite index. Firebase has provided a direct link to create it. " +
+            "Please COPY AND PASTE the following URL into your browser and create the index: \n" +
+            ` %c${indexCreationURL}`,
+            "color: orange; font-weight: bold; font-size: 1.1em;", indexLinkStyle
         );
       } else if (firebaseError.code === 'permission-denied') {
          console.error(
-            "%c[chatService] PERMISSION DENIED & NO CLEAR INDEX LINK IN MESSAGE: " +
+            "%c[chatService] PERMISSION DENIED: " +
             "This means your Firestore security rules are blocking the read operation. " +
             "1. Verify your deployed rules for the 'chats' collection in the 'profind' database. " +
             "   The rule 'allow read: if request.auth != null && request.auth.uid in resource.data.participantIds;' must be active. " +
             "2. Verify the data: For the user ID '" + userId + "', ensure this ID actually exists in the 'participantIds' array within the chat documents they should access. " +
-            "3. Check for typos in rules or field names ('participantIds'). " +
-            "4. Consider using the Firestore Rules Playground in the Firebase Console to simulate this exact read operation.",
-            "color: red; font-weight: bold; font-size: 1.1em;"
+            "3. Check for typos in rules or field names ('participantIds').",
+            importantTextStyle
         );
       }
+      console.error(
+        "%c[chatService] === CRITICAL FIREBASE ERROR MESSAGE END ===",
+        criticalErrorStyle
+      );
     }
     throw error;
   }
@@ -192,6 +198,9 @@ export async function findOrCreateChat(
 
   const chatsRef = collection(db, CHATS_COLLECTION);
   // Query for chats that contain *exactly* these two users.
+  // Ensure participantIds are sorted before querying if you store them sorted,
+  // or use a query that handles different orders if they are not stored sorted.
+  // For this query, order doesn't strictly matter for array-contains-all but good practice.
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains-all', [currentUserId, otherUserId])
@@ -208,7 +217,6 @@ export async function findOrCreateChat(
           chatData.participantIds.includes(currentUserId) &&
           chatData.participantIds.includes(otherUserId)) {
         existingChatId = docSnap.id;
-        // Assuming only one such chat should exist for now.
       }
     });
 
@@ -217,7 +225,6 @@ export async function findOrCreateChat(
       return existingChatId;
     }
 
-    // If no existing chat, create a new one
     console.log(`[chatService] No existing chat found. Creating new chat for users: ${currentUserId}, ${otherUserId}`);
     const currentUserProfile = await getUserProfile(currentUserId);
     const otherUserProfile = await getUserProfile(otherUserId);
@@ -233,7 +240,7 @@ export async function findOrCreateChat(
     ];
 
     const newChatData: Omit<Chat, 'id'> = {
-      participantIds: [currentUserId, otherUserId].sort(), // Store sorted for consistency, though query handles unsorted
+      participantIds: [currentUserId, otherUserId].sort(), // Store sorted for consistency
       participantsData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
