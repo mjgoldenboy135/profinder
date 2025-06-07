@@ -44,7 +44,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains', userId),
-    orderBy('updatedAt', 'desc') // Re-enabled orderBy
+    orderBy('updatedAt', 'desc')
   );
 
   try {
@@ -54,20 +54,26 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
       chats.push({ id: doc.id, ...doc.data() } as Chat);
     });
     console.log(`[chatService] Found ${chats.length} chats for userId: ${userId}`);
-    // Client-side sort removed as Firestore will now handle it
     return chats;
   } catch (error) {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
     if (error instanceof Error && 'code' in error) {
       const firebaseError = error as { code: string; message: string };
       console.error("[chatService] Firebase error code:", firebaseError.code);
-      console.error("[chatService] Firebase error message:", firebaseError.message);
+      console.error("[chatService] Firebase error message (IMPORTANT - CHECK THIS FOR INDEX LINKS OR DETAILS):", firebaseError.message);
+      
       // Check if the error message contains information about a missing index
-      if (firebaseError.message && firebaseError.message.includes('requires an index')) {
+      if (firebaseError.message && (firebaseError.message.includes('requires an index') || firebaseError.message.includes('FIRESTORE_WARNING: Auto-generating an index'))) {
         console.warn(
-            "[chatService] Firestore Missing Index: The query in getUserChats likely requires a composite index. " +
-            "Please check the Firebase console for a link to create it. The index would be on the 'chats' collection, " +
-            "with fields 'participantIds' (array-contains) and 'updatedAt' (descending)."
+            "[chatService] Firestore Missing Index Detected: The query in getUserChats requires a composite index. " +
+            "The `firebaseError.message` above or other Firebase logs in your browser console should provide a direct link to create it. " +
+            "The index would typically be on the 'chats' collection, with fields 'participantIds' (array-contains) and 'updatedAt' (descending)."
+        );
+      } else if (firebaseError.code === 'permission-denied') {
+        console.warn(
+            "[chatService] Permission Denied: This can happen if a required Firestore index is missing (check console for links/messages from Firebase about index creation), " +
+            "or if your Firestore security rules are not correctly configured or deployed for the 'profind' database, " +
+            "or if there are data inconsistencies in the 'chats' collection (e.g., missing 'participantIds' or 'updatedAt' fields in some documents)."
         );
       }
     }
@@ -135,7 +141,9 @@ export async function sendMessage(
     lastMessageSenderId: messageData.senderId,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    participantIds: arrayUnion(messageData.senderId, messageData.receiverId)
+    // Ensure participantIds are updated if they weren't complete, though ideally they are set at chat creation
+    // Using arrayUnion ensures no duplicates and only adds if not present.
+    participantIds: arrayUnion(messageData.senderId, messageData.receiverId) 
   });
 
   await batch.commit();
@@ -158,8 +166,7 @@ export async function findOrCreateChat(
   console.log(`[chatService] findOrCreateChat called for users: ${currentUserId}, ${otherUserId}`);
   const chatsRef = collection(db, CHATS_COLLECTION);
 
-  // Firestore doesn't support two array-contains clauses on the same field in a single query.
-  // So, we query for chats containing currentUserId and then filter client-side.
+  // Query for chats containing currentUserId and then filter client-side for otherUserId.
   const q = query(chatsRef, where('participantIds', 'array-contains', currentUserId));
   const querySnapshot = await getDocs(q);
 
@@ -178,6 +185,7 @@ export async function findOrCreateChat(
   const otherUserProfile = await getUserProfile(otherUserId);
 
   if (!currentUserProfile || !otherUserProfile) {
+    console.error(`[chatService] Could not find profiles. currentUserProfile: ${!!currentUserProfile}, otherUserProfile: ${!!otherUserProfile}`);
     throw new Error("Could not find user profiles to create chat.");
   }
 
@@ -186,7 +194,6 @@ export async function findOrCreateChat(
     { id: otherUserProfile.id, fullName: otherUserProfile.fullName, profilePictureUrl: otherUserProfile.profilePictureUrl },
   ];
 
-  // Ensure participantIds are sorted to make them canonical for potential future queries, though not strictly necessary for array-contains.
   const participantIds = [currentUserId, otherUserId].sort();
 
   const newChatData: Omit<Chat, 'id'> = {
@@ -194,10 +201,9 @@ export async function findOrCreateChat(
     participantsData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    // Initialize lastMessage fields as null or empty if preferred
     lastMessageText: "",
     lastMessageSenderId: "",
-    lastMessageTimestamp: null,
+    lastMessageTimestamp: null, // Explicitly setting to null
   };
 
   const newChatRef = await addDoc(chatsRef, newChatData);
