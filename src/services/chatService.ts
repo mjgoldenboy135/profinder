@@ -13,6 +13,7 @@ import {
   writeBatch,
   arrayUnion,
   type Timestamp,
+  runTransaction, // Added for atomic operations
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Chat, Message, ChatParticipantData, User } from '@/lib/types';
@@ -29,7 +30,20 @@ if (!db) {
 }
 
 /**
- * Fetches all chats for a given user.
+ * Helper function to generate a canonical chat ID for two users.
+ * Ensures the ID is consistent regardless of which user is uid1 or uid2.
+ * @param uid1 First user ID.
+ * @param uid2 Second user ID.
+ * @returns A canonical string ID for the chat.
+ */
+function generateCanonicalChatId(uid1: string, uid2: string): string {
+  const ids = [uid1, uid2].sort();
+  return `${ids[0]}_${ids[1]}`;
+}
+
+
+/**
+ * Fetches all chats for a given user, ordered by last update.
  * @param userId The ID of the user whose chats to fetch.
  * @returns A promise that resolves with an array of Chat objects.
  */
@@ -38,15 +52,12 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     console.error("getUserChats called with no userId");
     return [];
   }
-  console.log("[chatService] getUserChats called for userId (client-side):", userId);
+  console.log("[chatService] getUserChats called for userId:", userId);
   const chatsRef = collection(db, CHATS_COLLECTION);
-  // Query chats where the participantIds array contains the userId.
-  // Ordering removed for diagnostic purposes to isolate permission issue.
   const q = query(
     chatsRef,
-    where('participantIds', 'array-contains', userId)
-    // If this basic query works, the next step is to re-add orderBy and look for index creation links.
-    // orderBy('updatedAt', 'desc') 
+    where('participantIds', 'array-contains', userId),
+    orderBy('updatedAt', 'desc')
   );
 
   try {
@@ -55,10 +66,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     querySnapshot.forEach((doc) => {
       chats.push({ id: doc.id, ...doc.data() } as Chat);
     });
-
-    console.log(`[chatService] Found ${chats.length} chats for userId: ${userId} (client-side sorting removed for diagnostics)`);
-    // Client-side sorting was here, removed as it's not related to the permission error.
-    // If the query succeeds without orderBy, re-add orderBy to Firestore query and look for index errors.
+    console.log(`[chatService] Found ${chats.length} chats for userId: ${userId}`);
     return chats;
   } catch (error) {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
@@ -87,7 +95,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
             "%c[chatService] POTENTIAL MISSING FIRESTORE INDEX DETECTED IN ERROR MESSAGE: " +
             "The Firebase error message above (in RED) likely contains a URL to create a required Firestore index. " +
             "Please copy that URL, paste it into your browser, and create the index. " +
-            "The query was: participantIds array-contains " + userId + ". If you re-add orderBy('updatedAt'), that will also need to be part of the index.",
+            "The query was: participantIds array-contains " + userId + " and orderBy updatedAt desc.",
             "color: orange; font-weight: bold; font-size: 1.1em;"
         );
       } else if (firebaseError.code === 'permission-denied') {
@@ -118,6 +126,7 @@ export async function getChatDetails(chatId: string): Promise<Chat | null> {
   if (docSnap.exists()) {
     return { id: docSnap.id, ...docSnap.data() } as Chat;
   } else {
+    console.warn(`[chatService] Chat details not found for chatId: ${chatId}`);
     return null;
   }
 }
@@ -167,6 +176,8 @@ export async function sendMessage(
     lastMessageSenderId: messageData.senderId,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    // Ensure participantIds are updated if somehow they weren't complete.
+    // This is more of a safeguard; participantIds should be set on chat creation.
     participantIds: arrayUnion(messageData.senderId, messageData.receiverId) 
   });
 
@@ -175,7 +186,8 @@ export async function sendMessage(
 }
 
 /**
- * Creates a new chat between two users if one doesn't already exist.
+ * Finds an existing chat between two users or creates a new one if none exists.
+ * Uses a canonical chat ID and a transaction for atomicity.
  * @param currentUserId User ID for the current user.
  * @param otherUserId User ID for the other user.
  * @returns A promise that resolves with the ID of the existing or new chat.
@@ -187,49 +199,68 @@ export async function findOrCreateChat(
   if (!currentUserId || !otherUserId) {
     throw new Error("Both currentUserId and otherUserId must be provided to findOrCreateChat.");
   }
-  console.log(`[chatService] findOrCreateChat called for users: ${currentUserId}, ${otherUserId}`);
-  const chatsRef = collection(db, CHATS_COLLECTION);
-
-  const q = query(chatsRef, where('participantIds', 'array-contains', currentUserId));
-  const querySnapshot = await getDocs(q);
-
-  const existingChatDoc = querySnapshot.docs.find(doc => {
-    const data = doc.data() as Chat;
-    return data.participantIds.includes(otherUserId);
-  });
-
-  if (existingChatDoc) {
-    console.log(`[chatService] Found existing chat with ID: ${existingChatDoc.id}`);
-    return existingChatDoc.id;
+  if (currentUserId === otherUserId) {
+    console.warn("[chatService] Attempted to create a chat with oneself.");
+    throw new Error("Cannot create a chat with yourself.");
   }
 
-  console.log(`[chatService] No existing chat found. Creating new chat for users: ${currentUserId}, ${otherUserId}`);
+  // Fetch profiles outside the transaction to avoid doing too much work inside it,
+  // especially if the transaction needs to retry.
   const currentUserProfile = await getUserProfile(currentUserId);
   const otherUserProfile = await getUserProfile(otherUserId);
 
   if (!currentUserProfile || !otherUserProfile) {
-    console.error(`[chatService] Could not find profiles. currentUserProfile: ${!!currentUserProfile}, otherUserProfile: ${!!otherUserProfile}`);
+    console.error(`[chatService] Could not find user profiles before starting transaction. currentUser: ${!!currentUserProfile}, otherUser: ${!!otherUserProfile}`);
     throw new Error("Could not find user profiles to create chat.");
   }
 
-  const participantsData: ChatParticipantData[] = [
-    { id: currentUserProfile.id, fullName: currentUserProfile.fullName, profilePictureUrl: currentUserProfile.profilePictureUrl },
-    { id: otherUserProfile.id, fullName: otherUserProfile.fullName, profilePictureUrl: otherUserProfile.profilePictureUrl },
-  ];
+  const canonicalChatId = generateCanonicalChatId(currentUserId, otherUserId);
+  const chatRef = doc(db, CHATS_COLLECTION, canonicalChatId);
 
-  const participantIds = [currentUserId, otherUserId].sort();
+  console.log(`[chatService] Attempting to find or create chat with canonical ID: ${canonicalChatId} for users: ${currentUserId}, ${otherUserId}`);
 
-  const newChatData: Omit<Chat, 'id'> = {
-    participantIds,
-    participantsData,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    lastMessageText: "", 
-    lastMessageSenderId: "",
-    lastMessageTimestamp: null, 
-  };
+  try {
+    await runTransaction(db, async (transaction) => {
+      const docSnap = await transaction.get(chatRef);
 
-  const newChatRef = await addDoc(chatsRef, newChatData);
-  console.log(`[chatService] Created new chat with ID: ${newChatRef.id}`);
-  return newChatRef.id;
+      if (!docSnap.exists()) {
+        console.log(`[chatService] Chat with canonical ID ${canonicalChatId} does not exist. Creating.`);
+        
+        const participantsData: ChatParticipantData[] = [
+          { id: currentUserProfile.id, fullName: currentUserProfile.fullName, profilePictureUrl: currentUserProfile.profilePictureUrl },
+          { id: otherUserProfile.id, fullName: otherUserProfile.fullName, profilePictureUrl: otherUserProfile.profilePictureUrl },
+        ];
+        // The participantIds array should also be sorted for consistency,
+        // matching the canonicalChatId generation.
+        const participantIds = [currentUserId, otherUserId].sort();
+
+        const newChatData: Omit<Chat, 'id'> = {
+          participantIds,
+          participantsData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastMessageText: "", // Initialize last message fields
+          lastMessageSenderId: "",
+          lastMessageTimestamp: null, // Or serverTimestamp() if preferred for new chats
+        };
+        transaction.set(chatRef, newChatData);
+        console.log(`[chatService] New chat set in transaction for canonical ID: ${canonicalChatId}`);
+      } else {
+        console.log(`[chatService] Chat with canonical ID ${canonicalChatId} already exists.`);
+      }
+    });
+    
+    // If the transaction completes without error, the chat either existed or was created.
+    // The ID is the canonicalChatId.
+    console.log(`[chatService] Transaction completed for canonical ID: ${canonicalChatId}. Chat confirmed or created.`);
+    return canonicalChatId;
+
+  } catch (error: any) {
+    console.error(`[chatService] Transaction failed for findOrCreateChat (canonical ID: ${canonicalChatId}): ${error.message}`, error);
+    // This error could be a specific transactional error (e.g., contention if too many retries).
+    // The "Document already exists" error from a `set` within a transaction like this 
+    // (where existence is checked first) is highly unlikely unless there's an SDK bug.
+    // It's more likely to be an error from `getUserProfile` if they were inside, or other limits.
+    throw new Error(`Failed to find or create chat: ${error.message || 'Unknown error during transaction'}`);
+  }
 }
