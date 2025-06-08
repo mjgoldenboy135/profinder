@@ -5,12 +5,14 @@ import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react"; // Added useMemo
 import { db } from "@/lib/firebase"; 
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore"; 
 import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react"; 
 import { useRouter } from 'next/navigation';
-import { Alert, AlertTitle, AlertDescription as UILabelAlertDescription } from "@/components/ui/alert"; // Renamed AlertDescription to avoid conflict
+import { Alert, AlertTitle, AlertDescription as UILabelAlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
@@ -27,6 +29,8 @@ export default function MapView() {
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true); 
   const router = useRouter();
+  const [selectedProfession, setSelectedProfession] = useState<string>(""); // "" means all professions
+  const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
 
   useEffect(() => {
     if (!API_KEY) {
@@ -34,10 +38,7 @@ export default function MapView() {
       setIsLoading(false);
       return;
     }
-    if (!MAP_ID) {
-        console.warn("[MapView] Google Maps ID (NEXT_PUBLIC_GOOGLE_MAPS_ID) is missing. Advanced Markers (user avatars) may not function correctly.");
-        // setIsLoading(false); // Still load users, map will show warning
-    }
+    // Warning about MAP_ID is handled in JSX now
 
     setIsLoading(true);
     console.log("[MapView] Setting up Firestore listener for online users.");
@@ -56,7 +57,7 @@ export default function MapView() {
       });
       setOnlineUsers(fetchedUsers);
       setIsLoading(false);
-      console.log(`[MapView] Fetched real-time users (${fetchedUsers.length}):`, fetchedUsers.map(u => ({id: u.id, name: u.fullName, loc: u.location}) ));
+      console.log(`[MapView] Fetched real-time users (${fetchedUsers.length}):`, fetchedUsers.map(u => ({id: u.id, name: u.fullName, loc: u.location, prof: u.profession}) ));
     }, (error) => {
       console.error("[MapView] Error fetching real-time online users:", error);
       setIsLoading(false);
@@ -68,10 +69,30 @@ export default function MapView() {
     };
   }, []); 
 
+  useEffect(() => {
+    if (onlineUsers.length > 0) {
+      const professions = new Set(
+        onlineUsers.map(user => user.profession).filter(Boolean) as string[]
+      );
+      setAvailableProfessions(Array.from(professions).sort());
+    } else {
+      setAvailableProfessions([]);
+    }
+  }, [onlineUsers]);
+
+  const filteredUsers = useMemo(() => {
+    if (!selectedProfession) {
+      return onlineUsers; // Show all if no profession is selected (empty string)
+    }
+    return onlineUsers.filter(user => user.profession === selectedProfession);
+  }, [onlineUsers, selectedProfession]);
+
   const defaultCenter = { lat: 37.7749, lng: -122.4194 }; 
-  const mapCenter = onlineUsers.length > 0 && onlineUsers[0].location 
-                    ? { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng } 
-                    : defaultCenter;
+  const mapCenter = filteredUsers.length > 0 && filteredUsers[0].location 
+                    ? { lat: filteredUsers[0].location.lat, lng: filteredUsers[0].location.lng } 
+                    : (onlineUsers.length > 0 && onlineUsers[0].location 
+                        ? { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng }
+                        : defaultCenter);
 
   if (!API_KEY) {
     return (
@@ -94,13 +115,35 @@ export default function MapView() {
   return (
     <Card className="shadow-xl">
       <CardHeader>
-        <CardTitle className="text-3xl font-headline">Network Map</CardTitle>
-        <CardDescription>
-          See who's online and nearby. Click on an avatar to view their profile.
-          {!MAP_ID && API_KEY && (
-            <span className="block text-destructive text-xs mt-1">Note: Map ID is missing, user avatars (Advanced Markers) may not display correctly.</span>
-          )}
-        </CardDescription>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <CardTitle className="text-3xl font-headline">Network Map</CardTitle>
+                <CardDescription>
+                See who's online and nearby. Use the filter to view by profession.
+                {!MAP_ID && API_KEY && (
+                    <span className="block text-destructive text-xs mt-1">Note: Map ID is missing, user avatars (Advanced Markers) may not display correctly.</span>
+                )}
+                </CardDescription>
+            </div>
+            {availableProfessions.length > 0 && (
+            <div className="w-full sm:w-auto sm:min-w-[200px]">
+                <Label htmlFor="profession-filter" className="sr-only">Filter by Profession</Label>
+                <Select value={selectedProfession} onValueChange={setSelectedProfession}>
+                <SelectTrigger id="profession-filter" className="w-full">
+                    <SelectValue placeholder="All Professions" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="">All Professions</SelectItem>
+                    {availableProfessions.map(prof => (
+                    <SelectItem key={prof} value={prof}>
+                        {prof}
+                    </SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+            </div>
+            )}
+        </div>
       </CardHeader>
       <CardContent>
         {!MAP_ID && API_KEY && (
@@ -131,7 +174,7 @@ export default function MapView() {
                 mapTypeControl={false}
                 streetViewControl={false}
               >
-                {onlineUsers.map(user => (
+                {filteredUsers.map(user => (
                   user.location && user.location.lat != null && user.location.lng != null ? (
                     <AdvancedMarker
                         key={user.id} 
@@ -152,8 +195,15 @@ export default function MapView() {
             </APIProvider>
           </div>
         )}
-        {!isLoading && onlineUsers.length === 0 && API_KEY && (
-            <p className="text-sm text-muted-foreground mt-4 text-center">No users currently online with location data to display on the map.</p>
+        {!isLoading && filteredUsers.length === 0 && API_KEY && (
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+                {selectedProfession ? `No users online matching the profession "${selectedProfession}".` : "No users currently online with location data to display on the map."}
+            </p>
+        )}
+         {!isLoading && onlineUsers.length > 0 && filteredUsers.length === 0 && selectedProfession && API_KEY && (
+            <p className="text-sm text-muted-foreground mt-4 text-center">
+                No users found for the selected profession: "{selectedProfession}". Try "All Professions".
+            </p>
         )}
       </CardContent>
     </Card>
