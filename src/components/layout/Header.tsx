@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, LogIn, Lightbulb } from 'lucide-react'; // Added Lightbulb
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, LogIn } from 'lucide-react'; // Removed Lightbulb
 import { useAuthContext } from '@/contexts/AuthContext'; // Import the AuthContext
 import { auth } from '@/lib/firebase'; // Import Firebase auth
 import { signOut } from 'firebase/auth'; // Import Firebase signOut
@@ -17,7 +17,7 @@ const navLinks = [
   { href: '/users', label: 'Users', icon: Users, authRequired: true },
   { href: '/messages', label: 'Messages', icon: MessageCircle, authRequired: true },
   { href: '/profile', label: 'Profile', icon: UserCircle, authRequired: true },
-  { href: '/suggestions', label: 'Suggest', icon: Lightbulb, authRequired: true }, // Added Suggestions link
+  // { href: '/suggestions', label: 'Suggest', icon: Lightbulb, authRequired: true }, // Removed Suggestions link
 ];
 
 export default function Header() {
