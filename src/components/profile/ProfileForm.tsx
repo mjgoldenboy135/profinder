@@ -39,17 +39,17 @@ const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
   profilePicture: z.custom<FileList | undefined>().optional(),
   profilePictureUrl: z.string().url().optional().or(z.literal("")),
-  education: z.string().optional(),
-  profession: z.string().optional(),
-  professionalDetails: z.string().optional(),
+  education: z.string().max(200, "Education details should not exceed 200 characters.").optional(),
+  profession: z.string().max(100, "Profession should not exceed 100 characters.").optional(),
+  professionalDetails: z.string().max(250, "Professional details should not exceed 250 characters.").optional(),
   yearsOfExperience: z.coerce.number().min(0).optional(),
   linkedinProfileUrl: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(),
   phoneNumber: z.string().optional(),
-  locationAddress: z.string().optional(), 
+  locationAddress: z.string().max(150, "Location address should not exceed 150 characters.").optional(),
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
-  bio: z.string().optional(),
+  bio: z.string().max(250, "Bio should not exceed 250 characters.").optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -102,16 +102,15 @@ async function resizeImage(file: File, maxWidth: number, maxHeight: number): Pro
             if (!blob) {
               return reject(new Error("Canvas to Blob conversion failed"));
             }
-            // Use 'image/jpeg' for better compression and consistency
             const resizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
-              type: "image/jpeg", 
+              type: "image/jpeg",
               lastModified: Date.now(),
             });
             console.log("Resized file size:", (resizedFile.size / 1024).toFixed(2), "KB");
             resolve(resizedFile);
           },
           "image/jpeg",
-          0.85 // JPEG quality (0.0 to 1.0)
+          0.85
         );
       };
       img.onerror = reject;
@@ -129,7 +128,7 @@ export default function ProfileForm() {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
-  const [isResizingImage, setIsResizingImage] = useState(false); 
+  const [isResizingImage, setIsResizingImage] = useState(false);
   const locationWatchId = useRef<number | null>(null);
   const [isLocationPermissionDenied, setIsLocationPermissionDenied] = useState(false);
 
@@ -174,7 +173,7 @@ export default function ProfileForm() {
         })
         .catch(error => {
           console.error("[ProfileForm useEffect] Error fetching profile from Firestore:", error);
-          resetFormWithProfileData(null); 
+          resetFormWithProfileData(null);
           toast({ title: "Error", description: "Could not load full profile. Using basic info.", variant: "destructive" });
         })
         .finally(() => {
@@ -193,8 +192,6 @@ export default function ProfileForm() {
       return;
     }
     
-    // Only act if 'isOnline' was explicitly changed by the user or during form submission.
-    // Check form.getFieldState("isOnline").isDirty for more precise check on user interaction.
     if (form.getFieldState("isOnline").isDirty || (form.formState.isSubmitted && form.getFieldState("isOnline").isDirty)) {
       const manageLiveLocation = async (enable: boolean) => {
         const currentAddress = form.getValues("locationAddress") || "";
@@ -216,7 +213,7 @@ export default function ProfileForm() {
               } catch (dbError) {
                   toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
                   form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
-                  return; 
+                  return;
               }
               if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
               locationWatchId.current = navigator.geolocation.watchPosition(
@@ -227,7 +224,6 @@ export default function ProfileForm() {
                   try {
                     await updateUserProfile(authUser.uid, { location: newLocationData });
                   } catch (watchDbError) {
-                     // console.warn("Failed to update live location during watch:", watchDbError);
                   }
                 },
                 (watchErr) => {
@@ -249,11 +245,10 @@ export default function ProfileForm() {
               try {
                   await updateUserProfile(authUser.uid, { isOnline: false });
               } catch (dbError) {
-                   // console.error("Error setting user offline after location permission denial:", dbError);
               }
             }
           );
-        } else { 
+        } else {
           if (locationWatchId.current !== null) {
             navigator.geolocation.clearWatch(locationWatchId.current);
             locationWatchId.current = null;
@@ -275,9 +270,7 @@ export default function ProfileForm() {
         locationWatchId.current = null;
       }
     };
-  // form.getFieldState needed for dirty check of 'isOnline'
-  // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [authUser, watchedIsOnline, isFetchingProfile, toast, form.formState.isSubmitted, form.getValues, form.setValue]);
+  }, [authUser, watchedIsOnline, isFetchingProfile, toast, form.formState.isSubmitted, form.getValues, form.setValue, form]);
 
 
   const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -289,7 +282,7 @@ export default function ProfileForm() {
           description: `Image is too large. Please select an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
           variant: "destructive",
         });
-        event.target.value = ""; 
+        event.target.value = "";
         return;
       }
 
@@ -305,7 +298,7 @@ export default function ProfileForm() {
             variant: "destructive",
           });
           event.target.value = "";
-          setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null); // Revert preview
+          setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null); 
           setIsResizingImage(false);
           return;
         }
@@ -319,7 +312,7 @@ export default function ProfileForm() {
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(resizedFile);
         form.setValue("profilePicture", dataTransfer.files, { shouldDirty: true });
-        form.setValue("profilePictureUrl", "", { shouldDirty: true }); 
+        form.setValue("profilePictureUrl", "", { shouldDirty: true });
         toast({ title: "Image Ready", description: "Resized image is ready for preview. Save changes to upload." });
 
       } catch (error) {
@@ -330,7 +323,7 @@ export default function ProfileForm() {
           variant: "destructive",
         });
         setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null);
-        event.target.value = ""; 
+        event.target.value = "";
       } finally {
         setIsResizingImage(false);
       }
@@ -347,16 +340,14 @@ export default function ProfileForm() {
       return;
     }
 
-    // Note: fullName and email are from `values` which are sourced from `authUser` and disabled in form
-    // So, they reflect the auth state, not user input for these fields.
     const { profilePicture, profilePictureUrl: currentFormPicUrl, isOnline: formIsOnlineValue, locationAddress, ...dataForFirestore } = values;
-    let newAuthPhotoURL = authUser.photoURL || currentFormPicUrl || ""; // Start with existing or form loaded URL
+    let newAuthPhotoURL = authUser.photoURL || currentFormPicUrl || ""; 
     
     toast({ title: "Saving Profile...", description: "Please wait." });
     
     try {
         if (profilePicture && profilePicture.length > 0) {
-            const fileToUpload = profilePicture[0]; // Already resized
+            const fileToUpload = profilePicture[0]; 
             setIsUploadingPicture(true);
             toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
             try {
@@ -364,44 +355,38 @@ export default function ProfileForm() {
                 toast({ title: "Picture Uploaded!", description: "Profile picture updated successfully." });
             } catch (uploadError: any) {
                 toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
-                setIsUploadingPicture(false); 
-                return; 
+                setIsUploadingPicture(false);
+                return;
             } finally {
                 setIsUploadingPicture(false);
             }
         } else if (previewImage === null && (authUser.photoURL || currentFormPicUrl)) {
-            // User explicitly removed the picture by clearing preview and no new file
             newAuthPhotoURL = "";
         }
 
-        // Update Firebase Auth profile (only photoURL might change if name is fixed)
         const authUpdates: { photoURL?: string | null } = {};
         const photoURLForAuth = newAuthPhotoURL === undefined ? null : newAuthPhotoURL;
 
-        if (photoURLForAuth !== (authUser.photoURL || null)) { // Compare with null if authUser.photoURL is undefined
+        if (photoURLForAuth !== (authUser.photoURL || null)) { 
             authUpdates.photoURL = photoURLForAuth;
         }
-        // Note: authUser.displayName is not updated here as per requirement.
-        // It was set during signup and remains fixed.
-
+        
         if (Object.keys(authUpdates).length > 0) {
             await updateAuthProfile(authUser, authUpdates);
         }
         
         const existingProfile = await getUserProfile(authUser.uid);
         const finalDataToSaveToFirestore: Partial<User> = {
-            ...dataForFirestore, // contains other editable fields like bio, profession etc.
-            // fullName and email are taken from `values`, which are from `authUser` due to disabled fields
-            fullName: values.fullName, 
+            ...dataForFirestore, 
+            fullName: values.fullName,
             email: values.email,
             profilePictureUrl: newAuthPhotoURL,
-            location: { 
-                // Preserve existing lat/lng if address changes but not online status
-                lat: formIsOnlineValue ? existingProfile?.location?.lat : undefined, 
-                lng: formIsOnlineValue ? existingProfile?.location?.lng : undefined, 
+            location: {
+                lat: formIsOnlineValue ? existingProfile?.location?.lat : undefined,
+                lng: formIsOnlineValue ? existingProfile?.location?.lng : undefined,
                 address: values.locationAddress || ""
             },
-            isOnline: formIsOnlineValue, // This is handled separately by the useEffect for real-time updates
+            isOnline: formIsOnlineValue, 
             showContact: values.showContact,
             bio: values.bio,
         };
@@ -413,22 +398,16 @@ export default function ProfileForm() {
             description: "Your profile information has been saved.",
         });
 
-        // Reset form with the newly saved values to clear dirty state
-        const newResetValues: ProfileFormValues = { 
-          ...values, // Use current form values as base
-          profilePictureUrl: newAuthPhotoURL, // Update with new URL
-          profilePicture: undefined, // Clear the FileList
+        const newResetValues: ProfileFormValues = {
+          ...values, 
+          profilePictureUrl: newAuthPhotoURL, 
+          profilePicture: undefined, 
         };
-        form.reset(newResetValues, { keepValues: true }); // Keep submitted values, clear dirty, errors
+        form.reset(newResetValues, { keepValues: true }); 
         setPreviewImage(newAuthPhotoURL || null);
 
     } catch (error: any) {
         toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
-    } finally {
-        // Ensure all loading states are reset in the main submission flow too
-        if (form.formState.isSubmitting) {
-           // This is typically handled by react-hook-form itself, but good to be mindful
-        }
     }
   }
 
@@ -466,7 +445,7 @@ export default function ProfileForm() {
                  <FormField
                     control={form.control}
                     name="profilePicture"
-                    render={({ field }) => ( // field is not directly used for Input type="file" but needed for RHF context
+                    render={({ field }) => ( 
                         <FormItem>
                         <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", (isUploadingPicture || isResizingImage) && "opacity-50 cursor-not-allowed")}>
                             {(isUploadingPicture || isResizingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -479,11 +458,11 @@ export default function ProfileForm() {
                                 accept="image/png, image/jpeg, image/gif, image/webp"
                                 className="hidden"
                                 onChange={handleProfilePictureChange}
-                                disabled={isUploadingPicture || isResizingImage} // Disable while processing/uploading
+                                disabled={isUploadingPicture || isResizingImage} 
                             />
                         </FormControl>
                         <FormDescription>
-                            Max file size: {MAX_FILE_SIZE_MB}MB. Images are automatically resized to {RESIZE_MAX_WIDTH}x{RESIZE_MAX_HEIGHT}px.
+                            Max file size: {MAX_FILE_SIZE_MB}MB. JPG, PNG, GIF, WEBP. Images are auto-resized.
                         </FormDescription>
                         <FormMessage />
                         </FormItem>
@@ -493,7 +472,7 @@ export default function ProfileForm() {
                     <Button variant="ghost" size="sm" onClick={() => {
                         setPreviewImage(null);
                         form.setValue("profilePicture", undefined, { shouldDirty: true });
-                        form.setValue("profilePictureUrl", "", { shouldDirty: true }); 
+                        form.setValue("profilePictureUrl", "", { shouldDirty: true });
                     }} disabled={isUploadingPicture || isResizingImage}>Remove Picture</Button>
                 )}
             </div>
@@ -528,7 +507,8 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Bio / Short Summary</FormLabel>
-                  <FormControl><Textarea placeholder="A brief introduction about yourself." {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl><Textarea placeholder="A brief introduction about yourself." {...field} value={field.value ?? ''} maxLength={250} /></FormControl>
+                  <FormDescription>Max 250 characters.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -539,7 +519,8 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Profession</FormLabel>
-                  <FormControl><Input placeholder="e.g., Software Engineer, Marketing Manager" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl><Input placeholder="e.g., Software Engineer, Marketing Manager" {...field} value={field.value ?? ''} maxLength={100} /></FormControl>
+                  <FormDescription>Max 100 characters.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -550,8 +531,8 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Education</FormLabel>
-                  <FormControl><Textarea placeholder="e.g., B.Sc. Computer Science from XYZ University (2020)" {...field} value={field.value ?? ''} /></FormControl>
-                  <FormDescription>Mention your degree, institution, and graduation year.</FormDescription>
+                  <FormControl><Textarea placeholder="e.g., B.Sc. Computer Science from XYZ University (2020)" {...field} value={field.value ?? ''} maxLength={200} /></FormControl>
+                  <FormDescription>Max 200 characters. Mention your degree, institution, and graduation year.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -562,7 +543,8 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Professional Details / Experience</FormLabel>
-                  <FormControl><Textarea rows={5} placeholder="Describe your skills, work history, achievements, and professional interests." {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl><Textarea rows={5} placeholder="Describe your skills, work history, achievements, and professional interests." {...field} value={field.value ?? ''} maxLength={250} /></FormControl>
+                  <FormDescription>Max 250 characters.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -619,9 +601,9 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> Location Address (Optional)</FormLabel>
-                  <FormControl><Input placeholder="e.g., San Francisco, CA (for public display)" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormControl><Input placeholder="e.g., San Francisco, CA (for public display)" {...field} value={field.value ?? ''} maxLength={150}/></FormControl>
                     <FormDescription>
-                        A general address for display on your profile. Your precise map location is handled by the "Appear Online" switch.
+                        Max 150 characters. A general address for display on your profile. Your precise map location is handled by the "Appear Online" switch.
                     </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -650,7 +632,7 @@ export default function ProfileForm() {
                         <Switch
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          aria-readonly // Indicate it's controlled by form state
+                          aria-readonly 
                         />
                       </FormControl>
                     </FormItem>
@@ -690,3 +672,4 @@ export default function ProfileForm() {
     
 
     
+
