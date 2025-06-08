@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   writeBatch,
   arrayUnion,
+  deleteDoc, // Import deleteDoc
   type Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -76,7 +77,6 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
         importantTextStyle
       );
       
-      // Link from the previous error:
       const indexCreationURL = "https://console.firebase.google.com/v1/r/project/profinder-90fe7/firestore/databases/profind/indexes?create_composite=Cktwcm9qZWN0cy9wcm9maW5kZXItOTBmZTcvZGF0YWJhc2VzL3Byb2ZpbmQvY29sbGVjdGlvbkdyb3Vwcy9jaGF0cy9pbmRleGVzL18QARoSCg5wYXJ0aWNpcGFudElkcxgBGg0KCXVwZGF0ZWRBdBACGgwKCF9fbmFtZV9fEAI";
 
       if (firebaseError.code === 'failed-precondition' && firebaseError.message.includes('requires an index')) {
@@ -84,7 +84,7 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
             "%c[chatService] REQUIRED FIRESTORE INDEX MISSING: " +
             "The query needs a composite index. Firebase might provide a direct link to create it in the error message. " +
             "Please check the error message in your browser console for a link like: " +
-            `%c${indexCreationURL}`, // Displaying the known problematic index link
+            `%c${indexCreationURL}`, 
             "color: orange; font-weight: bold; font-size: 1.1em;", indexLinkStyle
         );
       } else if (firebaseError.code === 'permission-denied') {
@@ -186,7 +186,9 @@ export async function findOrCreateChat(
   currentUserId: string,
   otherUserId: string
 ): Promise<string> {
+  console.log(`[chatService] findOrCreateChat called for users: ${currentUserId}, ${otherUserId}`);
   if (!currentUserId || !otherUserId) {
+    console.error("[chatService] findOrCreateChat: Both currentUserId and otherUserId must be provided.");
     throw new Error("Both currentUserId and otherUserId must be provided to findOrCreateChat.");
   }
   if (currentUserId === otherUserId) {
@@ -195,43 +197,41 @@ export async function findOrCreateChat(
   }
 
   const chatsRef = collection(db, CHATS_COLLECTION);
-  // Query for chats where the current user is a participant
+  console.log("[chatService] findOrCreateChat: Querying for existing chats...");
   const q = query(
     chatsRef,
     where('participantIds', 'array-contains', currentUserId)
-    // Note: We cannot add orderBy('updatedAt', 'desc') here without a composite index for
-    // participantIds (array-contains) and updatedAt.
-    // This function prioritizes finding ANY chat, not necessarily the most recent if multiple somehow existed.
   );
 
   try {
     const querySnapshot = await getDocs(q);
     let existingChatId: string | null = null;
 
+    console.log(`[chatService] findOrCreateChat: Found ${querySnapshot.docs.length} potential chats for current user.`);
     querySnapshot.forEach((docSnap) => {
       const chatData = docSnap.data() as Chat;
-      // Check if the other user is also in this chat AND it's a 2-person chat
       if (chatData.participantIds.includes(otherUserId) && chatData.participantIds.length === 2) {
         existingChatId = docSnap.id;
-        // If we find one, we can break, assuming there shouldn't be multiple 1-on-1 chats
-        // between the same two users with this logic.
+        console.log(`[chatService] findOrCreateChat: Found existing chat ${existingChatId}`);
         return; 
       }
     });
 
     if (existingChatId) {
-      console.log(`[chatService] Found existing chat ${existingChatId} for users: ${currentUserId}, ${otherUserId}`);
       return existingChatId;
     }
 
-    console.log(`[chatService] No existing chat found. Creating new chat for users: ${currentUserId}, ${otherUserId}`);
+    console.log(`[chatService] findOrCreateChat: No existing chat found. Creating new chat.`);
+    console.log("[chatService] findOrCreateChat: Fetching user profiles...");
     const currentUserProfile = await getUserProfile(currentUserId);
     const otherUserProfile = await getUserProfile(otherUserId);
 
     if (!currentUserProfile || !otherUserProfile) {
-      console.error(`[chatService] Could not find user profiles to create chat. currentUser: ${!!currentUserProfile}, otherUser: ${!!otherUserProfile}`);
+      const errorMsg = `[chatService] findOrCreateChat: Could not find user profiles. currentUser: ${!!currentUserProfile}, otherUser: ${!!otherUserProfile}`;
+      console.error(errorMsg);
       throw new Error("Could not find user profiles to create chat.");
     }
+    console.log("[chatService] findOrCreateChat: User profiles fetched.");
 
     const participantsData: ChatParticipantData[] = [
       { id: currentUserProfile.id, fullName: currentUserProfile.fullName, profilePictureUrl: currentUserProfile.profilePictureUrl },
@@ -239,25 +239,64 @@ export async function findOrCreateChat(
     ];
 
     const newChatData: Omit<Chat, 'id'> = {
-      participantIds: [currentUserId, otherUserId].sort(), // Store sorted for consistency
+      participantIds: [currentUserId, otherUserId].sort(),
       participantsData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
       lastMessageText: "",
       lastMessageSenderId: "",
-      lastMessageTimestamp: null, // Explicitly null for new chat
+      lastMessageTimestamp: null,
     };
 
+    console.log("[chatService] findOrCreateChat: Adding new chat document to Firestore with data:", newChatData);
     const newChatDocRef = await addDoc(collection(db, CHATS_COLLECTION), newChatData);
-    console.log(`[chatService] Created new chat with ID: ${newChatDocRef.id}`);
+    console.log(`[chatService] findOrCreateChat: Created new chat with ID: ${newChatDocRef.id}`);
     return newChatDocRef.id;
 
   } catch (error: any) {
-    console.error(`[chatService] Error in findOrCreateChat for users ${currentUserId}, ${otherUserId}: ${error.message}`, error);
-    // Log the specific error details for the "array-contains-all" context if it appears
+    console.error(`[chatService] findOrCreateChat: Error for users ${currentUserId}, ${otherUserId}: ${error.message}`, error);
     if (error.message && error.message.includes("array-contains-all")) {
         console.error("[chatService] CRITICAL: 'array-contains-all' context error despite attempting to avoid it in findOrCreateChat. Current query uses 'array-contains'.");
     }
     throw new Error(`Failed to find or create chat: ${error.message || 'Unknown error'}`);
+  }
+}
+
+/**
+ * Deletes a chat and all its associated messages.
+ * @param chatId The ID of the chat to delete.
+ */
+export async function deleteChat(chatId: string): Promise<void> {
+  if (!chatId) {
+    console.error("deleteChat called with no chatId");
+    throw new Error("Chat ID is required to delete a chat.");
+  }
+  console.log(`[chatService] Attempting to delete chat with ID: ${chatId}`);
+
+  const batch = writeBatch(db);
+
+  // 1. Delete all messages in the subcollection
+  const messagesRef = collection(db, CHATS_COLLECTION, chatId, MESSAGES_SUBCOLLECTION);
+  try {
+    const messagesSnapshot = await getDocs(messagesRef);
+    if (!messagesSnapshot.empty) {
+      console.log(`[chatService] Found ${messagesSnapshot.docs.length} messages to delete for chat ${chatId}.`);
+      messagesSnapshot.forEach(msgDoc => {
+        batch.delete(msgDoc.ref);
+      });
+    } else {
+      console.log(`[chatService] No messages found in subcollection for chat ${chatId}.`);
+    }
+
+    // 2. Delete the main chat document
+    const chatRef = doc(db, CHATS_COLLECTION, chatId);
+    batch.delete(chatRef);
+
+    // 3. Commit the batch
+    await batch.commit();
+    console.log(`[chatService] Successfully deleted chat ${chatId} and its messages.`);
+  } catch (error) {
+    console.error(`[chatService] Error deleting chat ${chatId}:`, error);
+    throw new Error(`Failed to delete chat: ${(error as Error).message || 'Unknown error'}`);
   }
 }
