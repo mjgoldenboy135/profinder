@@ -8,8 +8,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect } from "react";
 import { db } from "@/lib/firebase"; 
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore"; 
-import { MapPin as MapPinIcon, Loader2 } from "lucide-react"; 
+import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react"; 
 import { useRouter } from 'next/navigation';
+import { Alert, AlertTitle, AlertDescription as UILabelAlertDescription } from "@/components/ui/alert"; // Renamed AlertDescription to avoid conflict
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
@@ -32,6 +33,10 @@ export default function MapView() {
       console.warn("[MapView] Google Maps API Key is missing. Map functionality will be disabled.");
       setIsLoading(false);
       return;
+    }
+    if (!MAP_ID) {
+        console.warn("[MapView] Google Maps ID (NEXT_PUBLIC_GOOGLE_MAPS_ID) is missing. Advanced Markers (user avatars) may not function correctly.");
+        // setIsLoading(false); // Still load users, map will show warning
     }
 
     setIsLoading(true);
@@ -90,9 +95,25 @@ export default function MapView() {
     <Card className="shadow-xl">
       <CardHeader>
         <CardTitle className="text-3xl font-headline">Network Map</CardTitle>
-        <CardDescription>See who's online and nearby. Click on an avatar to view their profile.</CardDescription>
+        <CardDescription>
+          See who's online and nearby. Click on an avatar to view their profile.
+          {!MAP_ID && API_KEY && (
+            <span className="block text-destructive text-xs mt-1">Note: Map ID is missing, user avatars (Advanced Markers) may not display correctly.</span>
+          )}
+        </CardDescription>
       </CardHeader>
       <CardContent>
+        {!MAP_ID && API_KEY && (
+            <Alert variant="destructive" className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Map Configuration Incomplete</AlertTitle>
+                <UILabelAlertDescription>
+                The <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_ID</code> environment variable is not set. 
+                Advanced Markers (used for user avatars on the map) require a Map ID and may not function correctly without it. 
+                Please set this variable in your <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file and restart your server.
+                </UILabelAlertDescription>
+            </Alert>
+        )}
         {isLoading ? (
           <div className="h-[600px] w-full rounded-md border flex flex-col items-center justify-center bg-muted">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -138,4 +159,3 @@ export default function MapView() {
     </Card>
   );
 }
-
