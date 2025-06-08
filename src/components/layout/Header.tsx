@@ -2,15 +2,15 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
+import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut } from 'lucide-react'; // Removed LogIn as it's not directly used on button, variant change handles it
-import { useAuthContext } from '@/contexts/AuthContext'; // Import the AuthContext
-import { auth } from '@/lib/firebase'; // Import Firebase auth
-import { signOut } from 'firebase/auth'; // Import Firebase signOut
-import { useToast } from "@/hooks/use-toast"; // Import useToast
+import { MapPin, Users, MessageCircle, UserCircle, LogOut } from 'lucide-react';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { useToast } from "@/hooks/use-toast";
 
 const navLinks = [
   { href: '/map', label: 'Map', icon: MapPin, authRequired: true },
@@ -21,8 +21,8 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
-  const router = useRouter(); // For navigation after logout
-  const { currentUser, loading } = useAuthContext(); // Use the AuthContext
+  const router = useRouter();
+  const { currentUser, loading } = useAuthContext();
   const { toast } = useToast();
 
   const isAuthenticated = !!currentUser;
@@ -34,7 +34,7 @@ export default function Header() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
-      router.push('/login'); // Redirect to login page after logout
+      router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
       toast({
@@ -46,12 +46,11 @@ export default function Header() {
   };
   
   if (loading) {
-    // You might want to render a loading state or a simplified header
     return (
       <header className="bg-card border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           <AppLogo />
-          <div>Loading...</div> {/* Or a Skeleton loader */}
+          <div>Loading...</div>
         </div>
       </header>
     );
@@ -68,12 +67,12 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 p-1 sm:p-2 rounded-md transition-colors hover:bg-accent/50",
+                  "flex flex-col items-center justify-center gap-0.5 p-1 sm:p-2 rounded-md transition-colors",
                   pathname === link.href || (link.href === '/messages' && pathname.startsWith('/messages/'))
                     ? "text-primary" 
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-foreground hover:text-primary/90" // Changed inactive color and hover
                 )}
-                title={link.label} // Add title for better UX on hover for collapsed labels
+                title={link.label}
               >
                 <link.icon className="h-5 w-5 sm:h-6 sm:w-6" />
                 <span className="text-[10px] sm:text-xs font-medium">{link.label}</span>
@@ -83,16 +82,16 @@ export default function Header() {
         </nav>
         <div className="flex items-center gap-1 sm:gap-2">
           {isAuthenticated ? (
-            <Button variant="default" size="sm" onClick={handleLogout} className="px-2 sm:px-3"> {/* Changed variant to default */}
+            <Button variant="default" size="sm" onClick={handleLogout} className="px-2 sm:px-3">
               <LogOut className="h-4 w-4 sm:mr-1" /> 
               <span className="hidden sm:inline">Logout</span>
             </Button>
           ) : (
             <>
-              <Button variant="default" size="sm" asChild className="px-2 sm:px-3"> {/* Changed variant to default */}
+              <Button variant="default" size="sm" asChild className="px-2 sm:px-3">
                 <Link href="/login">Login</Link>
               </Button>
-              <Button size="sm" asChild className="px-2 sm:px-3">
+              <Button variant="outline" size="sm" asChild className="px-2 sm:px-3"> {/* Changed to outline */}
                 <Link href="/signup">Sign Up</Link>
               </Button>
             </>

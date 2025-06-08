@@ -29,13 +29,13 @@ export default function UserListItem({ user }: UserListItemProps) {
             </Link>
           </CardTitle>
           {user.profession && (
-            <div className="flex items-center text-sm text-muted-foreground">
+            <div className="flex items-center text-sm text-primary"> {/* Changed text-muted-foreground to text-primary */}
               <Briefcase className="h-4 w-4 mr-1.5" />
               <span>{user.profession}</span>
             </div>
           )}
           {user.location?.address && (
-            <div className="flex items-center text-sm text-muted-foreground mt-0.5">
+            <div className="flex items-center text-sm text-primary mt-0.5"> {/* Changed text-muted-foreground to text-primary */}
               <MapPin className="h-4 w-4 mr-1.5" />
               <span>{user.location.address}</span>
             </div>

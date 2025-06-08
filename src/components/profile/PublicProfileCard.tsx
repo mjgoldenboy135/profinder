@@ -33,7 +33,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
         )}
       </CardHeader>
       <CardContent className="space-y-6">
-        {user.bio && ( // Display bio if available
+        {user.bio && (
           <div>
             <h3 className="text-lg font-semibold mb-2 font-headline">About Me</h3>
             <p className="text-foreground/90 whitespace-pre-wrap">{user.bio}</p>
@@ -87,14 +87,14 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
         {user.linkedinProfileUrl && (
           <Button variant="outline" asChild>
             <a href={user.linkedinProfileUrl} target="_blank" rel="noopener noreferrer">
-              <Linkedin className="mr-2 h-5 w-5" /> LinkedIn
+              <Linkedin className="mr-2 h-5 w-5 text-primary" /> LinkedIn {/* Icon color set to primary */}
             </a>
           </Button>
         )}
         {user.showContact && user.email && (
            <Button variant="outline" asChild>
             <a href={`mailto:${user.email}`}>
-              <Mail className="mr-2 h-5 w-5" /> Email
+              <Mail className="mr-2 h-5 w-5 text-primary" /> Email {/* Icon color set to primary */}
             </a>
           </Button>
         )}
