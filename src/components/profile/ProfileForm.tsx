@@ -22,13 +22,18 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Globe, Loader2, MapPin } from "lucide-react";
+import { Globe, Loader2, MapPin, UploadCloud } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
 import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { getUserProfile, updateUserProfile, uploadProfilePicture } from "@/services/userService";
 import type { User } from "@/lib/types";
+
+const MAX_FILE_SIZE_MB = 5;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+const RESIZE_MAX_WIDTH = 300;
+const RESIZE_MAX_HEIGHT = 300;
 
 const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
@@ -65,12 +70,64 @@ const defaultFormValues: ProfileFormValues = {
   bio: "",
 };
 
+async function resizeImage(file: File, maxWidth: number, maxHeight: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = document.createElement("img");
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          return reject(new Error("Could not get canvas context"));
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              return reject(new Error("Canvas to Blob conversion failed"));
+            }
+            const resizedFile = new File([blob], file.name, {
+              type: "image/jpeg", // Convert to JPEG for consistent compression
+              lastModified: Date.now(),
+            });
+            resolve(resizedFile);
+          },
+          "image/jpeg",
+          0.85 // Adjust quality (0.0 to 1.0)
+        );
+      };
+      img.onerror = reject;
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+
 export default function ProfileForm() {
   const { toast } = useToast();
   const { currentUser: authUser, loading: authLoading } = useAuthContext();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
+  const [isResizingImage, setIsResizingImage] = useState(false);
   const locationWatchId = useRef<number | null>(null);
   const [isLocationPermissionDenied, setIsLocationPermissionDenied] = useState(false);
 
@@ -133,72 +190,51 @@ export default function ProfileForm() {
     if (!authUser || isFetchingProfile) {
       return;
     }
-    // Check if isOnline was explicitly changed by user interaction, not just on form load.
-    // form.formState.dirtyFields.isOnline ensures this runs only when user toggles the switch.
     if (form.formState.dirtyFields.isOnline === undefined && !form.formState.isSubmitted) {
         return;
     }
 
-
     const manageLiveLocation = async (enable: boolean) => {
       const currentAddress = form.getValues("locationAddress") || "";
-      console.log(`[ProfileForm Tracking] manageLiveLocation called with enable: ${enable}, user: ${authUser.uid}`);
-
       if (enable) {
         setIsLocationPermissionDenied(false);
         if (!navigator.geolocation) {
           toast({ title: "Geolocation Not Supported", description: "Live location tracking is not available on your browser.", variant: "destructive" });
-          form.setValue("isOnline", false, { shouldDirty: false }); // Revert switch
+          form.setValue("isOnline", false, { shouldDirty: false }); 
           await updateUserProfile(authUser.uid, { isOnline: false });
           return;
         }
-
-        console.log("[ProfileForm Tracking] Attempting to get current position...");
         navigator.geolocation.getCurrentPosition(
           async (position) => {
             const { latitude, longitude } = position.coords;
-            console.log(`[ProfileForm Tracking] getCurrentPosition SUCCESS: Lat: ${latitude}, Lng: ${longitude}`);
             const locationData = { lat: latitude, lng: longitude, address: currentAddress };
             try {
                 await updateUserProfile(authUser.uid, { isOnline: true, location: locationData });
                 toast({ title: "You are now Online!", description: "Your location is being shared." });
-                console.log("[ProfileForm Tracking] Firestore updated: isOnline: true, location:", locationData);
             } catch (dbError) {
-                console.error("[ProfileForm Tracking] Error updating Firestore after getCurrentPosition:", dbError);
                 toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
-                form.setValue("isOnline", false, { shouldDirty: false }); // Revert on error
-                return; // Don't start watch if initial save fails
+                form.setValue("isOnline", false, { shouldDirty: false }); 
+                return; 
             }
-
             if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
-            console.log("[ProfileForm Tracking] Starting watchPosition...");
             locationWatchId.current = navigator.geolocation.watchPosition(
               async (pos) => {
                 const newLat = pos.coords.latitude;
                 const newLng = pos.coords.longitude;
-                console.log(`[ProfileForm Tracking] watchPosition UPDATE: Lat: ${newLat}, Lng: ${newLng}`);
                 const newLocationData = { lat: newLat, lng: newLng, address: form.getValues("locationAddress") || "" };
                 try {
                   await updateUserProfile(authUser.uid, { location: newLocationData });
-                  console.log("[ProfileForm Tracking] Firestore updated via watchPosition:", newLocationData);
                 } catch (watchDbError) {
-                  console.error("[ProfileForm Tracking] Error updating Firestore via watchPosition:", watchDbError);
                   // Potentially inform user if watch updates fail consistently
                 }
               },
               (watchErr) => {
-                console.error("[ProfileForm Tracking] Error during watchPosition:", watchErr);
                 toast({ title: "Location Tracking Error", description: `Could not update live location: ${watchErr.message}`, variant: "destructive" });
-                // Optionally stop tracking if watch fails consistently
-                // if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
-                // form.setValue("isOnline", false); 
-                // updateUserProfile(authUser.uid, { isOnline: false });
               },
               { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
             );
           },
           async (error) => {
-            console.error("[ProfileForm Tracking] Error in getCurrentPosition:", error);
             let message = "Could not get your location to go online.";
             if (error.code === error.PERMISSION_DENIED) {
               message = "Location permission denied. Please enable it in your browser settings to appear on the map.";
@@ -207,61 +243,84 @@ export default function ProfileForm() {
               message = `Could not get location: ${error.message}. Please try again.`;
             }
             toast({ title: "Location Error", description: message, variant: "destructive" });
-            form.setValue("isOnline", false, { shouldDirty: false }); // Revert switch
+            form.setValue("isOnline", false, { shouldDirty: false }); 
             try {
                 await updateUserProfile(authUser.uid, { isOnline: false });
-                 console.log("[ProfileForm Tracking] Firestore updated: isOnline: false due to getCurrentPosition error.");
             } catch (dbError) {
-                console.error("[ProfileForm Tracking] Error reverting isOnline status in Firestore:", dbError);
+                 // Log or handle error during firestore update
             }
           }
         );
-      } else { // Disabling: isOnline is false
+      } else { 
         if (locationWatchId.current !== null) {
           navigator.geolocation.clearWatch(locationWatchId.current);
           locationWatchId.current = null;
-          console.log("[ProfileForm Tracking] Stopped location watch.");
         }
         try {
             await updateUserProfile(authUser.uid, { isOnline: false });
             toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
-            console.log("[ProfileForm Tracking] Firestore updated: isOnline: false.");
         } catch (dbError) {
-            console.error("[ProfileForm Tracking] Error setting user offline in Firestore:", dbError);
             toast({ title: "Database Error", description: "Could not update offline status.", variant: "destructive" });
         }
       }
     };
 
-    // Only call manageLiveLocation if the 'isOnline' field was actually changed by the user
-    // or if the form was submitted (though isOnline is more of a live toggle).
     if (form.formState.dirtyFields.isOnline || (form.formState.isSubmitted && form.getFieldState("isOnline").isDirty)) {
          manageLiveLocation(watchedIsOnline);
     }
-
 
     return () => {
       if (locationWatchId.current !== null) {
         navigator.geolocation.clearWatch(locationWatchId.current);
         locationWatchId.current = null;
-        console.log("[ProfileForm Tracking] Cleaned up location watch on unmount/dependency change.");
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser, watchedIsOnline, isFetchingProfile, toast, form]);
-  // Removed form.formState.dirtyFields.isOnline from deps to avoid potential loop if not careful with setValue
-  // It's checked inside the effect logic now. Added `form` to deps.
 
-  const handleProfilePictureChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-      form.setValue("profilePicture", event.target.files);
-      form.setValue("profilePictureUrl", ""); 
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        toast({
+          title: "File Too Large",
+          description: `Please select an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
+          variant: "destructive",
+        });
+        event.target.value = ""; // Clear the input
+        return;
+      }
+
+      setIsResizingImage(true);
+      toast({ title: "Processing image...", description: "Resizing your image for optimal upload." });
+
+      try {
+        const resizedFile = await resizeImage(file, RESIZE_MAX_WIDTH, RESIZE_MAX_HEIGHT);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreviewImage(reader.result as string);
+        };
+        reader.readAsDataURL(resizedFile);
+        
+        // Create a new FileList to assign to form.setValue
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(resizedFile);
+        form.setValue("profilePicture", dataTransfer.files);
+        form.setValue("profilePictureUrl", ""); // Clear any existing URL if new file is chosen
+        toast({ title: "Image Ready", description: "Resized image is ready for preview." });
+
+      } catch (error) {
+        console.error("Error resizing image:", error);
+        toast({
+          title: "Image Processing Failed",
+          description: "Could not process the image. Please try another one.",
+          variant: "destructive",
+        });
+        setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null); // Revert to old preview if any
+        event.target.value = ""; // Clear the input
+      } finally {
+        setIsResizingImage(false);
+      }
     } else {
       const existingUrl = form.getValues("profilePictureUrl") || authUser?.photoURL;
       setPreviewImage(existingUrl || null);
@@ -274,76 +333,71 @@ export default function ProfileForm() {
       toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
       return;
     }
-    console.log("[ProfileForm onSubmit] Saving profile with values:", values);
 
-    // isOnline and live lat/lng are handled by the useEffect.
-    // This onSubmit saves other profile details.
     const { profilePicture, profilePictureUrl, isOnline: formIsOnlineValue, locationAddress, ...dataForAuthAndFirestore } = values;
     let newAuthPhotoURL = profilePictureUrl || authUser.photoURL || "";
     
     setIsUploadingPicture(true);
-    if (profilePicture && profilePicture.length > 0) {
-      const fileToUpload = profilePicture[0];
-      toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
-      try {
-        const downloadURL = await uploadProfilePicture(authUser.uid, fileToUpload);
-        newAuthPhotoURL = downloadURL;
-      } catch (uploadError: any) {
-        toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
-        setIsUploadingPicture(false);
-        return;
-      }
-    } else if (previewImage === null && (authUser.photoURL || profilePictureUrl)) {
-      newAuthPhotoURL = "";
-    }
-    setIsUploadingPicture(false);
-
+    toast({ title: "Saving Profile...", description: "Please wait." });
     try {
-      const authUpdates: { displayName?: string; photoURL?: string | null } = {};
-      if (values.fullName !== (authUser.displayName || "")) {
-        authUpdates.displayName = values.fullName;
-      }
-      const photoURLForAuth = newAuthPhotoURL === undefined ? null : newAuthPhotoURL;
-      if (photoURLForAuth !== (authUser.photoURL || null)) {
-        authUpdates.photoURL = photoURLForAuth;
-      }
+        if (profilePicture && profilePicture.length > 0) {
+            const fileToUpload = profilePicture[0]; // Already resized
+            toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
+            try {
+                newAuthPhotoURL = await uploadProfilePicture(authUser.uid, fileToUpload);
+                toast({ title: "Picture Uploaded!", description: "Profile picture updated successfully." });
+            } catch (uploadError: any) {
+                toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
+                setIsUploadingPicture(false); // Reset on specific upload error
+                return; // Stop further execution if picture upload fails
+            }
+        } else if (previewImage === null && (authUser.photoURL || profilePictureUrl)) {
+            // User explicitly removed the picture
+            newAuthPhotoURL = "";
+        }
 
-      if (Object.keys(authUpdates).length > 0) {
-        await updateAuthProfile(authUser, authUpdates);
-      }
-      
-      // Prepare Firestore data - preserve live lat/lng if available
-      const existingProfile = await getUserProfile(authUser.uid);
-      const finalDataToSaveToFirestore: Partial<User> = {
-        ...dataForAuthAndFirestore,
-        fullName: values.fullName, 
-        profilePictureUrl: newAuthPhotoURL,
-        location: { 
-            lat: existingProfile?.location?.lat, 
-            lng: existingProfile?.location?.lng, 
-            address: values.locationAddress || ""
-        },
-        // isOnline is handled by its own useEffect, don't overwrite from form submit unless intended
-        // isOnline: values.isOnline, 
-        showContact: values.showContact,
-        bio: values.bio,
-      };
-      
-      await updateUserProfile(authUser.uid, finalDataToSaveToFirestore);
-      console.log("[ProfileForm onSubmit] Profile successfully updated in Firestore with:", finalDataToSaveToFirestore);
+        const authUpdates: { displayName?: string; photoURL?: string | null } = {};
+        if (values.fullName !== (authUser.displayName || "")) {
+            authUpdates.displayName = values.fullName;
+        }
+        const photoURLForAuth = newAuthPhotoURL === undefined ? null : newAuthPhotoURL;
+        if (photoURLForAuth !== (authUser.photoURL || null)) {
+            authUpdates.photoURL = photoURLForAuth;
+        }
 
-      toast({
-        title: "Profile Updated",
-        description: "Your profile information has been saved.",
-      });
+        if (Object.keys(authUpdates).length > 0) {
+            await updateAuthProfile(authUser, authUpdates);
+        }
+        
+        const existingProfile = await getUserProfile(authUser.uid);
+        const finalDataToSaveToFirestore: Partial<User> = {
+            ...dataForAuthAndFirestore,
+            fullName: values.fullName, 
+            profilePictureUrl: newAuthPhotoURL,
+            location: { 
+                lat: existingProfile?.location?.lat, 
+                lng: existingProfile?.location?.lng, 
+                address: values.locationAddress || ""
+            },
+            showContact: values.showContact,
+            bio: values.bio,
+        };
+        
+        await updateUserProfile(authUser.uid, finalDataToSaveToFirestore);
 
-      const newResetValues = { ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined };
-      form.reset(newResetValues, { keepDirtyValues: false, keepValues: false });
-      setPreviewImage(newAuthPhotoURL || null);
+        toast({
+            title: "Profile Updated",
+            description: "Your profile information has been saved.",
+        });
+
+        const newResetValues = { ...values, profilePictureUrl: newAuthPhotoURL, profilePicture: undefined };
+        form.reset(newResetValues, { keepDirtyValues: false, keepValues: false });
+        setPreviewImage(newAuthPhotoURL || null);
 
     } catch (error: any) {
-      console.error("[ProfileForm onSubmit] Error updating profile:", error);
-      toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
+        toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
+    } finally {
+        setIsUploadingPicture(false); // Ensure this is always reset
     }
   }
 
@@ -358,6 +412,9 @@ export default function ProfileForm() {
   const currentFullName = form.watch("fullName") || authUser?.displayName || "";
   const initials = currentFullName.split(" ").map(n => n[0]).join("").toUpperCase() || "?";
 
+  const isSaveDisabled = form.formState.isSubmitting || authLoading || isFetchingProfile || isUploadingPicture || isResizingImage;
+
+
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl">
       <CardHeader>
@@ -370,7 +427,7 @@ export default function ProfileForm() {
             <div className="flex flex-col items-center space-y-4">
                 {previewImage ? (
                     <Image src={previewImage} alt="Profile Preview" width={150} height={150} className="rounded-full object-cover ring-2 ring-primary" data-ai-hint="user avatar"/>
- ) : (
+                ) : (
                     <div className="w-[150px] h-[150px] rounded-full bg-muted flex items-center justify-center text-muted-foreground text-4xl ring-2 ring-border">
                         {initials}
                     </div>
@@ -380,9 +437,9 @@ export default function ProfileForm() {
                     name="profilePicture"
                     render={() => ( 
                         <FormItem>
-                        <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", (isUploadingPicture || form.formState.isSubmitting) && "opacity-50 cursor-not-allowed")}>
-                            {isUploadingPicture && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {previewImage ? "Change" : "Upload"} Picture
+                        <FormLabel htmlFor="profilePictureInput" className={cn(buttonVariants({variant: "outline", size:"sm"}), "cursor-pointer", isSaveDisabled && "opacity-50 cursor-not-allowed")}>
+                            {(isUploadingPicture || isResizingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isResizingImage ? "Processing..." : (isUploadingPicture ? "Uploading..." : (previewImage ? "Change Picture" : "Upload Picture"))}
                         </FormLabel>
                         <FormControl>
                             <Input
@@ -391,9 +448,12 @@ export default function ProfileForm() {
                                 accept="image/*"
                                 className="hidden"
                                 onChange={handleProfilePictureChange}
-                                disabled={isUploadingPicture || form.formState.isSubmitting}
+                                disabled={isSaveDisabled}
                             />
                         </FormControl>
+                        <FormDescription>
+                            Max file size: {MAX_FILE_SIZE_MB}MB. Images will be resized to {RESIZE_MAX_WIDTH}x{RESIZE_MAX_HEIGHT}px.
+                        </FormDescription>
                         <FormMessage />
                         </FormItem>
                     )}
@@ -403,7 +463,7 @@ export default function ProfileForm() {
                         setPreviewImage(null);
                         form.setValue("profilePicture", undefined);
                         form.setValue("profilePictureUrl", ""); 
-                    }} disabled={isUploadingPicture || form.formState.isSubmitting}>Remove Picture</Button>
+                    }} disabled={isSaveDisabled}>Remove Picture</Button>
                 )}
             </div>
 
@@ -556,9 +616,7 @@ export default function ProfileForm() {
                       <FormControl>
                         <Switch
                           checked={field.value}
-                          onCheckedChange={(checked) => {
-                            form.setValue("isOnline", checked, { shouldDirty: true });
-                          }}
+                          onCheckedChange={field.onChange}
                         />
                       </FormControl>
                     </FormItem>
@@ -585,9 +643,9 @@ export default function ProfileForm() {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full sm:w-auto" disabled={form.formState.isSubmitting || authLoading || isFetchingProfile || isUploadingPicture}>
-              {(form.formState.isSubmitting || isUploadingPicture) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {form.formState.isSubmitting || isUploadingPicture ? "Saving..." : "Save Changes"}
+            <Button type="submit" className="w-full sm:w-auto" disabled={isSaveDisabled}>
+              {(form.formState.isSubmitting || isUploadingPicture || isResizingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isResizingImage ? "Processing Image..." : (isUploadingPicture || form.formState.isSubmitting ? "Saving..." : "Save Changes")}
             </Button>
           </form>
         </Form>
@@ -595,4 +653,6 @@ export default function ProfileForm() {
     </Card>
   );
 }
+    
+
     
