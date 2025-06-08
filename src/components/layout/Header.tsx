@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, LogIn } from 'lucide-react';
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, LogIn, Lightbulb } from 'lucide-react'; // Added Lightbulb
 import { useAuthContext } from '@/contexts/AuthContext'; // Import the AuthContext
 import { auth } from '@/lib/firebase'; // Import Firebase auth
 import { signOut } from 'firebase/auth'; // Import Firebase signOut
@@ -17,6 +17,7 @@ const navLinks = [
   { href: '/users', label: 'Users', icon: Users, authRequired: true },
   { href: '/messages', label: 'Messages', icon: MessageCircle, authRequired: true },
   { href: '/profile', label: 'Profile', icon: UserCircle, authRequired: true },
+  { href: '/suggestions', label: 'Suggest', icon: Lightbulb, authRequired: true }, // Added Suggestions link
 ];
 
 export default function Header() {
@@ -45,14 +46,11 @@ export default function Header() {
     }
   };
   
-  // Remove the mock auth toggle button as we now have real auth.
-  // const handleAuthToggle = () => { ... };
-
   if (loading) {
     // You might want to render a loading state or a simplified header
     return (
       <header className="bg-card border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           <AppLogo />
           <div>Loading...</div> {/* Or a Skeleton loader */}
         </div>
@@ -62,41 +60,44 @@ export default function Header() {
 
   return (
     <header className="bg-card border-b sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="container mx-auto px-2 sm:px-4 h-20 flex items-center justify-between">
         <AppLogo />
-        <nav className="flex items-center gap-4">
+        <nav className="flex items-center gap-1 sm:gap-2">
           {navLinks.map((link) => (
             (link.authRequired && isAuthenticated) || !link.authRequired ? (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex items-center gap-2 text-sm font-medium transition-colors hover:text-primary",
-                  pathname === link.href ? "text-primary" : "text-muted-foreground"
+                  "flex flex-col items-center justify-center gap-0.5 p-1 sm:p-2 rounded-md transition-colors hover:bg-accent/50",
+                  pathname === link.href || (link.href === '/messages' && pathname.startsWith('/messages/'))
+                    ? "text-primary" 
+                    : "text-muted-foreground hover:text-foreground"
                 )}
+                title={link.label} // Add title for better UX on hover for collapsed labels
               >
-                <link.icon className="h-5 w-5" />
-                <span>{link.label}</span>
+                <link.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                <span className="text-[10px] sm:text-xs font-medium">{link.label}</span>
               </Link>
             ) : null
           ))}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           {isAuthenticated ? (
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" /> Logout
+            <Button variant="outline" size="sm" onClick={handleLogout} className="px-2 sm:px-3">
+              <LogOut className="h-4 w-4 sm:mr-1" /> 
+              <span className="hidden sm:inline">Logout</span>
             </Button>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild className="px-2 sm:px-3">
                 <Link href="/login">Login</Link>
               </Button>
-              <Button size="sm" asChild>
+              <Button size="sm" asChild className="px-2 sm:px-3">
                 <Link href="/signup">Sign Up</Link>
               </Button>
             </>
           )}
-          {/* Removed the "Toggle Auth (Dev)" button */}
         </div>
       </div>
     </header>
