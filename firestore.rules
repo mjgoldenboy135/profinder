@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users Collection
+    match /users/{userId} {
+      // Allow any authenticated user to read user profiles
+      allow read: if request.auth != null;
+      // Allow a user to create their own profile document
+      allow create: if request.auth.uid == userId;
+      // Allow a user to update their own profile document
+      allow update: if request.auth.uid == userId;
+      // Optional: Allow a user to delete their own profile (Uncomment if needed)
+      // allow delete: if request.auth.uid == userId;
+    }
+
+    // Chats Collection
+    match /chats/{chatId} {
+      // Allow reading a specific chat document (get) if the logged-in user is a participant
+      allow get: if request.auth != null && resource.data.participantIds.hasAny([request.auth.uid]);
+
+      // Allow listing chats if the user is authenticated.
+      // Client-side queries MUST include a 'where("participantIds", "array-contains", request.auth.uid)' clause
+      // (or equivalent logic) to ensure users only list chats they are part of.
+      // This is handled by functions like getUserChats in chatService.ts.
+      allow list: if request.auth != null;
+
+      // Allow creating a chat if the logged-in user is one of the two participants being set
+      // and participantIds array has exactly two members.
+      allow create: if request.auth != null &&
+                       request.resource.data.participantIds.hasAny([request.auth.uid]) &&
+                       request.resource.data.participantIds.size() == 2;
+
+      // Allow updating a chat (e.g., lastMessage details) if the logged-in user is a participant
+      allow update: if request.auth != null && resource.data.participantIds.hasAny([request.auth.uid]);
+
+      // Allow deleting a chat if the logged-in user is a participant
+      allow delete: if request.auth != null && resource.data.participantIds.hasAny([request.auth.uid]);
+
+      // Messages Subcollection within a Chat
+      match /messages/{messageId} {
+        // Allow read, create, or delete operations on messages if the logged-in user
+        // is a participant of the parent chat document.
+        allow read, create, delete: if request.auth != null &&
+                                 get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+
+        // Optional: Allow updating a message only by the sender and if they are part of the chat
+        // allow update: if request.auth != null &&
+        //                  get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]) &&
+        //                  request.resource.data.senderId == request.auth.uid;
+      }
+    }
+  }
+}
