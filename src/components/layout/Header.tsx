@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'; // Added useRouter
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, LogIn } from 'lucide-react'; // Removed Lightbulb
+import { MapPin, Users, MessageCircle, UserCircle, LogOut } from 'lucide-react'; // Removed LogIn as it's not directly used on button, variant change handles it
 import { useAuthContext } from '@/contexts/AuthContext'; // Import the AuthContext
 import { auth } from '@/lib/firebase'; // Import Firebase auth
 import { signOut } from 'firebase/auth'; // Import Firebase signOut
@@ -17,7 +17,6 @@ const navLinks = [
   { href: '/users', label: 'Users', icon: Users, authRequired: true },
   { href: '/messages', label: 'Messages', icon: MessageCircle, authRequired: true },
   { href: '/profile', label: 'Profile', icon: UserCircle, authRequired: true },
-  // { href: '/suggestions', label: 'Suggest', icon: Lightbulb, authRequired: true }, // Removed Suggestions link
 ];
 
 export default function Header() {
@@ -84,13 +83,13 @@ export default function Header() {
         </nav>
         <div className="flex items-center gap-1 sm:gap-2">
           {isAuthenticated ? (
-            <Button variant="outline" size="sm" onClick={handleLogout} className="px-2 sm:px-3">
+            <Button variant="default" size="sm" onClick={handleLogout} className="px-2 sm:px-3"> {/* Changed variant to default */}
               <LogOut className="h-4 w-4 sm:mr-1" /> 
               <span className="hidden sm:inline">Logout</span>
             </Button>
           ) : (
             <>
-              <Button variant="ghost" size="sm" asChild className="px-2 sm:px-3">
+              <Button variant="default" size="sm" asChild className="px-2 sm:px-3"> {/* Changed variant to default */}
                 <Link href="/login">Login</Link>
               </Button>
               <Button size="sm" asChild className="px-2 sm:px-3">
