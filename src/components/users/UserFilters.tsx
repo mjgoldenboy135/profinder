@@ -16,15 +16,7 @@ interface UserFiltersProps {
   users: User[]; // Add users prop to receive the list of users
 }
 
-const experienceRanges = [
-  { label: "Any Experience", value: "__ANY_EXPERIENCE__" }, 
-  { label: "0-2 years", value: "0-2" },
-  { label: "3-5 years", value: "3-5" },
-  { label: "6-10 years", value: "6-10" },
-  { label: "10+ years", value: "10+" },
-];
 const ANY_PROFESSION_VALUE = "__ANY_PROFESSION__";
-const ANY_EXPERIENCE_VALUE = "__ANY_EXPERIENCE__";
 
 
 export default function UserFilters({ onFilterChange, initialFilters, users }: UserFiltersProps) {
@@ -43,8 +35,6 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
     let processedValue = value;
     if (name === "profession" && value === ANY_PROFESSION_VALUE) {
       processedValue = "";
-    } else if (name === "experience" && value === ANY_EXPERIENCE_VALUE) {
-      processedValue = "";
     }
     onFilterChange({ ...initialFilters, [name]: processedValue });
   };
@@ -57,7 +47,6 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
     onFilterChange({
       searchTerm: "",
       profession: "",
-      experience: "",
       location: "",
       onlineOnly: false,
     });
@@ -65,7 +54,7 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
 
   return (
     <div className="p-6 bg-card rounded-lg shadow-lg mb-8">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 items-end">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
         <div className="lg:col-span-2">
           <Label htmlFor="searchTerm">Search by Name/Keyword</Label>
           <div className="relative">
@@ -95,24 +84,6 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
               <SelectItem value={ANY_PROFESSION_VALUE}>Any Profession</SelectItem>
               {uniqueProfessions.map(prof => (
                 prof && <SelectItem key={prof} value={prof}>{prof}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div>
-          <Label htmlFor="experience">Years of Experience</Label>
-          <Select 
-            name="experience" 
-            value={initialFilters.experience || ANY_EXPERIENCE_VALUE} 
-            onValueChange={(value) => handleSelectChange("experience", value)}
-          >
-            <SelectTrigger id="experience">
-              <SelectValue placeholder="Any Experience" />
-            </SelectTrigger>
-            <SelectContent>
-              {experienceRanges.map(range => (
-                <SelectItem key={range.value} value={range.value}>{range.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>

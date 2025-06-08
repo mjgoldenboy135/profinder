@@ -15,7 +15,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 interface Filters {
   searchTerm: string;
   profession: string;
-  experience: string; // e.g., "0-2", "3-5"
+  // experience: string; // Removed experience
   location: string;
   onlineOnly: boolean;
 }
@@ -28,7 +28,7 @@ export default function UserListPage() {
   const [filters, setFilters] = useState<Filters>({
     searchTerm: "",
     profession: "",
-    experience: "",
+    // experience: "", // Removed experience
     location: "",
     onlineOnly: false,
   });
@@ -78,14 +78,15 @@ export default function UserListPage() {
 
       const onlineMatch = !filters.onlineOnly || !!user.isOnline;
 
-      const experienceMatch = filters.experience === "" || (user.yearsOfExperience !== undefined && (
-        (filters.experience === "0-2" && user.yearsOfExperience >= 0 && user.yearsOfExperience <= 2) ||
-        (filters.experience === "3-5" && user.yearsOfExperience >= 3 && user.yearsOfExperience <= 5) ||
-        (filters.experience === "6-10" && user.yearsOfExperience >= 6 && user.yearsOfExperience <= 10) ||
-        (filters.experience === "10+" && user.yearsOfExperience > 10)
-      ));
+      // const experienceMatch = filters.experience === "" || (user.yearsOfExperience !== undefined && (
+      //   (filters.experience === "0-2" && user.yearsOfExperience >= 0 && user.yearsOfExperience <= 2) ||
+      //   (filters.experience === "3-5" && user.yearsOfExperience >= 3 && user.yearsOfExperience <= 5) ||
+      //   (filters.experience === "6-10" && user.yearsOfExperience >= 6 && user.yearsOfExperience <= 10) ||
+      //   (filters.experience === "10+" && user.yearsOfExperience > 10)
+      // ));
+      // Removed experienceMatch from return
 
-      return searchTermMatch && professionMatch && locationMatch && onlineMatch && experienceMatch;
+      return searchTermMatch && professionMatch && locationMatch && onlineMatch;
     });
   }, [allUsers, filters]);
 
