@@ -4,46 +4,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/profind/documents {
 
-    // Users:
-    // - Allow anyone to read user profiles (for user lists, public profiles).
-    // - Allow authenticated users to create their own profile document.
-    // - Allow authenticated users to update their own profile document.
-    // - Disallow direct client deletion of user profiles (can be handled by admin/functions).
+    // Users Collection
+    // - Anyone can read public profiles (if not explicitly restricted by app logic).
+    // - Only the authenticated user can create their own profile.
+    // - Only the authenticated user can update their own profile.
+    // - Deletion of user profiles is typically handled by backend functions or restricted.
     match /users/{userId} {
-      allow read: if true;
+      allow read: if true; // Allows public reading of profiles. Change to `request.auth != null;` to restrict to logged-in users.
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false; // Or implement admin-only deletion
+      allow delete: if false; // Typically, users don't delete their own accounts directly; admins or backend processes might.
     }
 
-    // Chats:
-    // - Allow authenticated users to read chats they are a participant in.
-    // - Allow authenticated users to create chats where they are a participant.
-    // - Allow authenticated users to update chats they are a participant in (e.g., lastMessage fields).
-    // - Allow authenticated users to delete chats they are a participant in.
+    // Chats Collection
+    // - Users can only read chats they are participants in.
+    // - Users can create chats if they are authenticated and one of the participants.
+    // - Users can update chats (e.g., last message) if they are participants.
+    // - Users can delete chats they are participants in.
     match /chats/{chatId} {
       allow read: if request.auth != null && request.auth.uid in resource.data.participantIds;
-      allow create: if request.auth != null && request.resource.data.participantIds.hasAll([request.auth.uid]); // Ensure creator is a participant
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.participantIds;
       allow update: if request.auth != null && request.auth.uid in resource.data.participantIds;
-      allow delete: if request.auth != null && request.auth.uid in resource.data.participantIds; // Allows participants to delete
+      allow delete: if request.auth != null && request.auth.uid in resource.data.participantIds; // Allows participants to delete chats
 
-      // Messages subcollection:
-      // - Allow participants of the parent chat to read messages.
-      // - Allow participants of the parent chat to create messages, ensuring senderId matches auth.uid.
-      // - Disallow direct client updates or deletes of messages (can be handled by functions if needed, e.g., for "delete for me").
+      // Messages Subcollection within Chats
+      // - Users can read messages in chats they are participants in.
+      // - Users can create messages in chats they are participants in, and they are the sender.
+      // - Updating/deleting messages is generally restricted or handled carefully.
       match /messages/{messageId} {
-        function getChatData(chatDocId) {
-          return get(/databases/$(database)/documents/chats/$(chatDocId)).data;
-        }
-        function isChatParticipant(chatDocId) {
-          let chatData = getChatData(chatDocId);
-          return request.auth != null && request.auth.uid in chatData.participantIds;
-        }
-
-        allow read: if isChatParticipant(chatId);
-        allow create: if isChatParticipant(chatId) && request.resource.data.senderId == request.auth.uid;
-        allow update: if false; // Messages generally shouldn't be updated by clients
-        allow delete: if false; // Or allow sender to delete within a timeframe, or "delete for everyone" via function
+        allow read: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+        allow create: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]) && request.resource.data.senderId == request.auth.uid;
+        allow update: if false; // Typically, disallow direct message updates by users.
+        allow delete: if false; // Typically, disallow direct message deletions by users.
       }
     }
   }
