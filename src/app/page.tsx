@@ -3,24 +3,24 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight } from "lucide-react"; // Removed UserCircle as the button is being removed
+import { ArrowRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useAuthContext } from "@/contexts/AuthContext"; // Import AuthContext
+import { useAuthContext } from "@/contexts/AuthContext";
 
 export default function HomePage() {
-  const { currentUser } = useAuthContext(); // Get current user
+  const { currentUser } = useAuthContext();
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center">
-      <Image 
-        src="https://placehold.co/300x200.png" 
-        alt="Professional Networking" 
-        width={300} 
-        height={200} 
+      <Image
+        src="https://placehold.co/300x200.png"
+        alt="Professional Networking"
+        width={300}
+        height={200}
         priority={true}
         className="mb-8 rounded-lg shadow-lg"
-        data-ai-hint="networking connections" 
+        data-ai-hint="networking connections"
       />
       <h1 className="text-5xl font-headline font-bold mb-6 text-primary">
         Welcome to Proximity Network
@@ -44,12 +44,6 @@ export default function HomePage() {
             </Button>
           </>
         ) : (
-          // "Go to Your Profile" button removed as per request
-          // If a different call to action is desired here for logged-in users, it can be added.
-          // For now, we'll show nothing specific here if they are logged in,
-          // as they have access to their profile via the header.
-          // Alternatively, we could show a generic welcome message or link to the map.
-          // Let's show a link to the map page as a primary action for logged-in users.
            <Button size="lg" asChild>
             <Link href="/map">
               Explore Network Map <ArrowRight className="ml-2 h-5 w-5" />
@@ -72,7 +66,7 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle className="font-headline">Build Your Profile</CardTitle>
             <CardDescription>Showcase your skills, experience, and education.</CardDescription>
-          </Header>
+          </CardHeader>
            <CardContent>
             <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="profile user" />
           </CardContent>
@@ -81,7 +75,7 @@ export default function HomePage() {
           <CardHeader>
             <CardTitle className="font-headline">Connect & Chat</CardTitle>
             <CardDescription>Engage in meaningful conversations with in-app messaging.</CardDescription>
-          </Header>
+          </CardHeader>
            <CardContent>
             <Image src="https://placehold.co/300x150.png" alt="Chat Icon" width={300} height={150} className="rounded" data-ai-hint="chat bubbles" />
           </CardContent>
