@@ -5,7 +5,7 @@ import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect, useMemo } from "react"; // Added useMemo
+import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase"; 
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore"; 
 import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react"; 
@@ -18,6 +18,8 @@ const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
 const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId.trim() : undefined;
 
+const ALL_PROFESSIONS_FILTER_VALUE = "__ALL_PROFESSIONS__";
+
 if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
   console.log('[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID);
@@ -29,7 +31,7 @@ export default function MapView() {
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true); 
   const router = useRouter();
-  const [selectedProfession, setSelectedProfession] = useState<string>(""); // "" means all professions
+  const [selectedProfession, setSelectedProfession] = useState<string>(ALL_PROFESSIONS_FILTER_VALUE);
   const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
 
   useEffect(() => {
@@ -38,7 +40,6 @@ export default function MapView() {
       setIsLoading(false);
       return;
     }
-    // Warning about MAP_ID is handled in JSX now
 
     setIsLoading(true);
     console.log("[MapView] Setting up Firestore listener for online users.");
@@ -81,8 +82,8 @@ export default function MapView() {
   }, [onlineUsers]);
 
   const filteredUsers = useMemo(() => {
-    if (!selectedProfession) {
-      return onlineUsers; // Show all if no profession is selected (empty string)
+    if (selectedProfession === ALL_PROFESSIONS_FILTER_VALUE) {
+      return onlineUsers; 
     }
     return onlineUsers.filter(user => user.profession === selectedProfession);
   }, [onlineUsers, selectedProfession]);
@@ -120,12 +121,9 @@ export default function MapView() {
                 <CardTitle className="text-3xl font-headline">Network Map</CardTitle>
                 <CardDescription>
                 See who's online and nearby. Use the filter to view by profession.
-                {!MAP_ID && API_KEY && (
-                    <span className="block text-destructive text-xs mt-1">Note: Map ID is missing, user avatars (Advanced Markers) may not display correctly.</span>
-                )}
                 </CardDescription>
             </div>
-            {availableProfessions.length > 0 && (
+            { (availableProfessions.length > 0 || onlineUsers.length > 0) && ( // Show filter if there are any users or professions to filter by
             <div className="w-full sm:w-auto sm:min-w-[200px]">
                 <Label htmlFor="profession-filter" className="sr-only">Filter by Profession</Label>
                 <Select value={selectedProfession} onValueChange={setSelectedProfession}>
@@ -133,7 +131,7 @@ export default function MapView() {
                     <SelectValue placeholder="All Professions" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="">All Professions</SelectItem>
+                    <SelectItem value={ALL_PROFESSIONS_FILTER_VALUE}>All Professions</SelectItem>
                     {availableProfessions.map(prof => (
                     <SelectItem key={prof} value={prof}>
                         {prof}
@@ -195,12 +193,12 @@ export default function MapView() {
             </APIProvider>
           </div>
         )}
-        {!isLoading && filteredUsers.length === 0 && API_KEY && (
-            <p className="text-sm text-muted-foreground mt-4 text-center">
-                {selectedProfession ? `No users online matching the profession "${selectedProfession}".` : "No users currently online with location data to display on the map."}
+        {!isLoading && onlineUsers.length === 0 && API_KEY && (
+             <p className="text-sm text-muted-foreground mt-4 text-center">
+                No users currently online with location data to display on the map.
             </p>
         )}
-         {!isLoading && onlineUsers.length > 0 && filteredUsers.length === 0 && selectedProfession && API_KEY && (
+        {!isLoading && onlineUsers.length > 0 && filteredUsers.length === 0 && selectedProfession !== ALL_PROFESSIONS_FILTER_VALUE && API_KEY && (
             <p className="text-sm text-muted-foreground mt-4 text-center">
                 No users found for the selected profession: "{selectedProfession}". Try "All Professions".
             </p>
