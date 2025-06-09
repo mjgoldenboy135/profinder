@@ -13,7 +13,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center py-8">
-      <div className="w-full max-w-4xl mx-auto mb-12">
+      <div className="w-full max-w-6xl mx-auto mb-12">
         <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg shadow-xl">
           <Image
             src="/home_image.jpg"
@@ -55,7 +55,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl w-full">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Discover Nearby</CardTitle>
@@ -64,7 +64,7 @@ export default function HomePage() {
           <CardContent>
             <div className="relative aspect-video w-full overflow-hidden rounded-md">
               <Image 
-                src="/discover_image.jpg" 
+                src="/discover_image.png" 
                 alt="Interactive map feature" 
                 fill
                 style={{ objectFit: 'contain' }} 
