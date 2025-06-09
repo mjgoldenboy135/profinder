@@ -13,7 +13,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center py-8">
-      <div className="w-full max-w-4xl mx-auto mb-6">
+      <div className="w-full max-w-4xl mx-auto mb-12">
         <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg shadow-xl">
           <Image
             src="/home_image.jpg"
@@ -21,6 +21,7 @@ export default function HomePage() {
             fill
             style={{ objectFit: 'contain' }}
             data-ai-hint="professional network"
+            priority
           />
         </div>
       </div>
@@ -66,7 +67,7 @@ export default function HomePage() {
                 src="/map_feature.jpg" 
                 alt="Interactive map feature" 
                 fill
-                style={{ objectFit: 'cover' }} 
+                style={{ objectFit: 'contain' }} 
                 className="rounded" 
                 data-ai-hint="interactive map" 
               />
@@ -84,7 +85,7 @@ export default function HomePage() {
                 src="/chat_feature.jpg" 
                 alt="In-app messaging feature" 
                 fill
-                style={{ objectFit: 'cover' }} 
+                style={{ objectFit: 'contain' }} 
                 className="rounded" 
                 data-ai-hint="messaging app" 
               />
