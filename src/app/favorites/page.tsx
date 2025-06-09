@@ -21,6 +21,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function FavoritesPage() {
   const { currentUser, currentUserProfile, loading: authLoading, refreshUserProfile } = useAuthContext();
@@ -57,7 +63,7 @@ export default function FavoritesPage() {
       fetchFavorites();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, authLoading, currentUserProfile]); // Re-fetch if currentUserProfile changes (e.g., after an update elsewhere)
+  }, [currentUser, authLoading, currentUserProfile]);
 
 
   const handleInitiateRemoveFavorite = (user: User) => {
@@ -75,7 +81,7 @@ export default function FavoritesPage() {
         description: `${userToRemove.fullName} has been removed from your favorites.`,
       });
       setFavoritedUsers(prev => prev.filter(u => u.id !== userToRemove.id));
-      if (refreshUserProfile) await refreshUserProfile(); // Refresh context
+      if (refreshUserProfile) await refreshUserProfile();
     } catch (error) {
       console.error("Error removing favorite:", error);
       toast({
@@ -119,26 +125,38 @@ export default function FavoritesPage() {
       <h1 className="text-4xl font-bold font-headline mb-8 text-primary">My Favorite Professionals</h1>
       
       {favoritedUsers.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {favoritedUsers.map(user => (
-            user && user.id ? (
-              <div key={user.id} className="relative group">
-                <UserListItem user={user} />
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleInitiateRemoveFavorite(user)}
-                  aria-label={`Remove ${user.fullName} from favorites`}
-                  disabled={isRemovingFavorite && userToRemove?.id === user.id}
-                >
-                  {isRemovingFavorite && userToRemove?.id === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <StarOff className="h-4 w-4 mr-1" />}
-                   Unfavorite
-                </Button>
-              </div>
-            ) : null
-          ))}
-        </div>
+        <TooltipProvider>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {favoritedUsers.map(user => (
+              user && user.id ? (
+                <div key={user.id} className="relative">
+                  <UserListItem user={user} />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={() => handleInitiateRemoveFavorite(user)}
+                        aria-label={`Remove ${user.fullName} from favorites`}
+                        disabled={isRemovingFavorite && userToRemove?.id === user.id}
+                      >
+                        {isRemovingFavorite && userToRemove?.id === user.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <StarOff className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isRemovingFavorite && userToRemove?.id === user.id ? "Removing..." : "Unfavorite"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+              ) : null
+            ))}
+          </div>
+        </TooltipProvider>
       ) : (
         <div className="text-center py-10">
           <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
@@ -178,5 +196,3 @@ export default function FavoritesPage() {
     </div>
   );
 }
-
-    
