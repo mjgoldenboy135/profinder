@@ -13,7 +13,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center py-8">
-      <div className="w-full max-w-4xl mx-auto mb-6"> {/* Changed max-w-2xl to max-w-4xl */}
+      <div className="w-full max-w-4xl mx-auto mb-6">
         <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg shadow-xl">
           <Image
             src="/home_image.jpg"
@@ -63,8 +63,8 @@ export default function HomePage() {
           <CardContent>
             <div className="relative aspect-video w-full overflow-hidden rounded-md">
               <Image 
-                src="https://placehold.co/600x300.png" 
-                alt="Map Icon" 
+                src="/map_feature.jpg" 
+                alt="Interactive map feature" 
                 fill
                 style={{ objectFit: 'cover' }} 
                 className="rounded" 
@@ -81,8 +81,8 @@ export default function HomePage() {
            <CardContent>
             <div className="relative aspect-video w-full overflow-hidden rounded-md">
               <Image 
-                src="https://placehold.co/600x300.png" 
-                alt="Chat Icon" 
+                src="/chat_feature.jpg" 
+                alt="In-app messaging feature" 
                 fill
                 style={{ objectFit: 'cover' }} 
                 className="rounded" 
