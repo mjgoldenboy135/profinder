@@ -76,13 +76,13 @@ export default function HomePage() {
         </Card>
         <Card className="shadow-lg">
           <CardHeader>
-            <CardTitle className="font-headline">Connect & Chat</CardTitle>
+            <CardTitle className="font-headline">Connect &amp; Chat</CardTitle>
             <CardDescription>Engage in meaningful conversations with in-app messaging.</CardDescription>
           </CardHeader>
            <CardContent>
             <div className="relative aspect-video w-full overflow-hidden rounded-md">
               <Image 
-                src="/Chat_image.jpg" 
+                src="/Chat_image.png" 
                 alt="In-app messaging feature" 
                 fill
                 style={{ objectFit: 'contain' }} 
