@@ -14,13 +14,12 @@ export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center">
       <Image
-        src="https://placehold.co/300x200.png"
-        alt="Professional Networking"
+        src="/images/home_image.jpg" 
+        alt="Proximity Network - Professional Networking"
         width={300}
         height={200}
         priority={true}
         className="mb-8 rounded-lg shadow-lg"
-        data-ai-hint="community network"
       />
       <h1 className="text-5xl font-headline font-bold mb-6 text-primary">
         Welcome to Proximity Network
@@ -59,7 +58,7 @@ export default function HomePage() {
             <CardDescription>Find professionals in your vicinity using our interactive map.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Map Icon" width={300} height={150} className="rounded" data-ai-hint="interactive map" />
+            <Image src="https://placehold.co/300x150.png" alt="Map Icon" width={300} height={150} className="rounded" data-ai-hint="interactive map discovery" />
           </CardContent>
         </Card>
         <Card>
@@ -68,7 +67,7 @@ export default function HomePage() {
             <CardDescription>Showcase your skills, experience, and education.</CardDescription>
           </CardHeader>
            <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="personal branding" />
+            <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="professional profile branding" />
           </CardContent>
         </Card>
         <Card>
@@ -77,7 +76,7 @@ export default function HomePage() {
             <CardDescription>Engage in meaningful conversations with in-app messaging.</CardDescription>
           </CardHeader>
            <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Chat Icon" width={300} height={150} className="rounded" data-ai-hint="messaging app" />
+            <Image src="https://placehold.co/300x150.png" alt="Chat Icon" width={300} height={150} className="rounded" data-ai-hint="communication messaging app" />
           </CardContent>
         </Card>
       </div>
