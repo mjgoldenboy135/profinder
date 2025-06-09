@@ -16,8 +16,8 @@ export default function HomePage() {
       <Image
         src="/images/home_image.jpg" 
         alt="Proximity Network - Professional Networking"
-        width={600}
-        height={300}
+        width={300}
+        height={200}
         priority={true}
         className="mb-8 rounded-lg shadow-lg"
       />
