@@ -46,7 +46,9 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
 
     setIsUpdatingFavorite(true);
     const newFavoriteState = !isFavorited; // Determine new state
-    setIsFavorited(newFavoriteState); // Optimistic update
+    
+    // Optimistic UI update for the local state, which drives the button's appearance
+    setIsFavorited(newFavoriteState); 
 
     try {
       if (newFavoriteState) { // User wants to add
@@ -60,7 +62,9 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
     } catch (error) {
       console.error("Error updating favorite status:", error);
       toast({ title: "Error", description: "Could not update favorite status. Please try again.", variant: "destructive" });
-      setIsFavorited(!newFavoriteState); // Revert optimistic update on error
+      // Revert optimistic update on error by re-fetching or setting state back
+      // For simplicity, refreshUserProfile should eventually correct it, or we can explicitly revert:
+      setIsFavorited(!newFavoriteState); 
     } finally {
       setIsUpdatingFavorite(false);
     }
@@ -112,7 +116,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           )}
           {user.yearsOfExperience !== undefined && (
              <div className="flex items-start">
-              <StarIcon className="h-6 w-6 mr-3 mt-1 text-primary flex-shrink-0" /> {/* Reverted to StarIcon for consistency */}
+              <Briefcase className="h-6 w-6 mr-3 mt-1 text-primary flex-shrink-0" />
               <div>
                 <h4 className="font-semibold">Experience</h4>
                 <p className="text-foreground/80">{user.yearsOfExperience} {user.yearsOfExperience === 1 ? "year" : "years"}</p>
@@ -160,7 +164,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
         )}
         {showFavoriteButton && !authLoading && (
           <Button 
-            variant={isFavorited ? "default" : "outline"} 
+            variant={isFavorited ? "outline" : "default"} 
             onClick={handleToggleFavorite}
             disabled={isUpdatingFavorite || authLoading}
             className="w-full sm:w-auto"
@@ -170,12 +174,11 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
             ) : (
               <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current text-yellow-400 dark:text-yellow-300' : 'text-muted-foreground'}`} />
             )}
-            {isFavorited ? 'Favorited' : 'Add to Favorites'}
+            {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
           </Button>
         )}
       </CardFooter>
     </Card>
   );
 }
-
     
