@@ -6,14 +6,23 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut } from 'lucide-react';
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useRef } from 'react';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import { Separator } from '@/components/ui/separator';
 
-const navLinks = [
+const mainHeaderNavLinks = [
   { href: '/map', label: 'Map', icon: MapPin, authRequired: true },
   { href: '/users', label: 'Users', icon: Users, authRequired: true },
   { href: '/messages', label: 'Messages', icon: MessageCircle, authRequired: true },
@@ -25,36 +34,7 @@ export default function Header() {
   const router = useRouter();
   const { currentUser, loading } = useAuthContext();
   const { toast } = useToast();
-
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollYRef = useRef(0);
-  const headerHeightThreshold = 80; // Corresponds to h-20
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      lastScrollYRef.current = window.scrollY;
-    }
-
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const localLastScrollY = lastScrollYRef.current;
-
-      if (currentScrollY < 20) { // Always show if very close to top
-        setIsVisible(true);
-      } else if (currentScrollY > localLastScrollY && currentScrollY > headerHeightThreshold) { // Scrolling down
-        setIsVisible(false);
-      } else if (currentScrollY < localLastScrollY) { // Scrolling up
-        setIsVisible(true);
-      }
-      lastScrollYRef.current = currentScrollY;
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, []);
-
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const isAuthenticated = !!currentUser;
 
@@ -65,6 +45,7 @@ export default function Header() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
+      setIsSidebarOpen(false); // Close sidebar on logout
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -76,13 +57,9 @@ export default function Header() {
     }
   };
   
-  // Initial loading state for the header content, not affecting the scroll behavior logic itself
   if (loading) {
     return (
-      <header className={cn(
-        "bg-card border-b sticky top-0 z-50 transition-transform duration-300 ease-in-out",
-        isVisible ? 'translate-y-0' : '-translate-y-full'
-      )}>
+      <header className="bg-card border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
           <AppLogo />
           <div className="text-sm text-muted-foreground">Loading...</div>
@@ -92,14 +69,88 @@ export default function Header() {
   }
 
   return (
-    <header className={cn(
-        "bg-card border-b sticky top-0 z-50 transition-transform duration-300 ease-in-out",
-        isVisible ? 'translate-y-0' : '-translate-y-full'
-      )}>
+    <header className="bg-card border-b sticky top-0 z-50">
       <div className="container mx-auto px-2 sm:px-4 h-20 flex items-center justify-between">
-        <AppLogo />
-        <nav className="flex items-center gap-1 sm:gap-2">
-          {navLinks.map((link) => (
+        <div className="flex items-center gap-2">
+          <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="mr-2 text-primary hover:bg-accent/50">
+                <Menu className="h-7 w-7 sm:h-8 sm:w-8" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="p-0 w-72 flex flex-col">
+              <SheetHeader className="p-4 border-b">
+                <SheetTitle className="flex items-center gap-2">
+                  <AppLogo />
+                </SheetTitle>
+              </SheetHeader>
+              <nav className="flex-grow p-4 space-y-2">
+                {isAuthenticated && (
+                  <>
+                    <SheetClose asChild>
+                      <Link
+                        href="/profile"
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                          pathname === "/profile" ? "bg-accent text-accent-foreground" : "text-foreground"
+                        )}
+                      >
+                        <UserCircle className="h-5 w-5" />
+                        Profile
+                      </Link>
+                    </SheetClose>
+                    <Separator />
+                    <Button
+                      variant="ghost"
+                      onClick={handleLogout}
+                      className="w-full justify-start flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <LogOut className="h-5 w-5" />
+                      Logout
+                    </Button>
+                  </>
+                )}
+                {!isAuthenticated && (
+                  <>
+                     <SheetClose asChild>
+                      <Link
+                        href="/login"
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                          pathname === "/login" ? "bg-accent text-accent-foreground" : "text-foreground"
+                        )}
+                      >
+                        Login
+                      </Link>
+                    </SheetClose>
+                    <SheetClose asChild>
+                      <Link
+                        href="/signup"
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                          pathname === "/signup" ? "bg-accent text-accent-foreground" : "text-foreground"
+                        )}
+                      >
+                        Sign Up
+                      </Link>
+                    </SheetClose>
+                  </>
+                )}
+              </nav>
+              <SheetFooter className="p-4 border-t mt-auto">
+                 <p className="text-xs text-muted-foreground text-center">Proximity Network</p>
+              </SheetFooter>
+            </SheetContent>
+          </Sheet>
+           <div className="hidden sm:block">
+             <AppLogo />
+           </div>
+        </div>
+
+        {/* Main navigation for larger screens */}
+        <nav className="hidden md:flex items-center gap-1 sm:gap-2">
+          {mainHeaderNavLinks.map((link) => (
             (link.authRequired && isAuthenticated) || !link.authRequired ? (
               <Link
                 key={link.href}
@@ -118,7 +169,9 @@ export default function Header() {
             ) : null
           ))}
         </nav>
-        <div className="flex items-center gap-1 sm:gap-2">
+
+        {/* Auth buttons for larger screens */}
+        <div className="hidden md:flex items-center gap-1 sm:gap-2">
           {isAuthenticated ? (
             <Button variant="default" size="sm" onClick={handleLogout} className="px-2 sm:px-3">
               <LogOut className="h-4 w-4 sm:mr-1" /> 
