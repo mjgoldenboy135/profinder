@@ -6,12 +6,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star } from 'lucide-react'; // Added Star
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useToast } from "@/hooks/use-toast";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -37,6 +37,36 @@ export default function Header() {
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollTop, setLastScrollTop] = useState(0);
+  const scrollThreshold = 10; // Pixels to scroll before triggering hide/show
+  const headerHideThreshold = 80; // Hide only after scrolling down this much (approx header height)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      let st = window.pageYOffset || document.documentElement.scrollTop;
+
+      if (Math.abs(lastScrollTop - st) <= scrollThreshold && st > headerHideThreshold) {
+        return; // Ignore small scrolls unless near the top
+      }
+
+      if (st > lastScrollTop && st > headerHideThreshold) {
+        // Scroll Down
+        setIsVisible(false);
+      } else {
+        // Scroll Up or at/near the top
+        setIsVisible(true);
+      }
+      setLastScrollTop(st <= 0 ? 0 : st);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [lastScrollTop, headerHideThreshold, scrollThreshold]);
+
+
   const isAuthenticated = !!currentUser;
 
   const handleLogout = async () => {
@@ -60,9 +90,12 @@ export default function Header() {
   
   if (loading) {
     return (
-      <header className="bg-card border-b sticky top-0 z-50">
+      <header 
+        key="loading-header"
+        className="bg-card border-b sticky top-0 z-50 transform transition-transform duration-300 ease-in-out"
+      >
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <AppLogo />
+          <AppLogo key="logo-loading" />
           <div className="text-sm text-muted-foreground">Loading...</div>
         </div>
       </header>
@@ -70,7 +103,13 @@ export default function Header() {
   }
 
   return (
-    <header className="bg-card border-b sticky top-0 z-50">
+    <header 
+      key="main-header"
+      className={cn(
+        "bg-card border-b sticky top-0 z-50 transform transition-transform duration-300 ease-in-out",
+        isVisible ? "translate-y-0" : "-translate-y-full"
+      )}
+    >
       <div className="container mx-auto px-2 sm:px-4 h-20 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
@@ -83,7 +122,7 @@ export default function Header() {
             <SheetContent side="left" className="p-0 w-72 flex flex-col bg-card">
               <SheetHeader className="p-4 border-b">
                 <SheetTitle className="flex items-center gap-2">
-                  <AppLogo />
+                  <AppLogo key="logo-sheet-header" />
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex-grow p-4 space-y-2">
@@ -152,12 +191,12 @@ export default function Header() {
                 )}
               </nav>
               <SheetFooter className="p-4 border-t mt-auto">
-                 <p className="text-xs text-muted-foreground text-center">Proximity Network</p>
+                 <p className="text-xs text-muted-foreground text-center">Profinder</p>
               </SheetFooter>
             </SheetContent>
           </Sheet>
            <div className="hidden sm:block"> {/* AppLogo visible on sm+ screens next to menu */}
-             <AppLogo />
+             <AppLogo key="logo-main-nav" />
            </div>
         </div>
 
@@ -169,7 +208,7 @@ export default function Header() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 p-1 sm:p-2 rounded-md transition-colors", // Increased gap-0.5 to gap-1
+                  "flex flex-col items-center justify-center gap-1 p-1 sm:p-2 rounded-md transition-colors", 
                   pathname === link.href || (link.href === '/messages' && pathname.startsWith('/messages/'))
                     ? "text-primary" 
                     : "text-foreground hover:text-primary/90"
