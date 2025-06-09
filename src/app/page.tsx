@@ -13,13 +13,14 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center">
-      <Image
-        src="/images/home_image.jpg" 
-        alt="Proximity Network - Professional Networking"
-        width={300}
-        height={200}
-        className="mb-8 rounded-lg shadow-lg"
-      />
+      <div className="relative w-[300px] h-[200px] mb-8 rounded-lg shadow-lg overflow-hidden">
+        <Image
+          src="/images/home_image.jpg" 
+          alt="Proximity Network - Professional Networking"
+          fill
+          style={{ objectFit: 'cover' }}
+        />
+      </div>
       <h1 className="text-5xl font-headline font-bold mb-6 text-primary">
         Welcome to Proximity Network
       </h1>
