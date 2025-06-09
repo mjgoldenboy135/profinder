@@ -162,14 +162,14 @@ export default function Header() {
         </div>
 
         {/* Main navigation for larger screens */}
-        <nav className="flex items-center gap-1 sm:gap-2">
+        <nav className="flex items-center gap-2 sm:gap-4"> {/* Increased gap here */}
           {mainHeaderNavLinks.map((link) => (
             (link.authRequired && isAuthenticated) || !link.authRequired ? (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 p-1 sm:p-2 rounded-md transition-colors",
+                  "flex flex-col items-center justify-center gap-1 p-1 sm:p-2 rounded-md transition-colors", // Increased gap-0.5 to gap-1
                   pathname === link.href || (link.href === '/messages' && pathname.startsWith('/messages/'))
                     ? "text-primary" 
                     : "text-foreground hover:text-primary/90"
