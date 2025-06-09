@@ -13,12 +13,20 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center">
-      <div className="relative w-[300px] h-[200px] mb-8 rounded-lg shadow-lg overflow-hidden">
+      {/* 
+        Wrapper div for the main image, using explicit dimensions.
+        The Image component inside will use 'fill' and 'object-cover'.
+      */}
+      <div 
+        className="relative mb-8 rounded-lg shadow-lg"
+        style={{ width: '300px', height: '200px', overflow: 'hidden' }}
+      >
         <Image
-          src="/images/home_image.jpg" 
+          src="/home_image.jpg" // Updated path to look in public/home_image.jpg
           alt="Proximity Network - Professional Networking"
-          fill
-          style={{ objectFit: 'cover' }}
+          fill // Makes the image fill the parent container
+          style={{ objectFit: 'cover' }} // Ensures the image covers the area, cropping if necessary
+          // Removed priority={true} for troubleshooting
         />
       </div>
       <h1 className="text-5xl font-headline font-bold mb-6 text-primary">
@@ -58,7 +66,7 @@ export default function HomePage() {
             <CardDescription>Find professionals in your vicinity using our interactive map.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Map Icon" width={300} height={150} className="rounded" data-ai-hint="interactive map discovery" />
+            <Image src="https://placehold.co/300x150.png" alt="Map Icon" width={300} height={150} className="rounded" data-ai-hint="interactive map" />
           </CardContent>
         </Card>
         <Card>
@@ -67,7 +75,7 @@ export default function HomePage() {
             <CardDescription>Showcase your skills, experience, and education.</CardDescription>
           </CardHeader>
            <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="professional profile branding" />
+            <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="personal branding" />
           </CardContent>
         </Card>
         <Card>
@@ -76,7 +84,7 @@ export default function HomePage() {
             <CardDescription>Engage in meaningful conversations with in-app messaging.</CardDescription>
           </CardHeader>
            <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Chat Icon" width={300} height={150} className="rounded" data-ai-hint="communication messaging app" />
+            <Image src="https://placehold.co/300x150.png" alt="Chat Icon" width={300} height={150} className="rounded" data-ai-hint="messaging app" />
           </CardContent>
         </Card>
       </div>
