@@ -82,7 +82,7 @@ export default function HomePage() {
            <CardContent>
             <div className="relative aspect-video w-full overflow-hidden rounded-md">
               <Image 
-                src="/Chat_image.png" 
+                src="/chat_image.png" 
                 alt="In-app messaging feature" 
                 fill
                 style={{ objectFit: 'contain' }} 
