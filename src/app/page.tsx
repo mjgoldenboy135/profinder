@@ -19,7 +19,7 @@ export default function HomePage() {
             src="/home_image.jpg"
             alt="Profinder - Professional Networking"
             fill
-            style={{ objectFit: 'cover' }}
+            style={{ objectFit: 'contain' }} // Changed from 'cover' to 'contain'
             data-ai-hint="professional network"
           />
         </div>
@@ -95,3 +95,4 @@ export default function HomePage() {
     </div>
   );
 }
+
