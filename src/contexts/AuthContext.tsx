@@ -12,6 +12,7 @@ interface AuthContextType {
   currentUser: FirebaseUser | null; // Firebase Auth user
   currentUserProfile: AppUser | null; // Firestore user profile
   loading: boolean;
+  refreshUserProfile: () => Promise<void>; // Added refreshUserProfile to type
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,18 +25,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      setLoading(false); // Set loading to false as soon as auth state is known
+
       if (user) {
         try {
           const profile = await getUserProfile(user.uid);
           setCurrentUserProfile(profile);
         } catch (error) {
           console.error("AuthContext: Error fetching user profile:", error);
-          setCurrentUserProfile(null);
+          setCurrentUserProfile(null); // Ensure profile is null on error
         }
       } else {
-        setCurrentUserProfile(null);
+        setCurrentUserProfile(null); // No user, so no profile
       }
-      setLoading(false);
+      // setLoading(false); // Moved up
     });
 
     // Cleanup subscription on unmount
@@ -45,11 +48,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Function to refresh current user's profile data
   const refreshUserProfile = async () => {
     if (currentUser) {
+      setLoading(true); // Optionally set loading true during refresh
       try {
         const profile = await getUserProfile(currentUser.uid);
         setCurrentUserProfile(profile);
       } catch (error) {
         console.error("AuthContext: Error refreshing user profile:", error);
+        // Potentially leave profile as is, or set to null depending on desired behavior
+      } finally {
+        setLoading(false); // Set loading false after refresh attempt
       }
     }
   };
