@@ -124,7 +124,7 @@ async function resizeImage(file: File, maxWidth: number, maxHeight: number): Pro
 
 export default function ProfileForm() {
   const { toast } = useToast();
-  const { currentUser: authUser, loading: authLoading } = useAuthContext();
+  const { currentUser: authUser, loading: authLoading, refreshUserProfile } = useAuthContext();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
@@ -270,7 +270,8 @@ export default function ProfileForm() {
         locationWatchId.current = null;
       }
     };
-  }, [authUser, watchedIsOnline, isFetchingProfile, toast, form.formState.isSubmitted, form.getValues, form.setValue, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser, watchedIsOnline, isFetchingProfile, toast, form.formState.isSubmitted, form.getValues, form.setValue]);
 
 
   const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,15 +365,20 @@ export default function ProfileForm() {
             newAuthPhotoURL = "";
         }
 
-        const authUpdates: { photoURL?: string | null } = {};
-        const photoURLForAuth = newAuthPhotoURL === undefined ? null : newAuthPhotoURL;
+        const authUpdates: { displayName?: string; photoURL?: string | null } = {};
+        const photoURLForAuth = newAuthPhotoURL === "" ? null : newAuthPhotoURL;
 
+        if (values.fullName !== authUser.displayName) {
+            authUpdates.displayName = values.fullName;
+        }
         if (photoURLForAuth !== (authUser.photoURL || null)) { 
             authUpdates.photoURL = photoURLForAuth;
         }
         
         if (Object.keys(authUpdates).length > 0) {
             await updateAuthProfile(authUser, authUpdates);
+             // After updating Firebase Auth, refresh context if necessary to reflect displayName/photoURL changes in Header, etc.
+            if (refreshUserProfile) await refreshUserProfile();
         }
         
         const existingProfile = await getUserProfile(authUser.uid);
@@ -400,10 +406,10 @@ export default function ProfileForm() {
 
         const newResetValues: ProfileFormValues = {
           ...values, 
-          profilePictureUrl: newAuthPhotoURL, 
+          profilePictureUrl: newAuthPhotoURL || "", 
           profilePicture: undefined, 
         };
-        form.reset(newResetValues, { keepValues: true }); 
+        form.reset(newResetValues); // Removed { keepValues: true }
         setPreviewImage(newAuthPhotoURL || null);
 
     } catch (error: any) {
@@ -673,3 +679,6 @@ export default function ProfileForm() {
 
     
 
+
+
+    
