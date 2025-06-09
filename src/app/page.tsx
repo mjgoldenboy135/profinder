@@ -16,8 +16,8 @@ export default function HomePage() {
       <Image
         src="/images/home_image.jpg" 
         alt="Proximity Network - Professional Networking"
-        width={300}
-        height={200}
+        width={1080}
+        height={1080}
         priority={true}
         className="mb-8 rounded-lg shadow-lg"
       />
@@ -83,3 +83,4 @@ export default function HomePage() {
     </div>
   );
 }
+
