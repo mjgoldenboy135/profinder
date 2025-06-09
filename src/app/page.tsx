@@ -64,7 +64,7 @@ export default function HomePage() {
           <CardContent>
             <div className="relative aspect-video w-full overflow-hidden rounded-md">
               <Image 
-                src="/map_feature.jpg" 
+                src="/discover_image.jpg" 
                 alt="Interactive map feature" 
                 fill
                 style={{ objectFit: 'contain' }} 
@@ -82,7 +82,7 @@ export default function HomePage() {
            <CardContent>
             <div className="relative aspect-video w-full overflow-hidden rounded-md">
               <Image 
-                src="/chat_feature.jpg" 
+                src="/Chat_image.jpg" 
                 alt="In-app messaging feature" 
                 fill
                 style={{ objectFit: 'contain' }} 
@@ -96,3 +96,4 @@ export default function HomePage() {
     </div>
   );
 }
+
