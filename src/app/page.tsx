@@ -20,7 +20,7 @@ export default function HomePage() {
         height={200}
         priority={true}
         className="mb-8 rounded-lg shadow-lg"
-        data-ai-hint="networking connections"
+        data-ai-hint="community network"
       />
       <h1 className="text-5xl font-headline font-bold mb-6 text-primary">
         Welcome to Proximity Network
@@ -59,7 +59,7 @@ export default function HomePage() {
             <CardDescription>Find professionals in your vicinity using our interactive map.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Map Icon" width={300} height={150} className="rounded" data-ai-hint="map location" />
+            <Image src="https://placehold.co/300x150.png" alt="Map Icon" width={300} height={150} className="rounded" data-ai-hint="interactive map" />
           </CardContent>
         </Card>
         <Card>
@@ -68,7 +68,7 @@ export default function HomePage() {
             <CardDescription>Showcase your skills, experience, and education.</CardDescription>
           </CardHeader>
            <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="profile user" />
+            <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="personal branding" />
           </CardContent>
         </Card>
         <Card>
@@ -77,7 +77,7 @@ export default function HomePage() {
             <CardDescription>Engage in meaningful conversations with in-app messaging.</CardDescription>
           </CardHeader>
            <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Chat Icon" width={300} height={150} className="rounded" data-ai-hint="chat bubbles" />
+            <Image src="https://placehold.co/300x150.png" alt="Chat Icon" width={300} height={150} className="rounded" data-ai-hint="messaging app" />
           </CardContent>
         </Card>
       </div>
