@@ -5,22 +5,36 @@ import type { User as FirebaseUser } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { auth } from '@/lib/firebase'; // Your Firebase auth instance
+import type { User as AppUser } from '@/lib/types'; // Import your app's User type
+import { getUserProfile } from '@/services/userService'; // Import userService
 
 interface AuthContextType {
-  currentUser: FirebaseUser | null;
+  currentUser: FirebaseUser | null; // Firebase Auth user
+  currentUserProfile: AppUser | null; // Firestore user profile
   loading: boolean;
-  // You can add more specific user profile data here if needed
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      if (user) {
+        try {
+          const profile = await getUserProfile(user.uid);
+          setCurrentUserProfile(profile);
+        } catch (error) {
+          console.error("AuthContext: Error fetching user profile:", error);
+          setCurrentUserProfile(null);
+        }
+      } else {
+        setCurrentUserProfile(null);
+      }
       setLoading(false);
     });
 
@@ -28,12 +42,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
 
-  const value = {
-    currentUser,
-    loading,
+  // Function to refresh current user's profile data
+  const refreshUserProfile = async () => {
+    if (currentUser) {
+      try {
+        const profile = await getUserProfile(currentUser.uid);
+        setCurrentUserProfile(profile);
+      } catch (error) {
+        console.error("AuthContext: Error refreshing user profile:", error);
+      }
+    }
   };
 
-  return <AuthContext.Provider value={value}>{!loading && children}</AuthContext.Provider>;
+
+  const value = {
+    currentUser,
+    currentUserProfile,
+    loading,
+    refreshUserProfile, // Expose refresh function
+  };
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuthContext = () => {

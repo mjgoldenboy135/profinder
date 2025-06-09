@@ -1,5 +1,5 @@
 
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import type { User } from '@/lib/types';
@@ -40,9 +40,10 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
  */
 export async function createUserProfile(userId: string, data: Partial<Omit<User, 'id'>>): Promise<void> {
   const userRef = doc(db, USERS_COLLECTION, userId);
-  const profileData: Partial<User> & { id: string; createdAt: any; updatedAt: any } = {
+  const profileData: Partial<User> & { id: string; createdAt: any; updatedAt: any; favoriteUserIds: string[] } = {
     ...data,
     id: userId,
+    favoriteUserIds: [], // Initialize favoriteUserIds
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -73,8 +74,6 @@ export async function getUserProfile(userId: string): Promise<User | null> {
  */
 export async function updateUserProfile(userId: string, data: Partial<User>): Promise<void> {
   const userRef = doc(db, USERS_COLLECTION, userId);
-  // Use setDoc with merge: true to create the document if it doesn't exist,
-  // or update/merge if it does.
   await setDoc(userRef, {
     ...data,
     updatedAt: serverTimestamp(),
@@ -87,15 +86,9 @@ export async function updateUserProfile(userId: string, data: Partial<User>): Pr
  */
 export async function getOnlineUsersWithLocation(): Promise<User[]> {
   const usersRef = collection(db, USERS_COLLECTION);
-  // Query for users who are online.
-  // Ensure the user has a location property and that lat/lng are not null/undefined
   const q = query(
     usersRef,
     where("isOnline", "==", true)
-    // Firebase doesn't support "not-equal" or "existence" checks directly for nested fields
-    // in a way that guarantees the field isn't null.
-    // We fetch users where isOnline is true, then filter client-side for location.
-    // Alternatively, you could add a dedicated queryable field like 'hasLocation: true'.
   );
 
   const querySnapshot = await getDocs(q);
@@ -107,4 +100,51 @@ export async function getOnlineUsersWithLocation(): Promise<User[]> {
     }
   });
   return onlineUsers;
+}
+
+/**
+ * Adds a user to the current user's list of favorites.
+ * @param currentUserId The ID of the user whose favorites list will be updated.
+ * @param targetUserId The ID of the user to add to favorites.
+ */
+export async function addFavoriteUser(currentUserId: string, targetUserId: string): Promise<void> {
+  if (!currentUserId || !targetUserId) throw new Error("Both currentUserId and targetUserId are required.");
+  const userRef = doc(db, USERS_COLLECTION, currentUserId);
+  await updateDoc(userRef, {
+    favoriteUserIds: arrayUnion(targetUserId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Removes a user from the current user's list of favorites.
+ * @param currentUserId The ID of the user whose favorites list will be updated.
+ * @param targetUserId The ID of the user to remove from favorites.
+ */
+export async function removeFavoriteUser(currentUserId: string, targetUserId: string): Promise<void> {
+  if (!currentUserId || !targetUserId) throw new Error("Both currentUserId and targetUserId are required.");
+  const userRef = doc(db, USERS_COLLECTION, currentUserId);
+  await updateDoc(userRef, {
+    favoriteUserIds: arrayRemove(targetUserId),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Fetches the full profile data for all users favorited by the current user.
+ * @param userId The ID of the user whose favorites to fetch.
+ * @returns A promise that resolves with an array of User objects (the favorited users).
+ */
+export async function getFavoriteUsers(userId: string): Promise<User[]> {
+  if (!userId) return [];
+  const currentUserProfile = await getUserProfile(userId);
+  if (!currentUserProfile || !currentUserProfile.favoriteUserIds || currentUserProfile.favoriteUserIds.length === 0) {
+    return [];
+  }
+
+  const favoriteUserPromises = currentUserProfile.favoriteUserIds.map(favId => getUserProfile(favId));
+  const favoriteUsersRaw = await Promise.all(favoriteUserPromises);
+  
+  // Filter out any null results (e.g., if a favorited user's profile was deleted)
+  return favoriteUsersRaw.filter(user => user !== null) as User[];
 }

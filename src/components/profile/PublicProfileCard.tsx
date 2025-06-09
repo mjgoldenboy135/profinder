@@ -5,16 +5,67 @@ import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Linkedin, Mail, MessageSquare, Briefcase, GraduationCap, Star, MapPin } from "lucide-react";
+import { Linkedin, Mail, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, Star, MapPin, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { useState, useEffect } from "react";
+import { addFavoriteUser, removeFavoriteUser } from "@/services/userService";
+import { useToast } from "@/hooks/use-toast";
 
 interface PublicProfileCardProps {
-  user: User;
+  user: User; // The user whose profile is being viewed
 }
 
 export default function PublicProfileCard({ user }: PublicProfileCardProps) {
+  const { currentUser, currentUserProfile, loading: authLoading, refreshUserProfile } = useAuthContext();
+  const { toast } = useToast();
+  
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
+
   const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("") : "PN";
+
+  useEffect(() => {
+    if (currentUserProfile && currentUserProfile.favoriteUserIds) {
+      setIsFavorited(currentUserProfile.favoriteUserIds.includes(user.id));
+    } else {
+      setIsFavorited(false);
+    }
+  }, [currentUserProfile, user.id]);
+
+  const handleToggleFavorite = async () => {
+    if (!currentUser || !currentUserProfile) {
+      toast({ title: "Authentication Error", description: "You must be logged in to manage favorites.", variant: "destructive" });
+      return;
+    }
+    if (currentUser.uid === user.id) {
+        toast({ title: "Action Not Allowed", description: "You cannot favorite your own profile.", variant: "destructive"});
+        return;
+    }
+
+    setIsUpdatingFavorite(true);
+    try {
+      if (isFavorited) {
+        await removeFavoriteUser(currentUser.uid, user.id);
+        toast({ title: "Removed from Favorites", description: `${user.fullName} has been removed from your favorites.` });
+      } else {
+        await addFavoriteUser(currentUser.uid, user.id);
+        toast({ title: "Added to Favorites", description: `${user.fullName} has been added to your favorites.` });
+      }
+      setIsFavorited(!isFavorited); // Optimistic update
+      if (refreshUserProfile) await refreshUserProfile(); // Refresh context data
+    } catch (error) {
+      console.error("Error updating favorite status:", error);
+      toast({ title: "Error", description: "Could not update favorite status. Please try again.", variant: "destructive" });
+    } finally {
+      setIsUpdatingFavorite(false);
+    }
+  };
+  
+  // Don't show favorite button for own profile
+  const showFavoriteButton = currentUser && currentUser.uid !== user.id;
+
 
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl">
@@ -83,26 +134,43 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
         )}
 
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-center gap-3 pt-6 border-t">
+      <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-6 border-t">
         {user.linkedinProfileUrl && (
           <Button variant="outline" asChild>
             <a href={user.linkedinProfileUrl} target="_blank" rel="noopener noreferrer">
-              <Linkedin className="mr-2 h-5 w-5 text-primary" /> LinkedIn {/* Icon color set to primary */}
+              <Linkedin className="mr-2 h-5 w-5 text-primary" /> LinkedIn
             </a>
           </Button>
         )}
         {user.showContact && user.email && (
            <Button variant="outline" asChild>
             <a href={`mailto:${user.email}`}>
-              <Mail className="mr-2 h-5 w-5 text-primary" /> Email {/* Icon color set to primary */}
+              <Mail className="mr-2 h-5 w-5 text-primary" /> Email
             </a>
           </Button>
         )}
-        <Button asChild>
-          <Link href={`/messages?chatWith=${user.id}`}>
-            <MessageSquare className="mr-2 h-5 w-5" /> Message
-          </Link>
-        </Button>
+        {currentUser && currentUser.uid !== user.id && (
+          <Button asChild>
+            <Link href={`/messages?chatWith=${user.id}`}>
+              <MessageSquare className="mr-2 h-5 w-5" /> Message
+            </Link>
+          </Button>
+        )}
+        {showFavoriteButton && !authLoading && (
+          <Button 
+            variant={isFavorited ? "default" : "outline"} 
+            onClick={handleToggleFavorite}
+            disabled={isUpdatingFavorite}
+            className="w-full sm:w-auto"
+          >
+            {isUpdatingFavorite ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current' : ''}`} />
+            )}
+            {isFavorited ? 'Favorited' : 'Add to Favorites'}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

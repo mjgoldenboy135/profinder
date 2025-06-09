@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu } from 'lucide-react';
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star } from 'lucide-react'; // Added Star
 import { useAuthContext } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -19,7 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetClose,
-  SheetFooter, // Added SheetFooter import
+  SheetFooter,
 } from "@/components/ui/sheet";
 import { Separator } from '@/components/ui/separator';
 
@@ -75,12 +75,12 @@ export default function Header() {
         <div className="flex items-center gap-2">
           <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="mr-2 text-primary hover:bg-accent/50">
+              <Button variant="ghost" size="icon" className="mr-0 sm:mr-2 text-primary hover:bg-accent/50">
                 <Menu className="h-7 w-7 sm:h-8 sm:w-8" />
                 <span className="sr-only">Open menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72 flex flex-col">
+            <SheetContent side="left" className="p-0 w-72 flex flex-col bg-card">
               <SheetHeader className="p-4 border-b">
                 <SheetTitle className="flex items-center gap-2">
                   <AppLogo />
@@ -101,7 +101,19 @@ export default function Header() {
                         Profile
                       </Link>
                     </SheetClose>
-                    <Separator />
+                     <SheetClose asChild>
+                      <Link
+                        href="/favorites"
+                        className={cn(
+                          "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                          pathname === "/favorites" ? "bg-accent text-accent-foreground" : "text-foreground"
+                        )}
+                      >
+                        <Star className="h-5 w-5" />
+                        Favorites
+                      </Link>
+                    </SheetClose>
+                    <Separator className="my-3"/>
                     <Button
                       variant="ghost"
                       onClick={handleLogout}
@@ -144,7 +156,7 @@ export default function Header() {
               </SheetFooter>
             </SheetContent>
           </Sheet>
-           <div className="hidden sm:block">
+           <div className="hidden sm:block"> {/* AppLogo visible on sm+ screens next to menu */}
              <AppLogo />
            </div>
         </div>

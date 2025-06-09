@@ -83,6 +83,7 @@ export default function SignUpForm() {
           showContact: false, 
           bio: "",
           interests: [],
+          favoriteUserIds: [], // Initialize favoriteUserIds
         });
 
         await Promise.all([authProfilePromise, firestoreProfilePromise]);
@@ -108,8 +109,6 @@ export default function SignUpForm() {
          form.setError("password", { type: "manual", message: errorMessage });
       } else if (error.message && (error.message.toLowerCase().includes("firestore") || error.message.toLowerCase().includes("client is offline"))) {
         errorMessage = "Your account was created, but there was an issue saving your full profile. You can try updating it from your profile page later.";
-        // Potentially still redirect if account creation was the main goal and profile can be fixed later.
-        // For now, showing error and not redirecting for this specific case.
       } else if (error.message === "User creation succeeded but no user object was returned from Firebase Auth.") {
         errorMessage = "User account could not be fully initialized. Please try again.";
       }
