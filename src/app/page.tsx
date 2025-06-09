@@ -24,9 +24,8 @@ export default function HomePage() {
         <Image
           src="/home_image.jpg" // Updated path to look in public/home_image.jpg
           alt="Proximity Network - Professional Networking"
-          fill // Makes the image fill the parent container
-          style={{ objectFit: 'cover' }} // Ensures the image covers the area, cropping if necessary
-          // Removed priority={true} for troubleshooting
+          fill 
+          style={{ objectFit: 'cover' }} 
         />
       </div>
       <h1 className="text-5xl font-headline font-bold mb-6 text-primary">
@@ -59,7 +58,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full">
+      <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl w-full">
         <Card>
           <CardHeader>
             <CardTitle className="font-headline">Discover Nearby</CardTitle>
@@ -67,15 +66,6 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             <Image src="https://placehold.co/300x150.png" alt="Map Icon" width={300} height={150} className="rounded" data-ai-hint="interactive map" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-headline">Build Your Profile</CardTitle>
-            <CardDescription>Showcase your skills, experience, and education.</CardDescription>
-          </CardHeader>
-           <CardContent>
-            <Image src="https://placehold.co/300x150.png" alt="Profile Icon" width={300} height={150} className="rounded" data-ai-hint="personal branding" />
           </CardContent>
         </Card>
         <Card>
