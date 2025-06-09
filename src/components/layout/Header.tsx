@@ -11,7 +11,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import {
   Sheet,
   SheetContent,
@@ -19,6 +19,7 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetClose,
+  SheetFooter, // Added SheetFooter import
 } from "@/components/ui/sheet";
 import { Separator } from '@/components/ui/separator';
 
@@ -149,7 +150,7 @@ export default function Header() {
         </div>
 
         {/* Main navigation for larger screens */}
-        <nav className="hidden md:flex items-center gap-1 sm:gap-2">
+        <nav className="flex items-center gap-1 sm:gap-2">
           {mainHeaderNavLinks.map((link) => (
             (link.authRequired && isAuthenticated) || !link.authRequired ? (
               <Link
