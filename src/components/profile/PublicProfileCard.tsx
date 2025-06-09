@@ -5,7 +5,7 @@ import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Linkedin, Mail, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, Star, MapPin, Loader2 } from "lucide-react";
+import { Linkedin, Mail, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -45,25 +45,27 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
     }
 
     setIsUpdatingFavorite(true);
+    const newFavoriteState = !isFavorited; // Determine new state
+    setIsFavorited(newFavoriteState); // Optimistic update
+
     try {
-      if (isFavorited) {
-        await removeFavoriteUser(currentUser.uid, user.id);
-        toast({ title: "Removed from Favorites", description: `${user.fullName} has been removed from your favorites.` });
-      } else {
+      if (newFavoriteState) { // User wants to add
         await addFavoriteUser(currentUser.uid, user.id);
         toast({ title: "Added to Favorites", description: `${user.fullName} has been added to your favorites.` });
+      } else { // User wants to remove
+        await removeFavoriteUser(currentUser.uid, user.id);
+        toast({ title: "Removed from Favorites", description: `${user.fullName} has been removed from your favorites.` });
       }
-      setIsFavorited(!isFavorited); // Optimistic update
-      if (refreshUserProfile) await refreshUserProfile(); // Refresh context data
+      if (refreshUserProfile) await refreshUserProfile(); // Refresh to confirm from source and update context
     } catch (error) {
       console.error("Error updating favorite status:", error);
       toast({ title: "Error", description: "Could not update favorite status. Please try again.", variant: "destructive" });
+      setIsFavorited(!newFavoriteState); // Revert optimistic update on error
     } finally {
       setIsUpdatingFavorite(false);
     }
   };
   
-  // Don't show favorite button for own profile
   const showFavoriteButton = currentUser && currentUser.uid !== user.id;
 
 
@@ -110,7 +112,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           )}
           {user.yearsOfExperience !== undefined && (
              <div className="flex items-start">
-              <Star className="h-6 w-6 mr-3 mt-1 text-primary flex-shrink-0" />
+              <StarIcon className="h-6 w-6 mr-3 mt-1 text-primary flex-shrink-0" /> {/* Reverted to StarIcon for consistency */}
               <div>
                 <h4 className="font-semibold">Experience</h4>
                 <p className="text-foreground/80">{user.yearsOfExperience} {user.yearsOfExperience === 1 ? "year" : "years"}</p>
@@ -160,13 +162,13 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           <Button 
             variant={isFavorited ? "default" : "outline"} 
             onClick={handleToggleFavorite}
-            disabled={isUpdatingFavorite}
+            disabled={isUpdatingFavorite || authLoading}
             className="w-full sm:w-auto"
           >
             {isUpdatingFavorite ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current' : ''}`} />
+              <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current text-yellow-400 dark:text-yellow-300' : 'text-muted-foreground'}`} />
             )}
             {isFavorited ? 'Favorited' : 'Add to Favorites'}
           </Button>
@@ -175,3 +177,5 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
     </Card>
   );
 }
+
+    

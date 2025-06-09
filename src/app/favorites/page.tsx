@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import type { User } from "@/lib/types";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getFavoriteUsers, removeFavoriteUser } from "@/services/userService";
-import UserListItem from "@/components/users/UserListItem"; // Reusing UserListItem
+import UserListItem from "@/components/users/UserListItem";
 import { Loader2, StarOff, Users, AlertTriangle } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -130,8 +130,10 @@ export default function FavoritesPage() {
                   className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={() => handleInitiateRemoveFavorite(user)}
                   aria-label={`Remove ${user.fullName} from favorites`}
+                  disabled={isRemovingFavorite && userToRemove?.id === user.id}
                 >
-                  <StarOff className="h-4 w-4 mr-1" /> Unfavorite
+                  {isRemovingFavorite && userToRemove?.id === user.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <StarOff className="h-4 w-4 mr-1" />}
+                   Unfavorite
                 </Button>
               </div>
             ) : null
@@ -176,3 +178,5 @@ export default function FavoritesPage() {
     </div>
   );
 }
+
+    
