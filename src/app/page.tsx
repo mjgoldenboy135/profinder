@@ -18,7 +18,6 @@ export default function HomePage() {
         alt="Proximity Network - Professional Networking"
         width={300}
         height={200}
-        priority={true}
         className="mb-8 rounded-lg shadow-lg"
       />
       <h1 className="text-5xl font-headline font-bold mb-6 text-primary">
