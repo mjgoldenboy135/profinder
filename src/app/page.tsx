@@ -13,13 +13,13 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center py-8">
-      <div className="w-full max-w-2xl mx-auto mb-6">
+      <div className="w-full max-w-4xl mx-auto mb-6"> {/* Changed max-w-2xl to max-w-4xl */}
         <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg shadow-xl">
           <Image
             src="/home_image.jpg"
             alt="Profinder - Professional Networking"
             fill
-            style={{ objectFit: 'contain' }} // Changed from 'cover' to 'contain'
+            style={{ objectFit: 'contain' }}
             data-ai-hint="professional network"
           />
         </div>
@@ -95,4 +95,3 @@ export default function HomePage() {
     </div>
   );
 }
-
