@@ -199,7 +199,9 @@ export default function ProfileForm() {
           setIsLocationPermissionDenied(false);
           if (!navigator.geolocation) {
             toast({ title: "Geolocation Not Supported", description: "Live location tracking is not available on your browser.", variant: "destructive" });
-            form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
+            setTimeout(() => {
+              form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
+            }, 0);
             await updateUserProfile(authUser.uid, { isOnline: false });
             return;
           }
@@ -212,7 +214,9 @@ export default function ProfileForm() {
                   toast({ title: "You are now Online!", description: "Your location is being shared." });
               } catch (dbError) {
                   toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
-                  form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
+                  setTimeout(() => {
+                    form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
+                  }, 0);
                   return;
               }
               if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
@@ -236,12 +240,17 @@ export default function ProfileForm() {
               let message = "Could not get your location to go online.";
               if (error.code === error.PERMISSION_DENIED) {
                 message = "Location permission denied. Please enable it in your browser settings to appear on the map.";
-                setIsLocationPermissionDenied(true);
+                // setIsLocationPermissionDenied(true); // Deferred below
               } else {
                 message = `Could not get location: ${error.message}. Please try again.`;
               }
               toast({ title: "Location Error", description: message, variant: "destructive" });
-              form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
+              setTimeout(() => {
+                form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
+                if (error.code === error.PERMISSION_DENIED) {
+                  setIsLocationPermissionDenied(true);
+                }
+              }, 0);
               try {
                   await updateUserProfile(authUser.uid, { isOnline: false });
               } catch (dbError) {
@@ -377,7 +386,6 @@ export default function ProfileForm() {
         
         if (Object.keys(authUpdates).length > 0) {
             await updateAuthProfile(authUser, authUpdates);
-             // After updating Firebase Auth, refresh context if necessary to reflect displayName/photoURL changes in Header, etc.
             if (refreshUserProfile) await refreshUserProfile();
         }
         
@@ -409,7 +417,7 @@ export default function ProfileForm() {
           profilePictureUrl: newAuthPhotoURL || "", 
           profilePicture: undefined, 
         };
-        form.reset(newResetValues); // Removed { keepValues: true }
+        form.reset(newResetValues);
         setPreviewImage(newAuthPhotoURL || null);
 
     } catch (error: any) {
@@ -638,7 +646,6 @@ export default function ProfileForm() {
                         <Switch
                           checked={field.value}
                           onCheckedChange={field.onChange}
-                          aria-readonly 
                         />
                       </FormControl>
                     </FormItem>
@@ -680,5 +687,7 @@ export default function ProfileForm() {
     
 
 
+
+    
 
     
