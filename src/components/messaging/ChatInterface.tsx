@@ -11,9 +11,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from 'date-fns';
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { sendMessage, getChatMessages } from "@/services/chatService"; // Import new service
+import { sendMessage } from "@/services/chatService"; 
 import { useToast } from "@/hooks/use-toast";
-import type { Timestamp } from "firebase/firestore"; // Import Timestamp
+import type { Timestamp } from "firebase/firestore"; 
+import { db } from "@/lib/firebase"; // Import db
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore"; // Import Firestore functions
 
 interface ChatInterfaceProps {
   chat: Chat;
@@ -43,14 +45,14 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Optional: Implement real-time listener for new messages
-  // This is a more advanced feature and can be added later.
-  // For now, new messages are added optimistically and fetched on load.
-  /*
+  // Implement real-time listener for new messages
   useEffect(() => {
     if (!chat.id) return;
+    const messagesRef = collection(db, "chats", chat.id, "messages");
+    const q = query(messagesRef, orderBy("timestamp", "asc"));
+
     const unsubscribe = onSnapshot(
-      query(collection(db, "chats", chat.id, "messages"), orderBy("timestamp", "asc")),
+      q,
       (snapshot) => {
         const newMessages = snapshot.docs.map(doc => ({ id: doc.id, chatId: chat.id, ...doc.data() } as Message));
         setMessages(newMessages.map(processMessageTimestamps).sort((a,b) => (a.timestamp as number) - (b.timestamp as number)));
@@ -60,9 +62,8 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
         toast({ title: "Error", description: "Could not load new messages in real-time.", variant: "destructive" });
       }
     );
-    return () => unsubscribe();
+    return () => unsubscribe(); // Cleanup listener on component unmount
   }, [chat.id, toast]);
-  */
 
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -71,18 +72,22 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
 
     setIsSending(true);
     const tempMessageId = `temp-${Date.now()}`;
+    // Optimistic update can be removed or kept.
+    // If kept, ensure server-side timestamp from listener replaces it.
+    // For simplicity with a real-time listener, we can remove optimistic update for `messages`
+    // and rely on the listener to add the message once it's in Firestore.
+    // However, for immediate feedback to the sender, an optimistic add is still good.
     const optimisticMessage: Message = {
       id: tempMessageId,
       chatId: chat.id,
       senderId: currentUserId,
       receiverId: otherParticipant.id,
       text: newMessage,
-      timestamp: Date.now(), // Use local time for optimistic update
+      timestamp: Date.now(), 
       status: 'sent',
     };
-
-    // Optimistic update
     setMessages(prevMessages => [...prevMessages, optimisticMessage]);
+
     const messageTextToSend = newMessage;
     setNewMessage("");
 
@@ -92,9 +97,9 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
         receiverId: otherParticipant.id,
         text: messageTextToSend,
       });
-      // Update the optimistic message with the real ID and server timestamp if needed
-      // Or simply refetch messages (less ideal for UX but simpler)
-      // For now, we rely on the next full fetch or real-time listener to get server timestamps
+      // With the real-time listener, we don't strictly need to update message ID here,
+      // as the listener will fetch the message with its final ID and server timestamp.
+      // However, if you want to update the 'status' of the optimistic message:
       setMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.id === tempMessageId ? { ...msg, id: sentMessageId, status: 'delivered' } : msg
@@ -171,7 +176,7 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
                   msg.senderId === currentUserId ? "text-primary-foreground/70 text-right" : "text-muted-foreground/70 text-left"
               )}>
                 {msg.timestamp ? format(new Date(msg.timestamp as number), "p") : "Sending..."}
-                {msg.senderId === currentUserId && msg.status && msg.id !== `temp-${Date.now()}` && ( // Don't show ticks for temp message
+                {msg.senderId === currentUserId && msg.status && msg.id && !msg.id.startsWith('temp-') && (
                   <span className="ml-1">
                     {msg.status === 'sent' && '✓'}
                     {msg.status === 'delivered' && '✓✓'}
@@ -205,3 +210,4 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     </div>
   );
 }
+
