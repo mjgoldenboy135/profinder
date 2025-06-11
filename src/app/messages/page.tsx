@@ -142,9 +142,13 @@ export default function MessagesPage() {
       }
     } catch (error) {
       console.error("Error deleting chat:", error);
+      let description = (error as Error).message || "Could not delete the conversation.";
+      if ((error as Error).message && ((error as Error).message.toLowerCase().includes("permission") || (error as Error).message.toLowerCase().includes("permissions"))) {
+        description = "Could not delete the chat due to permission issues. Please check your Firestore security rules to ensure participants can delete chats and their messages.";
+      }
       toast({
         title: "Error Deleting Chat",
-        description: (error as Error).message || "Could not delete the conversation.",
+        description: description,
         variant: "destructive",
       });
     } finally {
@@ -257,3 +261,4 @@ export default function MessagesPage() {
     </div>
   );
 }
+
