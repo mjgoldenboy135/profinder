@@ -22,6 +22,8 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Separator } from '@/components/ui/separator';
+import { getUserChats } from '@/services/chatService'; // Added
+import type { Chat } from '@/lib/types'; // Added
 
 const mainHeaderNavLinks = [
   { href: '/map', label: 'Map', icon: MapPin, authRequired: true },
@@ -39,22 +41,24 @@ export default function Header() {
 
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollTop, setLastScrollTop] = useState(0);
-  const scrollThreshold = 10; // Pixels to scroll before triggering hide/show
-  const headerHideThreshold = 80; // Hide only after scrolling down this much (approx header height)
+  const scrollThreshold = 10; 
+  const headerHideThreshold = 80; 
+
+  const [hasUnreadActivity, setHasUnreadActivity] = useState(false);
+  const [checkingMessages, setCheckingMessages] = useState(false);
+  const isAuthenticated = !!currentUser;
 
   useEffect(() => {
     const handleScroll = () => {
       let st = window.pageYOffset || document.documentElement.scrollTop;
 
       if (Math.abs(lastScrollTop - st) <= scrollThreshold && st > headerHideThreshold) {
-        return; // Ignore small scrolls unless near the top
+        return; 
       }
 
       if (st > lastScrollTop && st > headerHideThreshold) {
-        // Scroll Down
         setIsVisible(false);
       } else {
-        // Scroll Up or at/near the top
         setIsVisible(true);
       }
       setLastScrollTop(st <= 0 ? 0 : st);
@@ -66,8 +70,33 @@ export default function Header() {
     };
   }, [lastScrollTop, headerHideThreshold, scrollThreshold]);
 
+  useEffect(() => {
+    if (isAuthenticated && currentUser) {
+      if (pathname.startsWith('/messages')) { 
+        setHasUnreadActivity(false);
+        return;
+      }
 
-  const isAuthenticated = !!currentUser;
+      setCheckingMessages(true);
+      getUserChats(currentUser.uid)
+        .then(userChats => {
+          const unread = userChats.some(chat =>
+            chat.lastMessageText && chat.lastMessageSenderId !== currentUser.uid
+          );
+          setHasUnreadActivity(unread);
+        })
+        .catch(err => {
+          console.error("Error fetching chats for notification in Header:", err);
+          setHasUnreadActivity(false);
+        })
+        .finally(() => {
+          setCheckingMessages(false);
+        });
+    } else {
+      setHasUnreadActivity(false); 
+    }
+  }, [isAuthenticated, currentUser, pathname]);
+
 
   const handleLogout = async () => {
     try {
@@ -76,7 +105,7 @@ export default function Header() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
-      setIsSidebarOpen(false); // Close sidebar on logout
+      setIsSidebarOpen(false); 
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -195,13 +224,12 @@ export default function Header() {
               </SheetFooter>
             </SheetContent>
           </Sheet>
-           <div className="hidden sm:block"> {/* AppLogo visible on sm+ screens next to menu */}
+           <div className="hidden sm:block"> 
              <AppLogo key="logo-main-nav" />
            </div>
         </div>
 
-        {/* Main navigation for larger screens */}
-        <nav className="flex items-center gap-2 sm:gap-4"> {/* Increased gap here */}
+        <nav className="flex items-center gap-2 sm:gap-4"> 
           {mainHeaderNavLinks.map((link) => (
             (link.authRequired && isAuthenticated) || !link.authRequired ? (
               <Link
@@ -215,14 +243,25 @@ export default function Header() {
                 )}
                 title={link.label}
               >
-                <link.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                {link.href === '/messages' ? (
+                  <div className="relative">
+                    <link.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                    {hasUnreadActivity && !checkingMessages && (
+                      <span
+                        className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-destructive ring-1 ring-card"
+                        aria-label="New messages"
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <link.icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                )}
                 <span className="text-[10px] sm:text-xs font-medium">{link.label}</span>
               </Link>
             ) : null
           ))}
         </nav>
 
-        {/* Auth buttons for larger screens */}
         <div className="hidden md:flex items-center gap-1 sm:gap-2">
           {isAuthenticated ? (
             <Button variant="default" size="sm" onClick={handleLogout} className="px-2 sm:px-3">
