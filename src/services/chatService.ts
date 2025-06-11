@@ -168,7 +168,7 @@ export async function sendMessage(
     lastMessageSenderId: messageData.senderId,
     lastMessageTimestamp: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    participantIds: arrayUnion(messageData.senderId, messageData.receiverId) 
+    // participantIds: arrayUnion(messageData.senderId, messageData.receiverId) // Removed this line
   });
 
   await batch.commit();
