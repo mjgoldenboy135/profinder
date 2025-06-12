@@ -29,6 +29,7 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
 
   await uploadBytes(fileRef, file);
   const downloadURL = await getDownloadURL(fileRef);
+  console.log("[userService.uploadProfilePicture] Successfully uploaded. Download URL:", downloadURL); // Added for debugging
   return downloadURL;
 }
 
@@ -148,3 +149,4 @@ export async function getFavoriteUsers(userId: string): Promise<User[]> {
   // Filter out any null results (e.g., if a favorited user's profile was deleted)
   return favoriteUsersRaw.filter(user => user !== null) as User[];
 }
+
