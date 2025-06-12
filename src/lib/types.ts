@@ -11,8 +11,8 @@ export interface User {
   linkedinProfileUrl?: string;
   phoneNumber?: string; // Store if needed, but control visibility
   location?: {
-    lat: number;
-    lng: number;
+    lat: number | null; // Changed from number
+    lng: number | null; // Changed from number
     address?: string; // For display, e.g. "San Francisco, CA"
   };
   isOnline?: boolean;

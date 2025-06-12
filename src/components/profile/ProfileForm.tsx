@@ -396,8 +396,8 @@ export default function ProfileForm() {
             email: values.email,
             profilePictureUrl: newAuthPhotoURL,
             location: {
-                lat: formIsOnlineValue ? existingProfile?.location?.lat : undefined,
-                lng: formIsOnlineValue ? existingProfile?.location?.lng : undefined,
+                lat: formIsOnlineValue && existingProfile?.location?.lat !== undefined && existingProfile?.location?.lat !== null ? existingProfile.location.lat : null,
+                lng: formIsOnlineValue && existingProfile?.location?.lng !== undefined && existingProfile?.location?.lng !== null ? existingProfile.location.lng : null,
                 address: values.locationAddress || ""
             },
             isOnline: formIsOnlineValue, 
