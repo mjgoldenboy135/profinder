@@ -25,39 +25,56 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
-      setLoading(false); // Set loading to false as soon as auth state is known
+      // setLoading(false); // Initial loading done once auth state is known
 
       if (user) {
+        // setLoading(true) here could cause a flash if profile fetch is slow
         try {
           const profile = await getUserProfile(user.uid);
           setCurrentUserProfile(profile);
         } catch (error) {
           console.error("AuthContext: Error fetching user profile:", error);
-          setCurrentUserProfile(null); // Ensure profile is null on error
+          setCurrentUserProfile(null);
+        } finally {
+          // setLoading(false); // Moved below
         }
       } else {
-        setCurrentUserProfile(null); // No user, so no profile
+        setCurrentUserProfile(null);
       }
-      // setLoading(false); // Moved up
+      setLoading(false); // Set loading to false after auth state and initial profile fetch attempt
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-  // Function to refresh current user's profile data
   const refreshUserProfile = async () => {
-    if (currentUser) {
-      setLoading(true); // Optionally set loading true during refresh
+    // Use auth.currentUser directly for the most up-to-date Firebase Auth user state
+    const firebaseAuthUser = auth.currentUser;
+
+    if (firebaseAuthUser) {
+      setLoading(true);
       try {
-        const profile = await getUserProfile(currentUser.uid);
-        setCurrentUserProfile(profile);
+        // Fetch Firestore profile
+        const firestoreProfile = await getUserProfile(firebaseAuthUser.uid);
+        setCurrentUserProfile(firestoreProfile);
+
+        // Explicitly update the currentUser state in context with the latest from auth.currentUser
+        // This ensures that if updateProfile (e.g., for photoURL) mutated auth.currentUser,
+        // our context reflects it. This is a safeguard in case onAuthStateChanged is delayed
+        // or doesn't fire for certain profile updates.
+        setCurrentUser(firebaseAuthUser);
+
       } catch (error) {
         console.error("AuthContext: Error refreshing user profile:", error);
-        // Potentially leave profile as is, or set to null depending on desired behavior
+        // Optionally handle error, e.g., by not changing current state or setting to null
       } finally {
-        setLoading(false); // Set loading false after refresh attempt
+        setLoading(false);
       }
+    } else {
+      // If auth.currentUser is null (e.g., user signed out during the operation)
+      setCurrentUserProfile(null);
+      setCurrentUser(null);
+      setLoading(false);
     }
   };
 
@@ -66,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     currentUser,
     currentUserProfile,
     loading,
-    refreshUserProfile, // Expose refresh function
+    refreshUserProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
