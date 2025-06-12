@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Rules for user profile pictures
+    // Path: /profilePictures/{userId}/{fileName}
+    match /profilePictures/{userId}/{allPaths=**} {
+      // Allow anyone to read profile pictures (they are public by URL).
+      allow read: if true;
+      
+      // Allow authenticated users to write (upload, update, delete)
+      // only to their own profile picture directory.
+      // This covers create, update, and delete operations.
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // For any other paths not explicitly matched above, access will be denied by default.
+    // There's no need for an additional "match /{allPaths=**} { allow read, write: if false; }"
+    // as Firebase Storage rules are restrictive by default (if no rule allows, it's denied).
+  }
+}
