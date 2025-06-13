@@ -345,84 +345,103 @@ export default function ProfileForm() {
   };
 
   async function onSubmit(values: ProfileFormValues) {
-    if (!authUser || !auth) {
-      toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
-      return;
-    }
+    console.log("[ProfileForm] onSubmit triggered. Values:", values);
+    toast({ title: "Form Submitted (Test)", description: "Checking if basic submission still triggers cross-origin error." });
 
-    const { profilePicture, profilePictureUrl: currentFormPicUrl, isOnline: formIsOnlineValue, locationAddress, ...dataForFirestore } = values;
-    let newAuthPhotoURL = authUser.photoURL || currentFormPicUrl || ""; 
+    // All Firebase logic is temporarily commented out for debugging the cross-origin error.
+    // If this simplified submission works without the cross-origin error,
+    // the issue is likely within the Firebase interaction code that was commented out.
+    // If the cross-origin error *still* occurs, the problem is more fundamental
+    // to the Next.js dev environment, proxying, or form setup itself.
+
+    // if (!authUser || !auth) {
+    //   toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
+    //   return;
+    // }
+
+    // const { profilePicture, profilePictureUrl: currentFormPicUrl, isOnline: formIsOnlineValue, locationAddress, ...dataForFirestore } = values;
+    // let newAuthPhotoURL = authUser.photoURL || currentFormPicUrl || ""; 
     
-    toast({ title: "Saving Profile...", description: "Please wait." });
+    // toast({ title: "Saving Profile...", description: "Please wait." });
     
-    try {
-        if (profilePicture && profilePicture.length > 0) {
-            const fileToUpload = profilePicture[0]; 
-            setIsUploadingPicture(true);
-            toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
-            try {
-                newAuthPhotoURL = await uploadProfilePicture(authUser.uid, fileToUpload);
-                toast({ title: "Picture Uploaded!", description: "Profile picture updated successfully." });
-            } catch (uploadError: any) {
-                toast({ title: "Upload Failed", description: `Could not upload profile picture: ${uploadError.message || 'Please try again.'}`, variant: "destructive" });
-                setIsUploadingPicture(false);
-                return;
-            } finally {
-                setIsUploadingPicture(false);
-            }
-        } else if (previewImage === null && (authUser.photoURL || currentFormPicUrl)) {
-            newAuthPhotoURL = "";
-        }
+    // try {
+    //     if (profilePicture && profilePicture.length > 0) {
+    //         const fileToUpload = profilePicture[0]; 
+    //         setIsUploadingPicture(true);
+    //         toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." });
+    //         console.log("[ProfileForm] Attempting to upload profile picture...", fileToUpload.name);
+    //         try {
+    //             newAuthPhotoURL = await uploadProfilePicture(authUser.uid, fileToUpload);
+    //             toast({ title: "Picture Uploaded!", description: "Profile picture updated successfully." });
+    //             console.log("[ProfileForm] Profile picture uploaded successfully. URL:", newAuthPhotoURL);
+    //         } catch (uploadError: any) {
+    //             console.error("[ProfileForm] Error during profile picture upload:", uploadError);
+    //             let detailedErrorMessage = "Could not upload profile picture. Please try again.";
+    //             if (uploadError.code) {
+    //                detailedErrorMessage = `Upload failed: ${uploadError.code} - ${uploadError.message}`;
+    //             } else if (uploadError.message) {
+    //                detailedErrorMessage = `Upload failed: ${uploadError.message}`;
+    //             }
+    //             toast({ title: "Upload Failed", description: detailedErrorMessage, variant: "destructive" });
+    //             setIsUploadingPicture(false);
+    //             return;
+    //         } finally {
+    //             setIsUploadingPicture(false);
+    //         }
+    //     } else if (previewImage === null && (authUser.photoURL || currentFormPicUrl)) {
+    //         newAuthPhotoURL = "";
+    //     }
 
-        const authUpdates: { displayName?: string; photoURL?: string | null } = {};
-        const photoURLForAuth = newAuthPhotoURL === "" ? null : newAuthPhotoURL;
+    //     const authUpdates: { displayName?: string; photoURL?: string | null } = {};
+    //     const photoURLForAuth = newAuthPhotoURL === "" ? null : newAuthPhotoURL;
 
-        if (values.fullName !== authUser.displayName) {
-            authUpdates.displayName = values.fullName;
-        }
-        if (photoURLForAuth !== (authUser.photoURL || null)) { 
-            authUpdates.photoURL = photoURLForAuth;
-        }
+    //     if (values.fullName !== authUser.displayName) {
+    //         authUpdates.displayName = values.fullName;
+    //     }
+    //     if (photoURLForAuth !== (authUser.photoURL || null)) { 
+    //         authUpdates.photoURL = photoURLForAuth;
+    //     }
         
-        if (Object.keys(authUpdates).length > 0) {
-            await updateAuthProfile(authUser, authUpdates);
-            if (refreshUserProfile) await refreshUserProfile();
-        }
+    //     if (Object.keys(authUpdates).length > 0) {
+    //         await updateAuthProfile(authUser, authUpdates);
+    //         if (refreshUserProfile) await refreshUserProfile();
+    //     }
         
-        const existingProfile = await getUserProfile(authUser.uid);
-        const finalDataToSaveToFirestore: Partial<User> = {
-            ...dataForFirestore, 
-            fullName: values.fullName,
-            email: values.email,
-            profilePictureUrl: newAuthPhotoURL,
-            location: {
-                lat: formIsOnlineValue && existingProfile?.location?.lat !== undefined && existingProfile?.location?.lat !== null ? existingProfile.location.lat : null,
-                lng: formIsOnlineValue && existingProfile?.location?.lng !== undefined && existingProfile?.location?.lng !== null ? existingProfile.location.lng : null,
-                address: values.locationAddress || ""
-            },
-            isOnline: formIsOnlineValue, 
-            showContact: values.showContact,
-            bio: values.bio,
-        };
+    //     const existingProfile = await getUserProfile(authUser.uid);
+    //     const finalDataToSaveToFirestore: Partial<User> = {
+    //         ...dataForFirestore, 
+    //         fullName: values.fullName,
+    //         email: values.email,
+    //         profilePictureUrl: newAuthPhotoURL,
+    //         location: {
+    //             lat: formIsOnlineValue && existingProfile?.location?.lat !== undefined && existingProfile?.location?.lat !== null ? existingProfile.location.lat : null,
+    //             lng: formIsOnlineValue && existingProfile?.location?.lng !== undefined && existingProfile?.location?.lng !== null ? existingProfile.location.lng : null,
+    //             address: values.locationAddress || ""
+    //         },
+    //         isOnline: formIsOnlineValue, 
+    //         showContact: values.showContact,
+    //         bio: values.bio,
+    //     };
         
-        await updateUserProfile(authUser.uid, finalDataToSaveToFirestore);
+    //     await updateUserProfile(authUser.uid, finalDataToSaveToFirestore);
 
-        toast({
-            title: "Profile Updated",
-            description: "Your profile information has been saved.",
-        });
+    //     toast({
+    //         title: "Profile Updated",
+    //         description: "Your profile information has been saved.",
+    //     });
 
-        const newResetValues: ProfileFormValues = {
-          ...values, 
-          profilePictureUrl: newAuthPhotoURL || "", 
-          profilePicture: undefined, 
-        };
-        form.reset(newResetValues);
-        setPreviewImage(newAuthPhotoURL || null);
+    //     const newResetValues: ProfileFormValues = {
+    //       ...values, 
+    //       profilePictureUrl: newAuthPhotoURL || "", 
+    //       profilePicture: undefined, 
+    //     };
+    //     form.reset(newResetValues);
+    //     setPreviewImage(newAuthPhotoURL || null);
 
-    } catch (error: any) {
-        toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
-    }
+    // } catch (error: any) {
+    //     console.error("[ProfileForm] Error in onSubmit:", error);
+    //     toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
+    // }
   }
 
   if (authLoading || isFetchingProfile) {
@@ -687,6 +706,8 @@ export default function ProfileForm() {
     
 
 
+
+    
 
     
 
