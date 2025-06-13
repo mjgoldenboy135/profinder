@@ -21,7 +21,6 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
   const otherParticipant: ChatParticipantData | undefined = chat.participantsData?.find(p => p.id !== currentUserId);
 
   if (!otherParticipant) {
-    // This case should ideally not happen if chat data is consistent.
     console.warn("ChatListItem: Other participant data is missing for chat ID:", chat.id);
     return (
       <div className="p-3 hover:bg-muted/50 transition-colors rounded-lg border border-destructive">
@@ -36,11 +35,29 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
     ? participantFullName.split(" ").map(n => n[0]).join("").toUpperCase()
     : "??";
   
-  const actualProfilePictureUrl = otherParticipant.profilePictureUrl && otherParticipant.profilePictureUrl.trim() !== ""
-    ? otherParticipant.profilePictureUrl.trim()
-    : null;
+  let imageSrcToUse: string;
+  const rawProfilePicUrl = otherParticipant.profilePictureUrl;
+  const placeholderUrl = `https://placehold.co/48x48.png?text=${encodeURIComponent(fallbackName)}`;
 
-  const placeholderImageUrl = `https://placehold.co/48x48.png?text=${fallbackName}`;
+  if (rawProfilePicUrl && typeof rawProfilePicUrl === 'string' && rawProfilePicUrl.trim() !== "") {
+    const trimmedUrl = rawProfilePicUrl.trim();
+    if (trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
+      try {
+        // Validate if it's a well-formed URL. This doesn't check if the image exists.
+        new URL(trimmedUrl);
+        imageSrcToUse = trimmedUrl; // Use it if it's a valid URL structure
+      } catch (e) {
+        // If new URL() throws, it's not a valid URL structure
+        imageSrcToUse = placeholderUrl;
+      }
+    } else {
+      // Handle "null" or "undefined" strings
+      imageSrcToUse = placeholderUrl;
+    }
+  } else {
+    // Handle null, undefined, or empty string
+    imageSrcToUse = placeholderUrl;
+  }
 
   let lastMessageTimeDisplay = "";
   if (chat.lastMessageTimestamp) {
@@ -75,8 +92,7 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
         .replace('less than a minute', 'now')
         .replace(' ', ''); 
     } else if (timestampSource) {
-      // console.warn("ChatListItem: Invalid lastMessageTimestamp for chat ID:", chat.id, timestampSource);
-      lastMessageTimeDisplay = ""; // Keep it empty or set to a default like "Invalid date"
+      lastMessageTimeDisplay = ""; 
     }
   }
 
@@ -94,7 +110,7 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
       <Link href={`/messages/${chat.id}`} className="block">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12 border">
-            <AvatarImage src={actualProfilePictureUrl || placeholderImageUrl} alt={participantFullName || "User"} />
+            <AvatarImage src={imageSrcToUse} alt={participantFullName || "User"} />
             <AvatarFallback className="text-lg">{fallbackName}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
