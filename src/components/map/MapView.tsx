@@ -5,7 +5,7 @@ import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react";
@@ -126,7 +126,7 @@ export default function MapView() {
     }
     console.log('[MapView useMemo programmaticCenter] Using DEFAULT_CENTER.');
     return DEFAULT_CENTER;
-  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, selectedProfession, filteredUsers]);
+  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, filteredUsers, selectedProfession]);
 
   const programmaticZoom = useMemo(() => {
     console.log('[MapView useMemo programmaticZoom] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
@@ -145,12 +145,12 @@ export default function MapView() {
     return DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
 
-
   const [currentCenter, setCurrentCenter] = useState(programmaticCenter);
   const [currentZoom, setCurrentZoom] = useState(programmaticZoom);
 
   useEffect(() => {
     console.log("[MapView useEffect] Programmatic center/zoom dependencies changed. Updating map state if necessary.");
+    // Update state only if the programmatic values have actually changed to avoid unnecessary re-renders or state loops
     if (programmaticCenter.lat !== currentCenter.lat || programmaticCenter.lng !== currentCenter.lng) {
         console.log("[MapView useEffect] New Programmatic Center:", programmaticCenter, "Current Center:", currentCenter);
         setCurrentCenter(programmaticCenter);
@@ -159,21 +159,30 @@ export default function MapView() {
         console.log("[MapView useEffect] New Programmatic Zoom:", programmaticZoom, "Current Zoom:", currentZoom);
         setCurrentZoom(programmaticZoom);
     }
-  }, [programmaticCenter, programmaticZoom, currentCenter.lat, currentCenter.lng, currentZoom]);
+  // It's important to only include the direct dependencies for this effect.
+  // currentCenter and currentZoom should not be dependencies here if this effect is meant to *set* them.
+  }, [programmaticCenter, programmaticZoom]);
 
-  const handleCenterChanged = (ev: CustomEvent<{center: google.maps.LatLngLiteral}>) => {
+
+  const handleCenterChanged = useCallback((ev: CustomEvent<{center: google.maps.LatLngLiteral}>) => {
       if (ev.detail && ev.detail.center) {
-        console.log("[MapView handleCenterChanged] User changed center to:", ev.detail.center);
-        setCurrentCenter(ev.detail.center);
+        const newCenter = ev.detail.center;
+        console.log("[MapView handleCenterChanged] User changed center to:", newCenter);
+        setCurrentCenter(newCenter);
       }
-  };
+  }, []);
 
-  const handleZoomChanged = (ev: CustomEvent<{zoom: number; center?: google.maps.LatLngLiteral }>) => {
+  const handleZoomChanged = useCallback((ev: CustomEvent<{zoom: number; center?: google.maps.LatLngLiteral }>) => {
       if (ev.detail && typeof ev.detail.zoom === 'number') {
-          console.log("[MapView handleZoomChanged] User changed zoom to:", ev.detail.zoom);
-          setCurrentZoom(ev.detail.zoom);
+          const newZoom = ev.detail.zoom;
+          console.log("[MapView handleZoomChanged] User changed zoom to:", newZoom);
+          setCurrentZoom(newZoom);
+          // Optionally update center if it also changed during zoom
+          if (ev.detail.center) {
+            setCurrentCenter(ev.detail.center);
+          }
       }
-  };
+  }, []);
 
   console.log(`[MapView] Rendering Map with controlled zoom: ${currentZoom}, controlled center: lat: ${currentCenter.lat}, lng: ${currentCenter.lng}`);
 
@@ -268,8 +277,8 @@ export default function MapView() {
                         onClick={() => router.push(`/users/${user.id}`)}
                     >
                         <div className={cn(
-                            "flex flex-col items-center p-2 bg-background rounded-lg shadow-lg cursor-pointer",
-                            "transform transition-transform hover:scale-110"
+                            "flex flex-col items-center p-2 bg-background rounded-lg shadow-lg"
+                            // Removed: "cursor-pointer", "transform transition-transform hover:scale-110"
                         )}>
                             <Avatar className="h-10 w-10 border-2 border-primary">
                                 <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
@@ -302,3 +311,5 @@ export default function MapView() {
     </Card>
   );
 }
+
+    
