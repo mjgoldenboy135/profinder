@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import type { Timestamp } from "firebase/firestore";
 
 export default function MessagesPage() {
   const router = useRouter();
@@ -53,9 +54,43 @@ export default function MessagesPage() {
 
       try {
         console.log("[MessagesPage] Attempting to fetch user chats for:", currentUser.uid);
-        const userChats = await getUserChats(currentUser.uid);
-        console.log("[MessagesPage] Fetched user chats:", userChats.length);
-        setChats(userChats);
+        const rawUserChats = await getUserChats(currentUser.uid);
+        console.log("[MessagesPage] Fetched raw user chats:", rawUserChats.length);
+
+        // De-duplicate chats client-side
+        const uniqueChatsMap = new Map<string, Chat>();
+        
+        const getComparableTimestamp = (ts: any): number => {
+          if (!ts) return 0;
+          // Handle Firestore Timestamp objects specifically
+          if (ts && typeof ts.toMillis === 'function') return ts.toMillis();
+          // Handle cases where ts might already be a number (milliseconds)
+          if (typeof ts === 'number') return ts;
+          // Fallback for Date objects or ISO strings
+          const date = new Date(ts);
+          return isNaN(date.getTime()) ? 0 : date.getTime();
+        };
+
+        rawUserChats.forEach(chat => {
+          const otherParticipantId = chat.participantIds.find(id => id !== currentUser.uid);
+          if (otherParticipantId) {
+            const existingChatForParticipant = uniqueChatsMap.get(otherParticipantId);
+            const currentChatTimestamp = getComparableTimestamp(chat.updatedAt);
+
+            if (!existingChatForParticipant) {
+              uniqueChatsMap.set(otherParticipantId, chat);
+            } else {
+              const existingChatTimestamp = getComparableTimestamp(existingChatForParticipant.updatedAt);
+              if (currentChatTimestamp > existingChatTimestamp) {
+                uniqueChatsMap.set(otherParticipantId, chat);
+              }
+            }
+          }
+        });
+        const deDupedUserChats = Array.from(uniqueChatsMap.values());
+        console.log("[MessagesPage] De-duplicated user chats:", deDupedUserChats.length);
+        setChats(deDupedUserChats);
+
 
         const chatWithId = searchParams.get("chatWith");
         const pathSegments = currentPathname.split('/');
@@ -65,8 +100,7 @@ export default function MessagesPage() {
 
         if (chatWithId) {
           console.log("[MessagesPage] 'chatWith' param found:", chatWithId);
-          // Check if already on the target chat page to avoid loop or redundant find/create
-          const existingChatWithTargetUser = userChats.find(
+          const existingChatWithTargetUser = deDupedUserChats.find( // Use deDupedUserChats
             (c) => c.participantIds.includes(currentUser.uid) && c.participantIds.includes(chatWithId)
           );
 
@@ -81,25 +115,28 @@ export default function MessagesPage() {
             console.log("[MessagesPage] No existing chat, attempting to find or create for:", chatWithId);
             const newChatId = await findOrCreateChat(currentUser.uid, chatWithId);
             console.log("[MessagesPage] findOrCreateChat returned ID:", newChatId, "navigating to it.");
-            // Refetch chats to include the new one, or add it optimistically
-            // For simplicity, we'll navigate and let the IndividualChatPage handle loading if it's a new chat.
-            // The userChats list on this page might be stale until next full load if not updated.
             router.replace(`/messages/${newChatId}`);
             setActiveChatId(newChatId);
-             // Optionally, refetch chats here to update the list immediately
-            const updatedUserChats = await getUserChats(currentUser.uid);
-            setChats(updatedUserChats);
+            const updatedUserChats = await getUserChats(currentUser.uid); // Re-fetch to get new chat
+             // Re-apply de-duplication after re-fetch
+            const reFetchedUniqueChatsMap = new Map<string, Chat>();
+            updatedUserChats.forEach(chat => {
+                const otherParticipantId = chat.participantIds.find(id => id !== currentUser.uid);
+                if (otherParticipantId) {
+                    const existing = reFetchedUniqueChatsMap.get(otherParticipantId);
+                    const currentTS = getComparableTimestamp(chat.updatedAt);
+                    if (!existing || currentTS > getComparableTimestamp(existing.updatedAt)) {
+                        reFetchedUniqueChatsMap.set(otherParticipantId, chat);
+                    }
+                }
+            });
+            setChats(Array.from(reFetchedUniqueChatsMap.values()));
           }
         } else if (chatIdFromPath) {
            console.log("[MessagesPage] Navigated directly to chat page:", chatIdFromPath);
            setActiveChatId(chatIdFromPath);
         } else {
            console.log("[MessagesPage] No specific chat targeted in URL.");
-           // Optional: if on /messages and no chat selected, and chats exist, select first one.
-           // if (userChats.length > 0) {
-           //   router.replace(`/messages/${userChats[0].id}`);
-           //   setActiveChatId(userChats[0].id);
-           // }
         }
 
       } catch (error) {
@@ -135,8 +172,6 @@ export default function MessagesPage() {
         description: "The conversation has been removed.",
       });
       if (activeChatId === chatToDeleteId) {
-        // If the active chat was deleted, navigate back to the main messages page
-        // or to the next chat if available. For simplicity, navigating to /messages.
         router.replace('/messages');
         setActiveChatId(undefined);
       }
@@ -162,10 +197,18 @@ export default function MessagesPage() {
   const filteredChats = chats.filter(chat => {
     if (!currentUser) return false;
     const otherParticipant = chat.participantsData?.find(p => p.id !== currentUser.uid);
-    return otherParticipant?.fullName.toLowerCase().includes(searchTerm.toLowerCase());
+    // Ensure otherParticipant and fullName exist before calling toLowerCase
+    return otherParticipant?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
   }).sort((a, b) => {
-    const timeA = a.lastMessageTimestamp?.toMillis ? a.lastMessageTimestamp.toMillis() : (typeof a.lastMessageTimestamp === 'number' ? a.lastMessageTimestamp : 0);
-    const timeB = b.lastMessageTimestamp?.toMillis ? b.lastMessageTimestamp.toMillis() : (typeof b.lastMessageTimestamp === 'number' ? b.lastMessageTimestamp : 0);
+    // Ensure lastMessageTimestamp is handled correctly if it's a Firestore Timestamp or number
+    const getSortableTimestamp = (ts: any): number => {
+        if (!ts) return 0;
+        if (typeof ts.toMillis === 'function') return ts.toMillis(); // Firestore Timestamp
+        if (typeof ts === 'number') return ts; // Milliseconds
+        return new Date(ts).getTime() || 0; // Fallback for Date objects or ISO strings
+    };
+    const timeA = getSortableTimestamp(a.lastMessageTimestamp);
+    const timeB = getSortableTimestamp(b.lastMessageTimestamp);
     return timeB - timeA;
   });
 
@@ -228,8 +271,13 @@ export default function MessagesPage() {
                 ) : (
                     <div className="p-6 text-center text-muted-foreground">
                         <MessageCircle className="h-12 w-12 mx-auto mb-3" />
-                        <p className="font-semibold">No chats yet.</p>
-                        <p className="text-sm">Start a conversation with someone from the <Link href="/users" className="text-primary hover:underline">users page</Link>.</p>
+                        <p className="font-semibold">{searchTerm ? "No chats match your search." : "No chats yet."}</p>
+                        <p className="text-sm">
+                            {searchTerm 
+                                ? "Try a different search term." 
+                                : <>Start a conversation with someone from the <Link href="/users" className="text-primary hover:underline">users page</Link>.</>
+                            }
+                        </p>
                     </div>
                 )}
             </CardContent>
@@ -261,4 +309,3 @@ export default function MessagesPage() {
     </div>
   );
 }
-
