@@ -88,7 +88,6 @@ export default function MapView() {
     }
   }, [onlineUsers]);
 
-  // Define filteredUsers first
   const filteredUsers = useMemo(() => {
     console.log('[MapView useMemo filteredUsers] Filtering users. Selected profession:', selectedProfession, 'Online users count:', onlineUsers.length);
     return onlineUsers.filter(user => {
@@ -99,56 +98,88 @@ export default function MapView() {
     });
   }, [onlineUsers, selectedProfession]);
 
-  // Then define mapCenter, which might depend on filteredUsers
-  const mapCenter = useMemo(() => {
-    console.log('[MapView useMemo mapCenter] Calculating. targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
+  const programmaticCenter = useMemo(() => {
+    console.log('[MapView useMemo programmaticCenter] Calculating. targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
     if (targetLatParam && targetLngParam) {
       const lat = parseFloat(targetLatParam);
       const lng = parseFloat(targetLngParam);
       if (!isNaN(lat) && !isNaN(lng)) {
-        console.log('[MapView useMemo mapCenter] Using lat/lng from params:', { lat, lng });
+        console.log('[MapView useMemo programmaticCenter] Using lat/lng from params:', { lat, lng });
         return { lat, lng };
       }
     }
     if (targetUserId) {
       const targetUser = onlineUsers.find(u => u.id === targetUserId);
       if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
-        console.log('[MapView useMemo mapCenter] Using targetUser location:', { lat: targetUser.location.lat, lng: targetUser.location.lng });
+        console.log('[MapView useMemo programmaticCenter] Using targetUser location:', { lat: targetUser.location.lat, lng: targetUser.location.lng });
         return { lat: targetUser.location.lat, lng: targetUser.location.lng };
       }
     }
-    // If a profession is selected and there are filtered users, center on the first one
     if (selectedProfession !== ALL_PROFESSIONS_FILTER_VALUE && filteredUsers.length > 0 && filteredUsers[0].location?.lat != null && filteredUsers[0].location?.lng != null) {
-      console.log('[MapView useMemo mapCenter] Using first filteredUser (profession selected) location.');
+      console.log('[MapView useMemo programmaticCenter] Using first filteredUser (profession selected) location.');
       return { lat: filteredUsers[0].location.lat, lng: filteredUsers[0].location.lng };
     }
-    // If no specific target or active filter, center on the first online user if available
     if (onlineUsers.length > 0 && onlineUsers[0].location?.lat != null && onlineUsers[0].location?.lng != null) {
-      console.log('[MapView useMemo mapCenter] Using first onlineUser location (default/no filter).');
+      console.log('[MapView useMemo programmaticCenter] Using first onlineUser location (default/no filter).');
       return { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng };
     }
-    console.log('[MapView useMemo mapCenter] Using DEFAULT_CENTER.');
+    console.log('[MapView useMemo programmaticCenter] Using DEFAULT_CENTER.');
     return DEFAULT_CENTER;
-  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, filteredUsers, selectedProfession]);
+  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, selectedProfession, filteredUsers]);
 
-  const mapZoom = useMemo(() => {
-    console.log('[MapView useMemo mapZoom] Calculating. targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
+  const programmaticZoom = useMemo(() => {
+    console.log('[MapView useMemo programmaticZoom] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
     if (targetLatParam && targetLngParam) {
-        console.log('[MapView useMemo mapZoom] Setting FOCUSED_ZOOM due to lat/lng params.');
+        console.log('[MapView useMemo programmaticZoom] Setting FOCUSED_ZOOM due to lat/lng params.');
         return FOCUSED_ZOOM;
     }
     if (targetUserId) {
       const targetUser = onlineUsers.find(u => u.id === targetUserId);
       if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
-        console.log('[MapView useMemo mapZoom] Setting FOCUSED_ZOOM due to targetUserId.');
+        console.log('[MapView useMemo programmaticZoom] Setting FOCUSED_ZOOM due to targetUserId.');
         return FOCUSED_ZOOM;
       }
     }
-    console.log('[MapView useMemo mapZoom] Setting DEFAULT_ZOOM.');
+    console.log('[MapView useMemo programmaticZoom] Setting DEFAULT_ZOOM.');
     return DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
 
-  console.log(`[MapView] Rendering Map with zoom: ${mapZoom}, center: lat: ${mapCenter.lat}, lng: ${mapCenter.lng}`);
+  const [currentCenter, setCurrentCenter] = useState(programmaticCenter);
+  const [currentZoom, setCurrentZoom] = useState(programmaticZoom);
+
+  useEffect(() => {
+    console.log("[MapView useEffect] Programmatic center/zoom dependencies changed. Updating map state if necessary.");
+    // Update currentCenter only if programmaticCenter has actually changed
+    if (programmaticCenter.lat !== currentCenter.lat || programmaticCenter.lng !== currentCenter.lng) {
+        console.log("[MapView useEffect] New Programmatic Center:", programmaticCenter, "Current Center:", currentCenter);
+        setCurrentCenter(programmaticCenter);
+    }
+    // Update currentZoom only if programmaticZoom has actually changed
+    if (programmaticZoom !== currentZoom) {
+        console.log("[MapView useEffect] New Programmatic Zoom:", programmaticZoom, "Current Zoom:", currentZoom);
+        setCurrentZoom(programmaticZoom);
+    }
+  }, [programmaticCenter, programmaticZoom]); // currentCenter and currentZoom removed from deps to avoid loops
+
+  const handleCenterChanged = (ev: CustomEvent<{center: google.maps.LatLngLiteral}>) => {
+      if (ev.detail && ev.detail.center) {
+        console.log("[MapView handleCenterChanged] User changed center to:", ev.detail.center);
+        setCurrentCenter(ev.detail.center);
+      }
+  };
+
+  const handleZoomChanged = (ev: CustomEvent<{zoom: number; center?: google.maps.LatLngLiteral }>) => {
+      if (ev.detail && typeof ev.detail.zoom === 'number') {
+          console.log("[MapView handleZoomChanged] User changed zoom to:", ev.detail.zoom);
+          setCurrentZoom(ev.detail.zoom);
+          // Optionally, update center if provided by zoom event, though onCenterChanged should also fire
+          // if (ev.detail.center) {
+          //   setCurrentCenter(ev.detail.center);
+          // }
+      }
+  };
+
+  console.log(`[MapView] Rendering Map with controlled zoom: ${currentZoom}, controlled center: lat: ${currentCenter.lat}, lng: ${currentCenter.lng}`);
 
   if (!API_KEY) {
     return (
@@ -219,16 +250,18 @@ export default function MapView() {
           <div className="h-[600px] w-full rounded-md overflow-hidden border">
             <APIProvider apiKey={API_KEY}>
               <Map
-                center={mapCenter}
-                zoom={mapZoom}
+                center={currentCenter}
+                zoom={currentZoom}
+                onCenterChanged={handleCenterChanged}
+                onZoomChanged={handleZoomChanged}
                 mapId={MAP_ID}
-                gestureHandling="auto"
+                gestureHandling="auto" 
                 className="h-full w-full"
                 mapTypeControl={false}
                 streetViewControl={false}
                 zoomControl={true}
                 fullscreenControl={true}
-                disableDefaultUI={false}
+                disableDefaultUI={false} 
               >
                 {filteredUsers.map(user => (
                   user.location && user.location.lat != null && user.location.lng != null ? (
