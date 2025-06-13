@@ -38,13 +38,18 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
     console.log(`[userService.uploadProfilePicture] Successfully got download URL: ${downloadURL}`);
     return downloadURL;
   } catch (error: any) {
-    console.error(`[userService.uploadProfilePicture] Error during upload/getURL for ${filePath}:`, error);
-    // Log specific properties if they exist, to help identify Firebase errors
-    if (error.code) console.error(`[userService.uploadProfilePicture] Error Code: ${error.code}`);
-    if (error.message) console.error(`[userService.uploadProfilePicture] Error Message: ${error.message}`);
-    if (error.serverResponse) console.error(`[userService.uploadProfilePicture] Server Response: ${error.serverResponse}`);
-    // It's useful to log the full error object as well for more details
-    console.error("[userService.uploadProfilePicture] Full error object:", error);
+    if (error.code === 'storage/retry-limit-exceeded') {
+      // Log as info because this specific error is common for network issues and handled by the UI.
+      // This may prevent the Next.js error overlay for this specific, handled case.
+      console.info(`[userService.uploadProfilePicture] Encountered Firebase Storage error '${error.code}'. This will be handled by the calling form. Message: ${error.message}`);
+    } else {
+      // Log other, potentially more critical, storage errors with more detail.
+      console.error(`[userService.uploadProfilePicture] Unexpected error during upload/getURL for ${filePath}:`, error);
+      if (error.code) console.error(`[userService.uploadProfilePicture] Error Code: ${error.code}`);
+      if (error.message) console.error(`[userService.uploadProfilePicture] Error Message: ${error.message}`);
+      if (error.serverResponse) console.error(`[userService.uploadProfilePicture] Server Response: ${error.serverResponse}`);
+      console.error("[userService.uploadProfilePicture] Full error object:", error);
+    }
     throw error; // Re-throw the error so it can be caught by the caller (ProfileForm)
   }
 }
