@@ -90,6 +90,16 @@ export default function MapView() {
     }
   }, [onlineUsers]);
 
+  const filteredUsers = useMemo(() => {
+    console.log('[MapView useMemo filteredUsers] Filtering users. Selected profession:', selectedProfession, 'Online users count:', onlineUsers.length);
+    return onlineUsers.filter(user => {
+        if (selectedProfession === ALL_PROFESSIONS_FILTER_VALUE) {
+            return true; // Show all if "All Professions" is selected
+        }
+        return user.profession === selectedProfession;
+    });
+  }, [onlineUsers, selectedProfession]);
+
   const mapCenter = useMemo(() => {
     console.log('[MapView useMemo mapCenter] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
     if (targetLatParam && targetLngParam) {
@@ -212,13 +222,13 @@ export default function MapView() {
                 center={mapCenter}
                 zoom={mapZoom}
                 mapId={MAP_ID}
-                gestureHandling="auto" // Changed from "greedy"
+                gestureHandling="auto" 
                 className="h-full w-full"
                 mapTypeControl={false}
                 streetViewControl={false}
-                zoomControl={true}      // Explicitly enable zoom control UI
-                fullscreenControl={true} // Explicitly enable fullscreen control UI
-                disableDefaultUI={false} // Ensure default UI (like pan controls) isn't disabled
+                zoomControl={true}      
+                fullscreenControl={true} 
+                disableDefaultUI={false} 
               >
                 {filteredUsers.map(user => (
                   user.location && user.location.lat != null && user.location.lng != null ? (
@@ -256,3 +266,4 @@ export default function MapView() {
   );
 }
     
+
