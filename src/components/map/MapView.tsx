@@ -90,13 +90,6 @@ export default function MapView() {
     }
   }, [onlineUsers]);
 
-  const filteredUsers = useMemo(() => {
-    if (selectedProfession === ALL_PROFESSIONS_FILTER_VALUE) {
-      return onlineUsers; 
-    }
-    return onlineUsers.filter(user => user.profession === selectedProfession);
-  }, [onlineUsers, selectedProfession]);
-
   const mapCenter = useMemo(() => {
     console.log('[MapView useMemo mapCenter] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
     if (targetLatParam && targetLngParam) {
@@ -143,20 +136,9 @@ export default function MapView() {
     return DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
 
-  const [currentMapCenter, setCurrentMapCenter] = useState(mapCenter);
-  const [currentMapZoom, setCurrentMapZoom] = useState(mapZoom);
 
-  useEffect(() => {
-    console.log('[MapView useEffect mapCenter] mapCenter changed, updating currentMapCenter to:', mapCenter);
-    setCurrentMapCenter(mapCenter);
-  }, [mapCenter]);
+  console.log(`[MapView] Rendering Map with zoom: ${mapZoom}, center: lat: ${mapCenter.lat}, lng: ${mapCenter.lng}`);
 
-  useEffect(() => {
-    console.log('[MapView useEffect mapZoom] mapZoom changed, updating currentMapZoom to:', mapZoom);
-    setCurrentMapZoom(mapZoom);
-  }, [mapZoom]);
-
-  console.log('[MapView] Rendering with currentMapZoom:', currentMapZoom, 'currentMapCenter:', currentMapCenter);
 
   if (!API_KEY) {
     return (
@@ -226,15 +208,17 @@ export default function MapView() {
         ) : (
           <div className="h-[600px] w-full rounded-md overflow-hidden border">
             <APIProvider apiKey={API_KEY}>
-              <Map 
-                center={currentMapCenter} 
-                zoom={currentMapZoom} 
-                mapId={MAP_ID} 
-                gestureHandling="greedy" 
+              <Map
+                center={mapCenter}
+                zoom={mapZoom}
+                mapId={MAP_ID}
+                gestureHandling="auto" // Changed from "greedy"
                 className="h-full w-full"
                 mapTypeControl={false}
                 streetViewControl={false}
-                // key prop removed
+                zoomControl={true}      // Explicitly enable zoom control UI
+                fullscreenControl={true} // Explicitly enable fullscreen control UI
+                disableDefaultUI={false} // Ensure default UI (like pan controls) isn't disabled
               >
                 {filteredUsers.map(user => (
                   user.location && user.location.lat != null && user.location.lng != null ? (
@@ -271,5 +255,4 @@ export default function MapView() {
     </Card>
   );
 }
-
-  
+    
