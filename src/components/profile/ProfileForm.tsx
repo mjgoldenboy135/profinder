@@ -361,25 +361,23 @@ export default function ProfileForm() {
         if (profilePicture && profilePicture.length > 0) {
             const fileToUpload = profilePicture[0]; 
             setIsUploadingPicture(true);
-            // toast({ title: "Uploading Picture...", description: "Your new profile picture is being uploaded." }); // Combined with "Saving Profile..."
             console.log("[ProfileForm] Attempting to upload profile picture...", fileToUpload.name);
             try {
                 newAuthPhotoURL = await uploadProfilePicture(authUser.uid, fileToUpload);
-                // toast({ title: "Picture Uploaded!", description: "Profile picture updated successfully." }); // Covered by main success toast
                 console.log("[ProfileForm] Profile picture uploaded successfully. URL:", newAuthPhotoURL);
             } catch (uploadError: any) {
                 console.error("[ProfileForm] Error during profile picture upload:", uploadError);
                 let detailedErrorMessage = "Could not upload profile picture. Please try again.";
-                if (uploadError.code) { // Firebase Storage errors often have a 'code' property
-                   detailedErrorMessage = `Upload failed: ${uploadError.code} - ${uploadError.message}`;
+                if (uploadError.code === 'storage/retry-limit-exceeded') {
+                    detailedErrorMessage = "Upload failed: The network request timed out or connection was too slow. Please check your internet connection and try again. If the issue persists, consider using a smaller image file.";
+                } else if (uploadError.code) {
+                   detailedErrorMessage = `Upload failed: ${uploadError.code}. ${uploadError.message || ''}`;
                 } else if (uploadError.message) {
                    detailedErrorMessage = `Upload failed: ${uploadError.message}`;
                 }
                 toast({ title: "Upload Failed", description: detailedErrorMessage, variant: "destructive" });
                 setIsUploadingPicture(false);
-                return; // Stop further execution if upload fails
-            } finally {
-                // setIsUploadingPicture(false); // Moved out of here, set by main submitting state
+                return; 
             }
         } else if (previewImage === null && (authUser.photoURL || currentFormPicUrl)) {
             newAuthPhotoURL = "";
@@ -407,8 +405,8 @@ export default function ProfileForm() {
             email: values.email,
             profilePictureUrl: newAuthPhotoURL,
             location: {
-                lat: formIsOnlineValue && existingProfile?.location?.lat !== undefined && existingProfile?.location?.lat !== null ? existingProfile.location.lat : null,
-                lng: formIsOnlineValue && existingProfile?.location?.lng !== undefined && existingProfile?.location?.lng !== null ? existingProfile.location.lng : null,
+                lat: formIsOnlineValue && existingProfile?.location?.lat !== undefined ? existingProfile.location.lat : null,
+                lng: formIsOnlineValue && existingProfile?.location?.lng !== undefined ? existingProfile.location.lng : null,
                 address: values.locationAddress || ""
             },
             isOnline: formIsOnlineValue, 
@@ -432,10 +430,17 @@ export default function ProfileForm() {
         setPreviewImage(newAuthPhotoURL || null);
 
     } catch (error: any) {
-        console.error("[ProfileForm] Error in onSubmit:", error);
-        toast({ title: "Update Error", description: `Failed to update profile: ${error.message || 'Please try again.'}`, variant: "destructive" });
+        console.error("[ProfileForm] Error in onSubmit (after upload attempt or during other updates):", error);
+        // This catch block handles errors from updateAuthProfile or updateUserProfile,
+        // or if the uploadError was not 'storage/retry-limit-exceeded' and was re-thrown (though current logic returns).
+        let generalErrorMessage = `Failed to update profile: ${error.message || 'Please try again.'}`;
+        if (error.code === 'storage/retry-limit-exceeded' && !(error.message && error.message.includes("Upload failed"))) {
+             // This case should ideally be caught by the inner try-catch, but as a fallback:
+            generalErrorMessage = "Profile update failed after an issue with image upload (network/timeout). Please check connection and try again.";
+        }
+        toast({ title: "Update Error", description: generalErrorMessage, variant: "destructive" });
     } finally {
-        setIsUploadingPicture(false); // Ensure this is reset if it was true
+        setIsUploadingPicture(false); 
     }
   }
 
@@ -707,3 +712,4 @@ export default function ProfileForm() {
     
 
     
+
