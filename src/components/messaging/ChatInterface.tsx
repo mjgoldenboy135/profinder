@@ -11,11 +11,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from 'date-fns';
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { sendMessage } from "@/services/chatService"; 
+import { sendMessage } from "@/services/chatService";
 import { useToast } from "@/hooks/use-toast";
-import type { Timestamp } from "firebase/firestore"; 
-import { db } from "@/lib/firebase"; // Import db
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore"; // Import Firestore functions
+import type { Timestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 
 interface ChatInterfaceProps {
   chat: Chat;
@@ -23,7 +23,6 @@ interface ChatInterfaceProps {
   currentUserId: string;
 }
 
-// Helper to convert Firestore Timestamps in messages
 const processMessageTimestamps = (msg: Message): Message => {
   let timestamp = msg.timestamp;
   if (timestamp && typeof timestamp === 'object' && 'toMillis' in timestamp) {
@@ -31,6 +30,29 @@ const processMessageTimestamps = (msg: Message): Message => {
   }
   return { ...msg, timestamp };
 };
+
+// Helper function to determine a valid image source or fallback to a placeholder
+const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string): string => {
+  if (rawUrl && typeof rawUrl === 'string') {
+    const trimmedUrl = rawUrl.trim();
+    // Check for empty string or common string literals for null/undefined
+    if (trimmedUrl !== "" && trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
+      try {
+        // Attempt to parse as URL. This also helps ensure it's an absolute URL.
+        const url = new URL(trimmedUrl);
+        // Optional: Check if protocol is http or https, which are generally expected for image src
+        if (url.protocol === "http:" || url.protocol === "https:") {
+          return trimmedUrl; // It's a usable, absolute URL
+        }
+      } catch (e) {
+        // Malformed URL or relative path, fall through to placeholder
+        console.warn(`[ChatInterface] Invalid profilePictureUrl structure: "${trimmedUrl}", falling back to placeholder.`);
+      }
+    }
+  }
+  return placeholder; // Fallback if any check fails or if rawUrl is not a usable string
+};
+
 
 export default function ChatInterface({ chat, initialMessages, currentUserId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages.map(processMessageTimestamps).sort((a,b) => (a.timestamp as number) - (b.timestamp as number)));
@@ -45,7 +67,6 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Implement real-time listener for new messages
   useEffect(() => {
     if (!chat.id) return;
     const messagesRef = collection(db, "chats", chat.id, "messages");
@@ -62,7 +83,7 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
         toast({ title: "Error", description: "Could not load new messages in real-time.", variant: "destructive" });
       }
     );
-    return () => unsubscribe(); // Cleanup listener on component unmount
+    return () => unsubscribe();
   }, [chat.id, toast]);
 
 
@@ -78,7 +99,7 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
       senderId: currentUserId,
       receiverId: otherParticipant.id,
       text: newMessage,
-      timestamp: Date.now(), 
+      timestamp: Date.now(),
       status: 'sent',
     };
     setMessages(prevMessages => [...prevMessages, optimisticMessage]);
@@ -106,7 +127,7 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
         variant: "destructive",
       });
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempMessageId));
-      setNewMessage(messageTextToSend); 
+      setNewMessage(messageTextToSend);
     } finally {
       setIsSending(false);
     }
@@ -120,32 +141,13 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
   const fallbackName = participantFullName && participantFullName !== ""
     ? participantFullName.split(" ").map(n => n[0]).join("").toUpperCase()
     : "??";
-  
-  let headerImageSrc: string;
-  let messageAvatarSrc: string;
+
   const rawProfilePicUrl = otherParticipant.profilePictureUrl;
   const headerPlaceholderUrl = `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
   const messagePlaceholderUrl = `https://placehold.co/32x32.png?text=${encodeURIComponent(fallbackName[0] || '?')}`;
 
-  if (rawProfilePicUrl && typeof rawProfilePicUrl === 'string' && rawProfilePicUrl.trim() !== "") {
-    const trimmedUrl = rawProfilePicUrl.trim();
-    if (trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
-      try {
-        new URL(trimmedUrl);
-        headerImageSrc = trimmedUrl;
-        messageAvatarSrc = trimmedUrl;
-      } catch (e) {
-        headerImageSrc = headerPlaceholderUrl;
-        messageAvatarSrc = messagePlaceholderUrl;
-      }
-    } else {
-      headerImageSrc = headerPlaceholderUrl;
-      messageAvatarSrc = messagePlaceholderUrl;
-    }
-  } else {
-    headerImageSrc = headerPlaceholderUrl;
-    messageAvatarSrc = messagePlaceholderUrl;
-  }
+  const headerImageSrc = getValidImageSrc(rawProfilePicUrl, headerPlaceholderUrl);
+  const messageAvatarSrc = getValidImageSrc(rawProfilePicUrl, messagePlaceholderUrl);
 
 
   return (
@@ -231,4 +233,3 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     </div>
   );
 }
-
