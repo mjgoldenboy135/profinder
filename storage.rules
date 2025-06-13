@@ -1,16 +1,27 @@
+
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
     // Profile Pictures:
-    // - Allow anyone to read (profile pictures are public).
-    // - Allow authenticated users to write (upload, update, delete) to their own profile picture path.
+    // - Path: /profilePictures/{userId}/{anyFileNameOrPath}
+    // - Allows public read access to profile pictures.
+    // - Allows authenticated users to write (upload, update, delete)
+    //   ONLY to their own designated profile picture folder.
     match /profilePictures/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // By default, if no other rules match, access is denied.
-    // So, all other paths not covered by the rule above will be inaccessible.
+    // Add other rules for other storage paths here if needed in the future.
+    // For example:
+    // match /sharedFiles/{documentId} {
+    //   allow read: if request.auth != null; // Example: only authenticated users
+    //   allow write: if false; // Example: no client-side writes
+    // }
+
+    // Default Deny:
+    // Any paths not explicitly matched by a rule above will be denied access.
+    // This is an implicit rule in Firebase Storage security rules.
   }
 }
