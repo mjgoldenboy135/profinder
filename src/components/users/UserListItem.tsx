@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Briefcase, MapPin, MessageSquare } from "lucide-react";
+import { Briefcase, MapPin, MessageSquare, MapPinIcon as ViewOnMapIcon } from "lucide-react";
 
 interface UserListItemProps {
   user: User;
@@ -14,9 +14,10 @@ interface UserListItemProps {
 
 export default function UserListItem({ user }: UserListItemProps) {
   const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("") : "PN";
+  const hasValidLocation = user.location && user.location.lat != null && user.location.lng != null;
 
   return (
-    <Card className="overflow-hidden transition-shadow hover:shadow-lg">
+    <Card className="overflow-hidden transition-shadow hover:shadow-lg flex flex-col h-full">
       <CardHeader className="flex flex-row items-start gap-4 p-4">
         <Avatar className="h-16 w-16 border">
           <AvatarImage src={user.profilePictureUrl || `https://placehold.co/64x64.png?text=${fallbackName}`} alt={user.fullName} />
@@ -54,16 +55,23 @@ export default function UserListItem({ user }: UserListItemProps) {
           <p className="text-sm text-muted-foreground line-clamp-2">{user.bio}</p>
         </CardContent>
       )}
-      <CardFooter className="p-4 border-t">
-        <div className="flex gap-2 w-full">
-        <Button variant="outline" size="sm" className="flex-1" asChild>
-          <Link href={`/users/${user.id}`}>View Profile</Link>
-        </Button>
-        <Button size="sm" className="flex-1" asChild>
-          <Link href={`/messages?chatWith=${user.id}`}>
-            <MessageSquare className="mr-2 h-4 w-4" /> Message
-          </Link>
-        </Button>
+      <CardFooter className="p-4 border-t mt-auto">
+        <div className="flex flex-col sm:flex-row gap-2 w-full">
+          <Button variant="outline" size="sm" className="flex-1" asChild>
+            <Link href={`/users/${user.id}`}>View Profile</Link>
+          </Button>
+          <Button size="sm" className="flex-1" asChild>
+            <Link href={`/messages?chatWith=${user.id}`}>
+              <MessageSquare className="mr-2 h-4 w-4" /> Message
+            </Link>
+          </Button>
+          {hasValidLocation && (
+            <Button variant="secondary" size="sm" className="flex-1" asChild>
+              <Link href={`/map?userId=${user.id}&lat=${user.location!.lat}&lng=${user.location!.lng}`}>
+                <ViewOnMapIcon className="mr-2 h-4 w-4" /> View on Map
+              </Link>
+            </Button>
+          )}
         </div>
       </CardFooter>
     </Card>

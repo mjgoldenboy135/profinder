@@ -9,7 +9,7 @@ import { useState, useEffect, useMemo } from "react";
 import { db } from "@/lib/firebase"; 
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore"; 
 import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react"; 
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription as UILabelAlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,10 @@ const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
 const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId.trim() : undefined;
 
 const ALL_PROFESSIONS_FILTER_VALUE = "__ALL_PROFESSIONS__";
+const DEFAULT_ZOOM = 9;
+const FOCUSED_ZOOM = 14;
+const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; 
+
 
 if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
@@ -31,8 +35,13 @@ export default function MapView() {
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true); 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [selectedProfession, setSelectedProfession] = useState<string>(ALL_PROFESSIONS_FILTER_VALUE);
   const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
+
+  const targetUserId = searchParams.get('userId');
+  const targetLatParam = searchParams.get('lat');
+  const targetLngParam = searchParams.get('lng');
 
   useEffect(() => {
     if (!API_KEY) {
@@ -88,12 +97,51 @@ export default function MapView() {
     return onlineUsers.filter(user => user.profession === selectedProfession);
   }, [onlineUsers, selectedProfession]);
 
-  const defaultCenter = { lat: 37.7749, lng: -122.4194 }; 
-  const mapCenter = filteredUsers.length > 0 && filteredUsers[0].location 
-                    ? { lat: filteredUsers[0].location.lat, lng: filteredUsers[0].location.lng } 
-                    : (onlineUsers.length > 0 && onlineUsers[0].location 
-                        ? { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng }
-                        : defaultCenter);
+  const mapCenter = useMemo(() => {
+    if (targetLatParam && targetLngParam) {
+      const lat = parseFloat(targetLatParam);
+      const lng = parseFloat(targetLngParam);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return { lat, lng };
+      }
+    }
+    if (targetUserId) {
+      const targetUser = onlineUsers.find(u => u.id === targetUserId);
+      if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
+        return { lat: targetUser.location.lat, lng: targetUser.location.lng };
+      }
+    }
+    if (filteredUsers.length > 0 && filteredUsers[0].location?.lat != null && filteredUsers[0].location?.lng != null) {
+      return { lat: filteredUsers[0].location.lat, lng: filteredUsers[0].location.lng };
+    }
+    if (onlineUsers.length > 0 && onlineUsers[0].location?.lat != null && onlineUsers[0].location?.lng != null) {
+      return { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng };
+    }
+    return DEFAULT_CENTER;
+  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, filteredUsers]);
+
+  const mapZoom = useMemo(() => {
+    if (targetLatParam && targetLngParam) return FOCUSED_ZOOM;
+    if (targetUserId) {
+      const targetUser = onlineUsers.find(u => u.id === targetUserId);
+      if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
+        return FOCUSED_ZOOM;
+      }
+    }
+    return DEFAULT_ZOOM;
+  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
+
+  const [currentMapCenter, setCurrentMapCenter] = useState(mapCenter);
+  const [currentMapZoom, setCurrentMapZoom] = useState(mapZoom);
+
+  useEffect(() => {
+    setCurrentMapCenter(mapCenter);
+  }, [mapCenter]);
+
+  useEffect(() => {
+    setCurrentMapZoom(mapZoom);
+  }, [mapZoom]);
+
 
   if (!API_KEY) {
     return (
@@ -120,10 +168,10 @@ export default function MapView() {
             <div>
                 <CardTitle className="text-3xl font-headline">Network Map</CardTitle>
                 <CardDescription>
-                See who's online and nearby. Use the filter to view by profession.
+                See who's online and nearby. Use the filter to view by profession. Click on a marker to view profile.
                 </CardDescription>
             </div>
-            { (availableProfessions.length > 0 || onlineUsers.length > 0) && ( // Show filter if there are any users or professions to filter by
+            { (availableProfessions.length > 0 || onlineUsers.length > 0) && ( 
             <div className="w-full sm:w-auto sm:min-w-[200px]">
                 <Label htmlFor="profession-filter" className="sr-only">Filter by Profession</Label>
                 <Select value={selectedProfession} onValueChange={setSelectedProfession}>
@@ -164,13 +212,14 @@ export default function MapView() {
           <div className="h-[600px] w-full rounded-md overflow-hidden border">
             <APIProvider apiKey={API_KEY}>
               <Map 
-                center={mapCenter} 
-                defaultZoom={9} 
+                center={currentMapCenter} 
+                zoom={currentMapZoom} 
                 mapId={MAP_ID} 
                 gestureHandling="greedy" 
                 className="h-full w-full"
                 mapTypeControl={false}
                 streetViewControl={false}
+                key={`${currentMapCenter.lat}-${currentMapCenter.lng}-${currentMapZoom}`} // Force re-render if center/zoom changes significantly
               >
                 {filteredUsers.map(user => (
                   user.location && user.location.lat != null && user.location.lng != null ? (
