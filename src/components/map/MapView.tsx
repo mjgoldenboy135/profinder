@@ -98,36 +98,48 @@ export default function MapView() {
   }, [onlineUsers, selectedProfession]);
 
   const mapCenter = useMemo(() => {
+    console.log('[MapView useMemo mapCenter] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
     if (targetLatParam && targetLngParam) {
       const lat = parseFloat(targetLatParam);
       const lng = parseFloat(targetLngParam);
       if (!isNaN(lat) && !isNaN(lng)) {
+        console.log('[MapView useMemo mapCenter] Using lat/lng from params:', { lat, lng });
         return { lat, lng };
       }
     }
     if (targetUserId) {
       const targetUser = onlineUsers.find(u => u.id === targetUserId);
       if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
+        console.log('[MapView useMemo mapCenter] Using targetUser location:', { lat: targetUser.location.lat, lng: targetUser.location.lng });
         return { lat: targetUser.location.lat, lng: targetUser.location.lng };
       }
     }
     if (filteredUsers.length > 0 && filteredUsers[0].location?.lat != null && filteredUsers[0].location?.lng != null) {
+      console.log('[MapView useMemo mapCenter] Using first filteredUser location.');
       return { lat: filteredUsers[0].location.lat, lng: filteredUsers[0].location.lng };
     }
     if (onlineUsers.length > 0 && onlineUsers[0].location?.lat != null && onlineUsers[0].location?.lng != null) {
+      console.log('[MapView useMemo mapCenter] Using first onlineUser location.');
       return { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng };
     }
+    console.log('[MapView useMemo mapCenter] Using DEFAULT_CENTER.');
     return DEFAULT_CENTER;
   }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, filteredUsers]);
 
   const mapZoom = useMemo(() => {
-    if (targetLatParam && targetLngParam) return FOCUSED_ZOOM;
+    console.log('[MapView useMemo mapZoom] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
+    if (targetLatParam && targetLngParam) {
+        console.log('[MapView useMemo mapZoom] Setting FOCUSED_ZOOM due to lat/lng params.');
+        return FOCUSED_ZOOM;
+    }
     if (targetUserId) {
       const targetUser = onlineUsers.find(u => u.id === targetUserId);
       if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
+        console.log('[MapView useMemo mapZoom] Setting FOCUSED_ZOOM due to targetUserId.');
         return FOCUSED_ZOOM;
       }
     }
+    console.log('[MapView useMemo mapZoom] Setting DEFAULT_ZOOM.');
     return DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
 
@@ -135,13 +147,16 @@ export default function MapView() {
   const [currentMapZoom, setCurrentMapZoom] = useState(mapZoom);
 
   useEffect(() => {
+    console.log('[MapView useEffect mapCenter] mapCenter changed, updating currentMapCenter to:', mapCenter);
     setCurrentMapCenter(mapCenter);
   }, [mapCenter]);
 
   useEffect(() => {
+    console.log('[MapView useEffect mapZoom] mapZoom changed, updating currentMapZoom to:', mapZoom);
     setCurrentMapZoom(mapZoom);
   }, [mapZoom]);
 
+  console.log('[MapView] Rendering with currentMapZoom:', currentMapZoom, 'currentMapCenter:', currentMapCenter);
 
   if (!API_KEY) {
     return (
@@ -219,7 +234,7 @@ export default function MapView() {
                 className="h-full w-full"
                 mapTypeControl={false}
                 streetViewControl={false}
-                key={`${currentMapCenter.lat}-${currentMapCenter.lng}-${currentMapZoom}`} // Force re-render if center/zoom changes significantly
+                // key prop removed
               >
                 {filteredUsers.map(user => (
                   user.location && user.location.lat != null && user.location.lng != null ? (
@@ -256,3 +271,5 @@ export default function MapView() {
     </Card>
   );
 }
+
+  
