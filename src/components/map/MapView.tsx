@@ -6,9 +6,9 @@ import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useState, useEffect, useMemo } from "react";
-import { db } from "@/lib/firebase"; 
-import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore"; 
-import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react"; 
+import { db } from "@/lib/firebase";
+import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore";
+import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react";
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription as UILabelAlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,8 +21,7 @@ const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId.trim() : undefined;
 const ALL_PROFESSIONS_FILTER_VALUE = "__ALL_PROFESSIONS__";
 const DEFAULT_ZOOM = 9;
 const FOCUSED_ZOOM = 14;
-const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; 
-
+const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
 
 if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
@@ -30,10 +29,9 @@ if (typeof window !== 'undefined') {
   console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
 }
 
-
 export default function MapView() {
   const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true); 
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedProfession, setSelectedProfession] = useState<string>(ALL_PROFESSIONS_FILTER_VALUE);
@@ -77,7 +75,7 @@ export default function MapView() {
       console.log("[MapView] Unsubscribing from Firestore listener.");
       unsubscribe();
     };
-  }, []); 
+  }, []);
 
   useEffect(() => {
     if (onlineUsers.length > 0) {
@@ -90,18 +88,20 @@ export default function MapView() {
     }
   }, [onlineUsers]);
 
+  // Define filteredUsers first
   const filteredUsers = useMemo(() => {
     console.log('[MapView useMemo filteredUsers] Filtering users. Selected profession:', selectedProfession, 'Online users count:', onlineUsers.length);
     return onlineUsers.filter(user => {
         if (selectedProfession === ALL_PROFESSIONS_FILTER_VALUE) {
-            return true; // Show all if "All Professions" is selected
+            return true;
         }
         return user.profession === selectedProfession;
     });
   }, [onlineUsers, selectedProfession]);
 
+  // Then define mapCenter, which might depend on filteredUsers
   const mapCenter = useMemo(() => {
-    console.log('[MapView useMemo mapCenter] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
+    console.log('[MapView useMemo mapCenter] Calculating. targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
     if (targetLatParam && targetLngParam) {
       const lat = parseFloat(targetLatParam);
       const lng = parseFloat(targetLngParam);
@@ -117,20 +117,22 @@ export default function MapView() {
         return { lat: targetUser.location.lat, lng: targetUser.location.lng };
       }
     }
-    if (filteredUsers.length > 0 && filteredUsers[0].location?.lat != null && filteredUsers[0].location?.lng != null) {
-      console.log('[MapView useMemo mapCenter] Using first filteredUser location.');
+    // If a profession is selected and there are filtered users, center on the first one
+    if (selectedProfession !== ALL_PROFESSIONS_FILTER_VALUE && filteredUsers.length > 0 && filteredUsers[0].location?.lat != null && filteredUsers[0].location?.lng != null) {
+      console.log('[MapView useMemo mapCenter] Using first filteredUser (profession selected) location.');
       return { lat: filteredUsers[0].location.lat, lng: filteredUsers[0].location.lng };
     }
+    // If no specific target or active filter, center on the first online user if available
     if (onlineUsers.length > 0 && onlineUsers[0].location?.lat != null && onlineUsers[0].location?.lng != null) {
-      console.log('[MapView useMemo mapCenter] Using first onlineUser location.');
+      console.log('[MapView useMemo mapCenter] Using first onlineUser location (default/no filter).');
       return { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng };
     }
     console.log('[MapView useMemo mapCenter] Using DEFAULT_CENTER.');
     return DEFAULT_CENTER;
-  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, filteredUsers]);
+  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, filteredUsers, selectedProfession]);
 
   const mapZoom = useMemo(() => {
-    console.log('[MapView useMemo mapZoom] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
+    console.log('[MapView useMemo mapZoom] Calculating. targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
     if (targetLatParam && targetLngParam) {
         console.log('[MapView useMemo mapZoom] Setting FOCUSED_ZOOM due to lat/lng params.');
         return FOCUSED_ZOOM;
@@ -146,9 +148,7 @@ export default function MapView() {
     return DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
 
-
   console.log(`[MapView] Rendering Map with zoom: ${mapZoom}, center: lat: ${mapCenter.lat}, lng: ${mapCenter.lng}`);
-
 
   if (!API_KEY) {
     return (
@@ -178,7 +178,7 @@ export default function MapView() {
                 See who's online and nearby. Use the filter to view by profession. Click on a marker to view profile.
                 </CardDescription>
             </div>
-            { (availableProfessions.length > 0 || onlineUsers.length > 0) && ( 
+            { (availableProfessions.length > 0 || onlineUsers.length > 0) && (
             <div className="w-full sm:w-auto sm:min-w-[200px]">
                 <Label htmlFor="profession-filter" className="sr-only">Filter by Profession</Label>
                 <Select value={selectedProfession} onValueChange={setSelectedProfession}>
@@ -204,8 +204,8 @@ export default function MapView() {
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Map Configuration Incomplete</AlertTitle>
                 <UILabelAlertDescription>
-                The <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_ID</code> environment variable is not set. 
-                Advanced Markers (used for user avatars on the map) require a Map ID and may not function correctly without it. 
+                The <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_ID</code> environment variable is not set.
+                Advanced Markers (used for user avatars on the map) require a Map ID and may not function correctly without it.
                 Please set this variable in your <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file and restart your server.
                 </UILabelAlertDescription>
             </Alert>
@@ -222,18 +222,18 @@ export default function MapView() {
                 center={mapCenter}
                 zoom={mapZoom}
                 mapId={MAP_ID}
-                gestureHandling="auto" 
+                gestureHandling="auto"
                 className="h-full w-full"
                 mapTypeControl={false}
                 streetViewControl={false}
-                zoomControl={true}      
-                fullscreenControl={true} 
-                disableDefaultUI={false} 
+                zoomControl={true}
+                fullscreenControl={true}
+                disableDefaultUI={false}
               >
                 {filteredUsers.map(user => (
                   user.location && user.location.lat != null && user.location.lng != null ? (
                     <AdvancedMarker
-                        key={user.id} 
+                        key={user.id}
                         position={{ lat: user.location.lat, lng: user.location.lng }}
                         title={user.fullName}
                         onClick={() => router.push(`/users/${user.id}`)}
@@ -265,5 +265,3 @@ export default function MapView() {
     </Card>
   );
 }
-    
-
