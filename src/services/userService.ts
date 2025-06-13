@@ -26,11 +26,27 @@ const USERS_COLLECTION = 'users';
 export async function uploadProfilePicture(userId: string, file: File): Promise<string> {
   const filePath = `profilePictures/${userId}/${file.name}`;
   const fileRef = storageRef(storage, filePath);
+  console.log(`[userService.uploadProfilePicture] Attempting to upload to path: ${filePath} for file: ${file.name}, size: ${file.size}`);
 
-  await uploadBytes(fileRef, file);
-  const downloadURL = await getDownloadURL(fileRef);
-  console.log("[userService.uploadProfilePicture] Successfully uploaded. Download URL:", downloadURL); // Added for debugging
-  return downloadURL;
+  try {
+    console.log(`[userService.uploadProfilePicture] Calling uploadBytes for ${file.name}...`);
+    const uploadResult = await uploadBytes(fileRef, file);
+    console.log(`[userService.uploadProfilePicture] uploadBytes successful for ${file.name}. Metadata:`, uploadResult.metadata);
+
+    console.log(`[userService.uploadProfilePicture] Calling getDownloadURL for ${file.name}...`);
+    const downloadURL = await getDownloadURL(fileRef);
+    console.log(`[userService.uploadProfilePicture] Successfully got download URL: ${downloadURL}`);
+    return downloadURL;
+  } catch (error: any) {
+    console.error(`[userService.uploadProfilePicture] Error during upload/getURL for ${filePath}:`, error);
+    // Log specific properties if they exist, to help identify Firebase errors
+    if (error.code) console.error(`[userService.uploadProfilePicture] Error Code: ${error.code}`);
+    if (error.message) console.error(`[userService.uploadProfilePicture] Error Message: ${error.message}`);
+    if (error.serverResponse) console.error(`[userService.uploadProfilePicture] Server Response: ${error.serverResponse}`);
+    // It's useful to log the full error object as well for more details
+    console.error("[userService.uploadProfilePicture] Full error object:", error);
+    throw error; // Re-throw the error so it can be caught by the caller (ProfileForm)
+  }
 }
 
 /**
