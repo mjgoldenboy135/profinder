@@ -21,20 +21,41 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
   const otherParticipant: ChatParticipantData | undefined = chat.participantsData?.find(p => p.id !== currentUserId);
 
   if (!otherParticipant) {
+    // This case should ideally not happen if chat data is consistent.
+    console.warn("ChatListItem: Other participant data is missing for chat ID:", chat.id);
     return (
       <div className="p-3 hover:bg-muted/50 transition-colors rounded-lg border border-destructive">
-        <p className="text-sm text-destructive-foreground">Error: Participant data missing</p>
+        <p className="text-sm text-destructive-foreground">Error: Participant data missing or incomplete.</p>
+        <p className="text-xs text-muted-foreground">Chat ID: {chat.id}</p>
       </div>
     );
   }
 
-  const fallbackName = otherParticipant.fullName ? otherParticipant.fullName.split(" ").map(n => n[0]).join("").toUpperCase() : "??";
+  const participantFullName = otherParticipant.fullName?.trim();
+  const fallbackName = participantFullName && participantFullName !== ""
+    ? participantFullName.split(" ").map(n => n[0]).join("").toUpperCase()
+    : "??";
   
+  const actualProfilePictureUrl = otherParticipant.profilePictureUrl && otherParticipant.profilePictureUrl.trim() !== ""
+    ? otherParticipant.profilePictureUrl.trim()
+    : null;
+
+  const placeholderImageUrl = `https://placehold.co/48x48.png?text=${fallbackName}`;
+
   let lastMessageTimeDisplay = "";
   if (chat.lastMessageTimestamp) {
-    const timestamp = chat.lastMessageTimestamp;
-    const date = typeof timestamp === 'number' ? new Date(timestamp) : (timestamp as Timestamp)?.toDate();
-    if (date) {
+    const timestampSource = chat.lastMessageTimestamp;
+    let date: Date | null = null;
+
+    if (typeof timestampSource === 'number') {
+      date = new Date(timestampSource);
+    } else if (timestampSource && typeof (timestampSource as Timestamp).toDate === 'function') {
+      date = (timestampSource as Timestamp).toDate();
+    } else if (timestampSource instanceof Date) {
+      date = timestampSource;
+    }
+    
+    if (date instanceof Date && !isNaN(date.valueOf())) {
       lastMessageTimeDisplay = formatDistanceToNowStrict(date, { addSuffix: false });
       lastMessageTimeDisplay = lastMessageTimeDisplay
         .replace(' minutes', 'm')
@@ -53,12 +74,15 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
         .replace('almost ', '')
         .replace('less than a minute', 'now')
         .replace(' ', ''); 
+    } else if (timestampSource) {
+      // console.warn("ChatListItem: Invalid lastMessageTimestamp for chat ID:", chat.id, timestampSource);
+      lastMessageTimeDisplay = ""; // Keep it empty or set to a default like "Invalid date"
     }
   }
 
   const handleDeleteClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigation if the button is inside the Link
-    e.stopPropagation(); // Stop event bubbling
+    e.preventDefault(); 
+    e.stopPropagation(); 
     onInitiateDelete(chat.id);
   };
 
@@ -70,12 +94,12 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
       <Link href={`/messages/${chat.id}`} className="block">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12 border">
-            <AvatarImage src={otherParticipant.profilePictureUrl || `https://placehold.co/48x48.png?text=${fallbackName}`} alt={otherParticipant.fullName} />
+            <AvatarImage src={actualProfilePictureUrl || placeholderImageUrl} alt={participantFullName || "User"} />
             <AvatarFallback className="text-lg">{fallbackName}</AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center">
-              <h3 className="font-semibold truncate font-headline">{otherParticipant.fullName}</h3>
+              <h3 className="font-semibold truncate font-headline">{participantFullName || "Unknown User"}</h3>
               {lastMessageTimeDisplay && (
                 <p className="text-xs text-muted-foreground whitespace-nowrap">
                   {lastMessageTimeDisplay}
