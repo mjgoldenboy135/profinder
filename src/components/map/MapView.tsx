@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription as UILabelAlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { cn } from '@/lib/utils';
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
@@ -144,22 +145,21 @@ export default function MapView() {
     return DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
 
+
   const [currentCenter, setCurrentCenter] = useState(programmaticCenter);
   const [currentZoom, setCurrentZoom] = useState(programmaticZoom);
 
   useEffect(() => {
     console.log("[MapView useEffect] Programmatic center/zoom dependencies changed. Updating map state if necessary.");
-    // Update currentCenter only if programmaticCenter has actually changed
     if (programmaticCenter.lat !== currentCenter.lat || programmaticCenter.lng !== currentCenter.lng) {
         console.log("[MapView useEffect] New Programmatic Center:", programmaticCenter, "Current Center:", currentCenter);
         setCurrentCenter(programmaticCenter);
     }
-    // Update currentZoom only if programmaticZoom has actually changed
     if (programmaticZoom !== currentZoom) {
         console.log("[MapView useEffect] New Programmatic Zoom:", programmaticZoom, "Current Zoom:", currentZoom);
         setCurrentZoom(programmaticZoom);
     }
-  }, [programmaticCenter, programmaticZoom]); // currentCenter and currentZoom removed from deps to avoid loops
+  }, [programmaticCenter, programmaticZoom, currentCenter.lat, currentCenter.lng, currentZoom]);
 
   const handleCenterChanged = (ev: CustomEvent<{center: google.maps.LatLngLiteral}>) => {
       if (ev.detail && ev.detail.center) {
@@ -172,10 +172,6 @@ export default function MapView() {
       if (ev.detail && typeof ev.detail.zoom === 'number') {
           console.log("[MapView handleZoomChanged] User changed zoom to:", ev.detail.zoom);
           setCurrentZoom(ev.detail.zoom);
-          // Optionally, update center if provided by zoom event, though onCenterChanged should also fire
-          // if (ev.detail.center) {
-          //   setCurrentCenter(ev.detail.center);
-          // }
       }
   };
 
@@ -271,11 +267,19 @@ export default function MapView() {
                         title={user.fullName}
                         onClick={() => router.push(`/users/${user.id}`)}
                     >
-                        <div className="p-1 bg-background rounded-full shadow-lg transform transition-transform hover:scale-110 cursor-pointer">
+                        <div className={cn(
+                            "flex flex-col items-center p-2 bg-background rounded-lg shadow-lg cursor-pointer",
+                            "transform transition-transform hover:scale-110"
+                        )}>
                             <Avatar className="h-10 w-10 border-2 border-primary">
-                            <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
-                            <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
+                                <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
+                                <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
                             </Avatar>
+                            {user.profession && (
+                                <span className="mt-1.5 text-[10px] text-center px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium leading-tight max-w-[80px] truncate">
+                                    {user.profession}
+                                </span>
+                            )}
                         </div>
                     </AdvancedMarker>
                   ) : null
