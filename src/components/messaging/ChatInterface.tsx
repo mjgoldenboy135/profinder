@@ -72,11 +72,6 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
 
     setIsSending(true);
     const tempMessageId = `temp-${Date.now()}`;
-    // Optimistic update can be removed or kept.
-    // If kept, ensure server-side timestamp from listener replaces it.
-    // For simplicity with a real-time listener, we can remove optimistic update for `messages`
-    // and rely on the listener to add the message once it's in Firestore.
-    // However, for immediate feedback to the sender, an optimistic add is still good.
     const optimisticMessage: Message = {
       id: tempMessageId,
       chatId: chat.id,
@@ -97,9 +92,6 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
         receiverId: otherParticipant.id,
         text: messageTextToSend,
       });
-      // With the real-time listener, we don't strictly need to update message ID here,
-      // as the listener will fetch the message with its final ID and server timestamp.
-      // However, if you want to update the 'status' of the optimistic message:
       setMessages(prevMessages =>
         prevMessages.map(msg =>
           msg.id === tempMessageId ? { ...msg, id: sentMessageId, status: 'delivered' } : msg
@@ -113,9 +105,8 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
         description: "Could not send message. Please try again.",
         variant: "destructive",
       });
-      // Revert optimistic update
       setMessages(prevMessages => prevMessages.filter(msg => msg.id !== tempMessageId));
-      setNewMessage(messageTextToSend); // Put message back in input
+      setNewMessage(messageTextToSend); 
     } finally {
       setIsSending(false);
     }
@@ -125,7 +116,37 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     return <div className="p-4 text-center">Loading participant details...</div>;
   }
 
-  const otherParticipantFallback = otherParticipant.fullName.split(" ").map(n => n[0]).join("");
+  const participantFullName = otherParticipant.fullName?.trim();
+  const fallbackName = participantFullName && participantFullName !== ""
+    ? participantFullName.split(" ").map(n => n[0]).join("").toUpperCase()
+    : "??";
+  
+  let headerImageSrc: string;
+  let messageAvatarSrc: string;
+  const rawProfilePicUrl = otherParticipant.profilePictureUrl;
+  const headerPlaceholderUrl = `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
+  const messagePlaceholderUrl = `https://placehold.co/32x32.png?text=${encodeURIComponent(fallbackName[0] || '?')}`;
+
+  if (rawProfilePicUrl && typeof rawProfilePicUrl === 'string' && rawProfilePicUrl.trim() !== "") {
+    const trimmedUrl = rawProfilePicUrl.trim();
+    if (trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
+      try {
+        new URL(trimmedUrl);
+        headerImageSrc = trimmedUrl;
+        messageAvatarSrc = trimmedUrl;
+      } catch (e) {
+        headerImageSrc = headerPlaceholderUrl;
+        messageAvatarSrc = messagePlaceholderUrl;
+      }
+    } else {
+      headerImageSrc = headerPlaceholderUrl;
+      messageAvatarSrc = messagePlaceholderUrl;
+    }
+  } else {
+    headerImageSrc = headerPlaceholderUrl;
+    messageAvatarSrc = messagePlaceholderUrl;
+  }
+
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-10rem)] bg-card border rounded-lg shadow-lg overflow-hidden">
@@ -136,11 +157,11 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
           </Link>
         </Button>
         <Avatar className="h-10 w-10 border">
-          <AvatarImage src={otherParticipant.profilePictureUrl || `https://placehold.co/40x40.png?text=${otherParticipantFallback}`} alt={otherParticipant.fullName} />
-          <AvatarFallback>{otherParticipantFallback}</AvatarFallback>
+          <AvatarImage src={headerImageSrc} alt={participantFullName || "User"} />
+          <AvatarFallback>{fallbackName}</AvatarFallback>
         </Avatar>
         <div className="ml-3">
-          <h3 className="font-semibold font-headline">{otherParticipant.fullName}</h3>
+          <h3 className="font-semibold font-headline">{participantFullName || "Unknown User"}</h3>
           {/* <p className="text-xs text-muted-foreground">
             {otherParticipant.isOnline ? "Online" : "Offline"}
           </p> */}
@@ -158,8 +179,8 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
           >
             {msg.senderId !== currentUserId && (
               <Avatar className="h-8 w-8 self-start border">
-                 <AvatarImage src={otherParticipant.profilePictureUrl || `https://placehold.co/32x32.png?text=${otherParticipantFallback}`} alt={otherParticipant.fullName} />
-                 <AvatarFallback>{otherParticipantFallback[0]}</AvatarFallback>
+                 <AvatarImage src={messageAvatarSrc} alt={participantFullName || "User"} />
+                 <AvatarFallback>{fallbackName[0] || "?"}</AvatarFallback>
               </Avatar>
             )}
             <div
