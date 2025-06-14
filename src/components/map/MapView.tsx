@@ -149,16 +149,17 @@ export default function MapView() {
   const [currentZoom, setCurrentZoom] = useState(programmaticZoom);
 
   useEffect(() => {
-    console.log("[MapView useEffect] Programmatic center/zoom dependencies changed. Updating map state if necessary.");
+    console.log("[MapView useEffect] Programmatic center/zoom dependencies changed. ProgrammaticCenter:", programmaticCenter, "ProgrammaticZoom:", programmaticZoom);
     if (programmaticCenter.lat !== currentCenter.lat || programmaticCenter.lng !== currentCenter.lng) {
-        console.log("[MapView useEffect] New Programmatic Center:", programmaticCenter, "Current Center:", currentCenter);
+        console.log("[MapView useEffect] New Programmatic Center triggers state update. New:", programmaticCenter, "Current:", currentCenter);
         setCurrentCenter(programmaticCenter);
     }
     if (programmaticZoom !== currentZoom) {
-        console.log("[MapView useEffect] New Programmatic Zoom:", programmaticZoom, "Current Zoom:", currentZoom);
+        console.log("[MapView useEffect] New Programmatic Zoom triggers state update. New:", programmaticZoom, "Current:", currentZoom);
         setCurrentZoom(programmaticZoom);
     }
-  }, [programmaticCenter, programmaticZoom, currentCenter.lat, currentCenter.lng, currentZoom]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps 
+  }, [programmaticCenter, programmaticZoom]); // currentCenter and currentZoom removed to prevent potential loops with map events
 
 
   const handleCenterChanged = useCallback((ev: CustomEvent<{center: google.maps.LatLngLiteral}>) => {
@@ -174,7 +175,7 @@ export default function MapView() {
           const newZoom = ev.detail.zoom;
           console.log("[MapView handleZoomChanged] User changed zoom to:", newZoom);
           setCurrentZoom(newZoom);
-          if (ev.detail.center) {
+          if (ev.detail.center) { // Also update center if provided by the map event
             setCurrentCenter(ev.detail.center);
           }
       }
@@ -272,8 +273,7 @@ export default function MapView() {
                         title={user.fullName}
                         onClick={() => router.push(`/users/${user.id}`)}
                     >
-                        {/* Simplified marker content to just the Avatar */}
-                        <Avatar className="h-10 w-10 border-2 border-primary shadow-md">
+                         <Avatar className="h-10 w-10 border-2 border-primary shadow-md">
                             <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
                             <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
                         </Avatar>
@@ -298,6 +298,8 @@ export default function MapView() {
     </Card>
   );
 }
+    
+
     
 
     
