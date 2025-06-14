@@ -32,25 +32,30 @@ const processMessageTimestamps = (msg: Message): Message => {
 };
 
 // Helper function to determine a valid image source or fallback to a placeholder
-const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string): string => {
+const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string, context: string): string => {
+  console.log(`[ChatInterface - ${context}] getValidImageSrc called with rawUrl:`, rawUrl, "placeholder:", placeholder);
   if (rawUrl && typeof rawUrl === 'string') {
     const trimmedUrl = rawUrl.trim();
-    // Check for empty string or common string literals for null/undefined
     if (trimmedUrl !== "" && trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
       try {
-        // Attempt to parse as URL. This also helps ensure it's an absolute URL.
         const url = new URL(trimmedUrl);
-        // Optional: Check if protocol is http or https, which are generally expected for image src
         if (url.protocol === "http:" || url.protocol === "https:") {
-          return trimmedUrl; // It's a usable, absolute URL
+          console.log(`[ChatInterface - ${context}] Using valid profilePictureUrl: "${trimmedUrl}"`);
+          return trimmedUrl;
+        } else {
+          console.warn(`[ChatInterface - ${context}] Invalid protocol for profilePictureUrl: "${trimmedUrl}", falling back to placeholder.`);
         }
       } catch (e) {
-        // Malformed URL or relative path, fall through to placeholder
-        console.warn(`[ChatInterface] Invalid profilePictureUrl structure: "${trimmedUrl}", falling back to placeholder.`);
+        console.warn(`[ChatInterface - ${context}] Invalid profilePictureUrl structure: "${trimmedUrl}", (Error: ${(e as Error).message}), falling back to placeholder.`);
       }
+    } else {
+       console.warn(`[ChatInterface - ${context}] profilePictureUrl is effectively empty (was "${rawUrl}"), falling back to placeholder.`);
     }
+  } else {
+    console.warn(`[ChatInterface - ${context}] profilePictureUrl is null, undefined, or empty string initially. Value:`, rawUrl, `Falling back to placeholder.`);
   }
-  return placeholder; // Fallback if any check fails or if rawUrl is not a usable string
+  console.log(`[ChatInterface - ${context}] Falling back to placeholder: "${placeholder}"`);
+  return placeholder;
 };
 
 
@@ -134,7 +139,8 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
   };
 
   if (!otherParticipant) {
-    return <div className="p-4 text-center">Loading participant details...</div>;
+    console.warn("[ChatInterface] otherParticipant is undefined. Chat data:", chat);
+    return <div className="p-4 text-center">Loading participant details... If this persists, there might be an issue with chat data.</div>;
   }
 
   const participantFullName = otherParticipant.fullName?.trim();
@@ -143,11 +149,14 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     : "??";
 
   const rawProfilePicUrl = otherParticipant.profilePictureUrl;
+  
+  console.log(`[ChatInterface] Participant: ${participantFullName}, Raw Profile Pic URL:`, rawProfilePicUrl);
+
   const headerPlaceholderUrl = `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
   const messagePlaceholderUrl = `https://placehold.co/32x32.png?text=${encodeURIComponent(fallbackName[0] || '?')}`;
 
-  const headerImageSrc = getValidImageSrc(rawProfilePicUrl, headerPlaceholderUrl);
-  const messageAvatarSrc = getValidImageSrc(rawProfilePicUrl, messagePlaceholderUrl);
+  const headerImageSrc = getValidImageSrc(rawProfilePicUrl, headerPlaceholderUrl, "HeaderAvatar");
+  const messageAvatarSrc = getValidImageSrc(rawProfilePicUrl, messagePlaceholderUrl, "MessageAvatar");
 
 
   return (
