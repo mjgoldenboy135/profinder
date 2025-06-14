@@ -150,7 +150,6 @@ export default function MapView() {
 
   useEffect(() => {
     console.log("[MapView useEffect] Programmatic center/zoom dependencies changed. Updating map state if necessary.");
-    // Update state only if the programmatic values have actually changed to avoid unnecessary re-renders or state loops
     if (programmaticCenter.lat !== currentCenter.lat || programmaticCenter.lng !== currentCenter.lng) {
         console.log("[MapView useEffect] New Programmatic Center:", programmaticCenter, "Current Center:", currentCenter);
         setCurrentCenter(programmaticCenter);
@@ -159,9 +158,7 @@ export default function MapView() {
         console.log("[MapView useEffect] New Programmatic Zoom:", programmaticZoom, "Current Zoom:", currentZoom);
         setCurrentZoom(programmaticZoom);
     }
-  // It's important to only include the direct dependencies for this effect.
-  // currentCenter and currentZoom should not be dependencies here if this effect is meant to *set* them.
-  }, [programmaticCenter, programmaticZoom]);
+  }, [programmaticCenter, programmaticZoom, currentCenter.lat, currentCenter.lng, currentZoom]);
 
 
   const handleCenterChanged = useCallback((ev: CustomEvent<{center: google.maps.LatLngLiteral}>) => {
@@ -177,7 +174,6 @@ export default function MapView() {
           const newZoom = ev.detail.zoom;
           console.log("[MapView handleZoomChanged] User changed zoom to:", newZoom);
           setCurrentZoom(newZoom);
-          // Optionally update center if it also changed during zoom
           if (ev.detail.center) {
             setCurrentCenter(ev.detail.center);
           }
@@ -276,20 +272,11 @@ export default function MapView() {
                         title={user.fullName}
                         onClick={() => router.push(`/users/${user.id}`)}
                     >
-                        <div className={cn(
-                            "flex flex-col items-center p-2 bg-background rounded-lg shadow-lg"
-                            // Removed: "cursor-pointer", "transform transition-transform hover:scale-110"
-                        )}>
-                            <Avatar className="h-10 w-10 border-2 border-primary">
-                                <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
-                                <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
-                            </Avatar>
-                            {user.profession && (
-                                <span className="mt-1.5 text-[10px] text-center px-1.5 py-0.5 bg-primary/10 text-primary rounded font-medium leading-tight max-w-[80px] truncate">
-                                    {user.profession}
-                                </span>
-                            )}
-                        </div>
+                        {/* Simplified marker content to just the Avatar */}
+                        <Avatar className="h-10 w-10 border-2 border-primary shadow-md">
+                            <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
+                            <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
+                        </Avatar>
                     </AdvancedMarker>
                   ) : null
                 ))}
@@ -311,5 +298,6 @@ export default function MapView() {
     </Card>
   );
 }
+    
 
     
