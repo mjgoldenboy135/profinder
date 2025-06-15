@@ -62,10 +62,17 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
  */
 export async function createUserProfile(userId: string, data: Partial<Omit<User, 'id'>>): Promise<void> {
   const userRef = doc(db, USERS_COLLECTION, userId);
-  const profileData: Partial<User> & { id: string; createdAt: any; updatedAt: any; favoriteUserIds: string[] } = {
+  const profileData: Partial<User> & { 
+    id: string; 
+    createdAt: any; 
+    updatedAt: any; 
+    favoriteUserIds: string[];
+    locationVisibility: 'public' | 'favorites' | 'none'; // Add type
+  } = {
     ...data,
     id: userId,
-    favoriteUserIds: [], // Initialize favoriteUserIds
+    favoriteUserIds: [], 
+    locationVisibility: 'public', // Default for new users
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -111,6 +118,7 @@ export async function getOnlineUsersWithLocation(): Promise<User[]> {
   const q = query(
     usersRef,
     where("isOnline", "==", true)
+    // locationVisibility filtering will be done client-side in MapView
   );
 
   const querySnapshot = await getDocs(q);

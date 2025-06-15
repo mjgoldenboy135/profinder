@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Globe, Loader2, MapPin, UploadCloud } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, MapPin, UploadCloud, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
@@ -50,6 +50,7 @@ const profileSchema = z.object({
   isOnline: z.boolean().optional().default(false),
   showContact: z.boolean().optional().default(false),
   bio: z.string().max(250, "Bio should not exceed 250 characters.").optional(),
+  locationVisibility: z.enum(['public', 'favorites', 'none']).default('public').optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -68,6 +69,7 @@ const defaultFormValues: ProfileFormValues = {
   isOnline: false,
   showContact: false,
   bio: "",
+  locationVisibility: 'public',
 };
 
 async function resizeImage(file: File, maxWidth: number, maxHeight: number): Promise<File> {
@@ -138,6 +140,7 @@ export default function ProfileForm() {
   });
 
   const watchedIsOnline = form.watch("isOnline");
+  const watchedLocationVisibility = form.watch("locationVisibility");
 
   const resetFormWithProfileData = useCallback((firestoreProfile: User | null) => {
     if (authUser) {
@@ -155,9 +158,10 @@ export default function ProfileForm() {
         linkedinProfileUrl: firestoreProfile?.linkedinProfileUrl || "",
         phoneNumber: firestoreProfile?.phoneNumber || "",
         locationAddress: firestoreProfile?.location?.address || "",
-        isOnline: firestoreProfile?.isOnline || false,
+        isOnline: firestoreProfile?.locationVisibility === 'none' ? false : (firestoreProfile?.isOnline || false),
         showContact: firestoreProfile?.showContact || false,
         bio: firestoreProfile?.bio || "",
+        locationVisibility: firestoreProfile?.locationVisibility || 'public',
       };
       form.reset(initialData);
       setPreviewImage(initialProfilePictureUrl);
@@ -186,16 +190,29 @@ export default function ProfileForm() {
     }
   }, [authUser, authLoading, resetFormWithProfileData, toast]);
 
+  // Effect to manage isOnline based on locationVisibility
+  useEffect(() => {
+    if (watchedLocationVisibility === 'none') {
+      if (form.getValues("isOnline")) { // Only set if it's currently true, to avoid dirtying form unnecessarily
+        form.setValue("isOnline", false, { shouldDirty: true }); // Mark as dirty if changed
+      }
+    }
+  }, [watchedLocationVisibility, form]);
+
 
   useEffect(() => {
     if (!authUser || isFetchingProfile) {
       return;
     }
     
-    if (form.getFieldState("isOnline").isDirty || (form.formState.isSubmitted && form.getFieldState("isOnline").isDirty)) {
+    // Only manage live location if the `isOnline` field has been interacted with or form submitted
+    // This avoids triggering location prompts on initial load unless isOnline was already true
+    if (form.getFieldState("isOnline").isDirty || (form.formState.isSubmitted && form.getFieldState("isOnline").isDirty) || watchedIsOnline) {
       const manageLiveLocation = async (enable: boolean) => {
         const currentAddress = form.getValues("locationAddress") || "";
-        if (enable) {
+        const currentVisibility = form.getValues("locationVisibility");
+
+        if (enable && currentVisibility !== 'none') {
           setIsLocationPermissionDenied(false);
           if (!navigator.geolocation) {
             toast({ title: "Geolocation Not Supported", description: "Live location tracking is not available on your browser.", variant: "destructive" });
@@ -210,8 +227,8 @@ export default function ProfileForm() {
               const { latitude, longitude } = position.coords;
               const locationData = { lat: latitude, lng: longitude, address: currentAddress };
               try {
-                  await updateUserProfile(authUser.uid, { isOnline: true, location: locationData });
-                  toast({ title: "You are now Online!", description: "Your location is being shared." });
+                  await updateUserProfile(authUser.uid, { isOnline: true, location: locationData, locationVisibility: currentVisibility });
+                  toast({ title: "You are now Online!", description: "Your location is being shared based on your visibility settings." });
               } catch (dbError) {
                   toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
                   setTimeout(() => {
@@ -228,7 +245,7 @@ export default function ProfileForm() {
                   try {
                     await updateUserProfile(authUser.uid, { location: newLocationData });
                   } catch (watchDbError) {
-                    // Silent fail for watch position updates to avoid spamming toasts
+                    // Silent fail for watch position updates
                   }
                 },
                 (watchErr) => {
@@ -241,16 +258,13 @@ export default function ProfileForm() {
               let message = "Could not get your location to go online.";
               if (error.code === error.PERMISSION_DENIED) {
                 message = "Location permission denied. Please enable it in your browser settings to appear on the map.";
-                // setIsLocationPermissionDenied(true); // Deferred below
+                setIsLocationPermissionDenied(true);
               } else {
                 message = `Could not get location: ${error.message}. Please try again.`;
               }
               toast({ title: "Location Error", description: message, variant: "destructive" });
               setTimeout(() => {
                 form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
-                if (error.code === error.PERMISSION_DENIED) {
-                  setIsLocationPermissionDenied(true);
-                }
               }, 0);
               try {
                   await updateUserProfile(authUser.uid, { isOnline: false });
@@ -259,16 +273,24 @@ export default function ProfileForm() {
               }
             }
           );
-        } else {
+        } else { // Handles enable === false OR currentVisibility === 'none'
           if (locationWatchId.current !== null) {
             navigator.geolocation.clearWatch(locationWatchId.current);
             locationWatchId.current = null;
           }
-          try {
-              await updateUserProfile(authUser.uid, { isOnline: false });
-              toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
-          } catch (dbError) {
-              toast({ title: "Database Error", description: "Could not update offline status.", variant: "destructive" });
+          // Only update Firestore if the current state is 'online' or visibility is not 'none'
+          // to avoid redundant updates if already offline due to visibility setting.
+          if (form.getValues("isOnline") || (currentVisibility !== 'none' && enable === false)) {
+            try {
+                await updateUserProfile(authUser.uid, { isOnline: false }); // Keep locationVisibility as is
+                if (enable === false && currentVisibility !== 'none') { // Only toast if manually turned off
+                    toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
+                } else if (currentVisibility === 'none') {
+                    toast({ title: "Location Private", description: "Your location is not shared on the map." });
+                }
+            } catch (dbError) {
+                toast({ title: "Database Error", description: "Could not update offline status.", variant: "destructive" });
+            }
           }
         }
       };
@@ -282,7 +304,7 @@ export default function ProfileForm() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, watchedIsOnline, isFetchingProfile, toast, form.formState.isSubmitted, form.getValues, form.setValue]);
+  }, [authUser, watchedIsOnline, isFetchingProfile, form.formState.isSubmitted, form.getValues, form.setValue]);
 
 
   const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -352,7 +374,7 @@ export default function ProfileForm() {
       return;
     }
 
-    const { profilePicture, profilePictureUrl: currentFormPicUrl, isOnline: formIsOnlineValue, locationAddress, ...dataForFirestore } = values;
+    const { profilePicture, profilePictureUrl: currentFormPicUrl, locationAddress, ...dataForFirestore } = values;
     let newAuthPhotoURL = authUser.photoURL || currentFormPicUrl || ""; 
     
     toast({ title: "Saving Profile...", description: "Please wait." });
@@ -399,19 +421,22 @@ export default function ProfileForm() {
         }
         
         const existingProfile = await getUserProfile(authUser.uid);
+        const finalIsOnline = values.locationVisibility === 'none' ? false : values.isOnline;
+
         const finalDataToSaveToFirestore: Partial<User> = {
             ...dataForFirestore, 
             fullName: values.fullName,
             email: values.email,
             profilePictureUrl: newAuthPhotoURL,
             location: {
-                lat: formIsOnlineValue && existingProfile?.location?.lat !== undefined ? existingProfile.location.lat : null,
-                lng: formIsOnlineValue && existingProfile?.location?.lng !== undefined ? existingProfile.location.lng : null,
+                lat: finalIsOnline && existingProfile?.location?.lat !== undefined ? existingProfile.location.lat : null,
+                lng: finalIsOnline && existingProfile?.location?.lng !== undefined ? existingProfile.location.lng : null,
                 address: values.locationAddress || ""
             },
-            isOnline: formIsOnlineValue, 
+            isOnline: finalIsOnline, 
             showContact: values.showContact,
             bio: values.bio,
+            locationVisibility: values.locationVisibility,
         };
         
         await updateUserProfile(authUser.uid, finalDataToSaveToFirestore);
@@ -424,18 +449,16 @@ export default function ProfileForm() {
         const newResetValues: ProfileFormValues = {
           ...values, 
           profilePictureUrl: newAuthPhotoURL || "", 
-          profilePicture: undefined, 
+          profilePicture: undefined,
+          isOnline: finalIsOnline,
         };
         form.reset(newResetValues);
         setPreviewImage(newAuthPhotoURL || null);
 
     } catch (error: any) {
         console.error("[ProfileForm] Error in onSubmit (after upload attempt or during other updates):", error);
-        // This catch block handles errors from updateAuthProfile or updateUserProfile,
-        // or if the uploadError was not 'storage/retry-limit-exceeded' and was re-thrown (though current logic returns).
         let generalErrorMessage = `Failed to update profile: ${error.message || 'Please try again.'}`;
         if (error.code === 'storage/retry-limit-exceeded' && !(error.message && error.message.includes("Upload failed"))) {
-             // This case should ideally be caught by the inner try-catch, but as a fallback:
             generalErrorMessage = "Profile update failed after an issue with image upload (network/timeout). Please check connection and try again.";
         }
         toast({ title: "Update Error", description: generalErrorMessage, variant: "destructive" });
@@ -456,6 +479,7 @@ export default function ProfileForm() {
   const initials = currentFullName.split(" ").map(n => n[0]).join("").toUpperCase() || "?";
 
   const isSaveDisabled = form.formState.isSubmitting || authLoading || isFetchingProfile || isUploadingPicture || isResizingImage;
+  const isOnlineSwitchDisabled = watchedLocationVisibility === 'none';
 
 
   return (
@@ -648,23 +672,67 @@ export default function ProfileForm() {
               <CardContent className="space-y-6">
                 <FormField
                   control={form.control}
+                  name="locationVisibility"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center"><Eye className="mr-2 h-5 w-5 text-primary" /> Location Visibility on Map</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? 'public'}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select who can see your location" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="public">
+                            <div className="flex items-center gap-2">
+                              <Users className="h-4 w-4" /> Public on Map
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="favorites">
+                            <div className="flex items-center gap-2">
+                              <Heart className="h-4 w-4" /> Visible to My Favorites Only
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="none">
+                             <div className="flex items-center gap-2">
+                               <Globe className="h-4 w-4" /> Private (Not on Map)
+                             </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {field.value === 'public' && "Your location is visible to everyone on the map when you're online."}
+                        {field.value === 'favorites' && "Only users you've favorited can see your location on the map when you're online."}
+                        {field.value === 'none' && "Your location will not be shared on the map, regardless of the 'Appear Online' switch."}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="isOnline"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <FormItem className={cn("flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm", isOnlineSwitchDisabled && "opacity-70")}>
                       <div className="space-y-0.5">
-                        <FormLabel className="flex items-center">
+                        <FormLabel className={cn("flex items-center", isOnlineSwitchDisabled && "cursor-not-allowed")}>
                           <Globe className="mr-2 h-5 w-5 text-primary" />
                           Appear Online &amp; on Map
                         </FormLabel>
-                        <FormDescription>
-                          {field.value ? "You are set to appear online. Live location is active if permission granted." : "You are set to appear offline."}
-                          {isLocationPermissionDenied && <span className="text-destructive block"> Location permission denied. Please enable it in browser settings.</span>}
+                        <FormDescription className={cn(isOnlineSwitchDisabled && "cursor-not-allowed")}>
+                          {isOnlineSwitchDisabled 
+                            ? "Set Location Visibility above to enable this." 
+                            : (field.value ? "You are set to appear online. Live location is active if permission granted." : "You are set to appear offline.")
+                          }
+                          {isLocationPermissionDenied && !isOnlineSwitchDisabled && <span className="text-destructive block"> Location permission denied. Please enable it in browser settings.</span>}
                         </FormDescription>
                       </div>
                       <FormControl>
                         <Switch
-                          checked={field.value}
+                          checked={isOnlineSwitchDisabled ? false : field.value}
                           onCheckedChange={field.onChange}
+                          disabled={isOnlineSwitchDisabled}
+                          aria-readonly={isOnlineSwitchDisabled}
                         />
                       </FormControl>
                     </FormItem>
@@ -712,4 +780,5 @@ export default function ProfileForm() {
     
 
     
+
 

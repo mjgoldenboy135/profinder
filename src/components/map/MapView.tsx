@@ -14,6 +14,7 @@ import { Alert, AlertTitle, AlertDescription as UILabelAlertDescription } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from '@/lib/utils';
+import { useAuthContext } from '@/contexts/AuthContext'; // Import useAuthContext
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
@@ -31,12 +32,13 @@ if (typeof window !== 'undefined') {
 }
 
 export default function MapView() {
-  const [onlineUsers, setOnlineUsers] = useState<User[]>([]);
+  const [allOnlineUsers, setAllOnlineUsers] = useState<User[]>([]); // Store all users fetched from Firestore
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const [selectedProfession, setSelectedProfession] = useState<string>(ALL_PROFESSIONS_FILTER_VALUE);
   const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
+  const { currentUser } = useAuthContext(); // Get current logged-in user
 
   const targetUserId = searchParams.get('userId');
   const targetLatParam = searchParams.get('lat');
@@ -52,21 +54,23 @@ export default function MapView() {
     setIsLoading(true);
     console.log("[MapView] Setting up Firestore listener for online users.");
     const usersRef = collection(db, "users");
+    // Query for users who are explicitly set to 'isOnline: true'
     const q = query(usersRef, where("isOnline", "==", true));
 
     const unsubscribe: Unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedUsers: User[] = [];
       querySnapshot.forEach((doc) => {
         const userData = { id: doc.id, ...doc.data() } as User;
+        // Further client-side check for valid location, though 'isOnline' implies they should have it
         if (userData.location && userData.location.lat != null && userData.location.lng != null) {
           fetchedUsers.push(userData);
         } else {
-          console.log(`[MapView] User ${userData.id} is online but missing valid location data.`, userData.location);
+          console.log(`[MapView] User ${userData.id} isOnline but missing valid location data.`, userData.location);
         }
       });
-      setOnlineUsers(fetchedUsers);
+      setAllOnlineUsers(fetchedUsers); // Store all fetched online users
       setIsLoading(false);
-      console.log(`[MapView] Fetched real-time users (${fetchedUsers.length}):`, fetchedUsers.map(u => ({id: u.id, name: u.fullName, loc: u.location, prof: u.profession}) ));
+      console.log(`[MapView] Fetched real-time users (${fetchedUsers.length}):`, fetchedUsers.map(u => ({id: u.id, name: u.fullName, loc: u.location, prof: u.profession, visibility: u.locationVisibility, favs: u.favoriteUserIds}) ));
     }, (error) => {
       console.error("[MapView] Error fetching real-time online users:", error);
       setIsLoading(false);
@@ -78,26 +82,44 @@ export default function MapView() {
     };
   }, []);
 
+  const visibleUsers = useMemo(() => {
+    const currentMapViewerId = currentUser?.uid;
+    return allOnlineUsers.filter(user => {
+      // Basic profession filter
+      const professionMatch = selectedProfession === ALL_PROFESSIONS_FILTER_VALUE || user.profession === selectedProfession;
+      if (!professionMatch) return false;
+
+      // Location visibility filter
+      const visibility = user.locationVisibility || 'public'; // Default to public if undefined
+
+      if (visibility === 'public') {
+        return true; // Visible to everyone
+      }
+      if (visibility === 'favorites') {
+        // Visible if the current map viewer is in this user's favoriteUserIds list
+        return !!currentMapViewerId && !!user.favoriteUserIds?.includes(currentMapViewerId);
+      }
+      if (visibility === 'none') {
+        return false; // Not visible on map
+      }
+      return true; // Default to visible if visibility is an unexpected value (should not happen with enum)
+    });
+  }, [allOnlineUsers, selectedProfession, currentUser]);
+
+
   useEffect(() => {
-    if (onlineUsers.length > 0) {
+    // Update available professions based on *allOnlineUsers* to show all potential filter options
+    // even if current visibility settings hide some of them.
+    if (allOnlineUsers.length > 0) {
       const professions = new Set(
-        onlineUsers.map(user => user.profession).filter(Boolean) as string[]
+        allOnlineUsers.map(user => user.profession).filter(Boolean) as string[]
       );
       setAvailableProfessions(Array.from(professions).sort());
     } else {
       setAvailableProfessions([]);
     }
-  }, [onlineUsers]);
+  }, [allOnlineUsers]);
 
-  const filteredUsers = useMemo(() => {
-    console.log('[MapView useMemo filteredUsers] Filtering users. Selected profession:', selectedProfession, 'Online users count:', onlineUsers.length);
-    return onlineUsers.filter(user => {
-        if (selectedProfession === ALL_PROFESSIONS_FILTER_VALUE) {
-            return true;
-        }
-        return user.profession === selectedProfession;
-    });
-  }, [onlineUsers, selectedProfession]);
 
   const programmaticCenter = useMemo(() => {
     console.log('[MapView useMemo programmaticCenter] Calculating. targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
@@ -110,23 +132,26 @@ export default function MapView() {
       }
     }
     if (targetUserId) {
-      const targetUser = onlineUsers.find(u => u.id === targetUserId);
+      // Use allOnlineUsers to find target, as visibleUsers might not include them due to privacy
+      const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
       if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
         console.log('[MapView useMemo programmaticCenter] Using targetUser location:', { lat: targetUser.location.lat, lng: targetUser.location.lng });
         return { lat: targetUser.location.lat, lng: targetUser.location.lng };
       }
     }
-    if (selectedProfession !== ALL_PROFESSIONS_FILTER_VALUE && filteredUsers.length > 0 && filteredUsers[0].location?.lat != null && filteredUsers[0].location?.lng != null) {
-      console.log('[MapView useMemo programmaticCenter] Using first filteredUser (profession selected) location.');
-      return { lat: filteredUsers[0].location.lat, lng: filteredUsers[0].location.lng };
+    // If focusing on a profession, center on the first *visible* user of that profession
+    if (selectedProfession !== ALL_PROFESSIONS_FILTER_VALUE && visibleUsers.length > 0 && visibleUsers[0].location?.lat != null && visibleUsers[0].location?.lng != null) {
+      console.log('[MapView useMemo programmaticCenter] Using first visibleUser (profession selected) location.');
+      return { lat: visibleUsers[0].location.lat, lng: visibleUsers[0].location.lng };
     }
-    if (onlineUsers.length > 0 && onlineUsers[0].location?.lat != null && onlineUsers[0].location?.lng != null) {
-      console.log('[MapView useMemo programmaticCenter] Using first onlineUser location (default/no filter).');
-      return { lat: onlineUsers[0].location.lat, lng: onlineUsers[0].location.lng };
+    // Fallback: center on the first *visible* user, or global default
+    if (visibleUsers.length > 0 && visibleUsers[0].location?.lat != null && visibleUsers[0].location?.lng != null) {
+      console.log('[MapView useMemo programmaticCenter] Using first visibleUser location (default/no filter).');
+      return { lat: visibleUsers[0].location.lat, lng: visibleUsers[0].location.lng };
     }
     console.log('[MapView useMemo programmaticCenter] Using DEFAULT_CENTER.');
     return DEFAULT_CENTER;
-  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers, filteredUsers, selectedProfession]);
+  }, [targetLatParam, targetLngParam, targetUserId, allOnlineUsers, visibleUsers, selectedProfession]);
 
   const programmaticZoom = useMemo(() => {
     console.log('[MapView useMemo programmaticZoom] targetLatParam:', targetLatParam, 'targetLngParam:', targetLngParam, 'targetUserId:', targetUserId);
@@ -135,7 +160,7 @@ export default function MapView() {
         return FOCUSED_ZOOM;
     }
     if (targetUserId) {
-      const targetUser = onlineUsers.find(u => u.id === targetUserId);
+      const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
       if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
         console.log('[MapView useMemo programmaticZoom] Setting FOCUSED_ZOOM due to targetUserId.');
         return FOCUSED_ZOOM;
@@ -143,7 +168,7 @@ export default function MapView() {
     }
     console.log('[MapView useMemo programmaticZoom] Setting DEFAULT_ZOOM.');
     return DEFAULT_ZOOM;
-  }, [targetLatParam, targetLngParam, targetUserId, onlineUsers]);
+  }, [targetLatParam, targetLngParam, targetUserId, allOnlineUsers]);
 
   const [currentCenter, setCurrentCenter] = useState(programmaticCenter);
   const [currentZoom, setCurrentZoom] = useState(programmaticZoom);
@@ -159,7 +184,7 @@ export default function MapView() {
         setCurrentZoom(programmaticZoom);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps 
-  }, [programmaticCenter, programmaticZoom]); // currentCenter and currentZoom removed to prevent potential loops with map events
+  }, [programmaticCenter, programmaticZoom]); 
 
 
   const handleCenterChanged = useCallback((ev: CustomEvent<{center: google.maps.LatLngLiteral}>) => {
@@ -175,7 +200,7 @@ export default function MapView() {
           const newZoom = ev.detail.zoom;
           console.log("[MapView handleZoomChanged] User changed zoom to:", newZoom);
           setCurrentZoom(newZoom);
-          if (ev.detail.center) { // Also update center if provided by the map event
+          if (ev.detail.center) { 
             setCurrentCenter(ev.detail.center);
           }
       }
@@ -208,10 +233,10 @@ export default function MapView() {
             <div>
                 <CardTitle className="text-3xl font-headline">Network Map</CardTitle>
                 <CardDescription>
-                See who's online and nearby. Use the filter to view by profession. Click on a marker to view profile.
+                See who's online and nearby. Your view is based on user privacy settings. Click marker for profile.
                 </CardDescription>
             </div>
-            { (availableProfessions.length > 0 || onlineUsers.length > 0) && (
+            { (availableProfessions.length > 0 || allOnlineUsers.length > 0) && (
             <div className="w-full sm:w-auto sm:min-w-[200px]">
                 <Label htmlFor="profession-filter" className="sr-only">Filter by Profession</Label>
                 <Select value={selectedProfession} onValueChange={setSelectedProfession}>
@@ -265,7 +290,7 @@ export default function MapView() {
                 fullscreenControl={true}
                 disableDefaultUI={false} 
               >
-                {filteredUsers.map(user => {
+                {visibleUsers.map(user => { // Iterate over visibleUsers
                   const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("").toUpperCase() : "U";
                   const avatarSrc = user.profilePictureUrl || `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
                   
@@ -297,14 +322,14 @@ export default function MapView() {
             </APIProvider>
           </div>
         )}
-        {!isLoading && onlineUsers.length === 0 && API_KEY && (
+        {!isLoading && allOnlineUsers.length === 0 && API_KEY && ( // Check allOnlineUsers for "no one online" message
              <p className="text-sm text-muted-foreground mt-4 text-center">
                 No users currently online with location data to display on the map.
             </p>
         )}
-        {!isLoading && onlineUsers.length > 0 && filteredUsers.length === 0 && selectedProfession !== ALL_PROFESSIONS_FILTER_VALUE && API_KEY && (
+        {!isLoading && allOnlineUsers.length > 0 && visibleUsers.length === 0 && API_KEY && ( // Check visibleUsers for "no one matches filter/privacy"
             <p className="text-sm text-muted-foreground mt-4 text-center">
-                No users found for the selected profession: "{selectedProfession}". Try "All Professions".
+                No users match your current filters or meet the visibility criteria for your view.
             </p>
         )}
       </CardContent>
@@ -316,3 +341,4 @@ export default function MapView() {
     
 
     
+

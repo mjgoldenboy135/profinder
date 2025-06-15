@@ -24,6 +24,7 @@ export interface User {
   bio?: string;
   interests?: string[];
   favoriteUserIds?: string[]; // Added for favorites feature
+  locationVisibility?: 'public' | 'favorites' | 'none'; // New field for location privacy
   createdAt?: any; // Firestore serverTimestamp
   updatedAt?: any; // Firestore serverTimestamp
 }
@@ -58,3 +59,4 @@ export interface Chat {
 // Placeholder for profile data, useful for forms
 // This might not be directly used if ProfileFormValues is derived from Zod schema based on User type
 export type ProfileFormData = Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'profilePrivacySettings'>;
+
