@@ -1,16 +1,11 @@
 
-"use client";
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import Image from "next/image";
-import Link from "next/link";
-import { useAuthContext } from "@/contexts/AuthContext";
+import HomeAuthButtons from "@/components/home/HomeAuthButtons"; // Import the new client component
 
 export default function HomePage() {
-  const { currentUser } = useAuthContext();
-
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center py-8">
       <div className="w-full max-w-6xl mx-auto mb-12">
@@ -32,30 +27,10 @@ export default function HomePage() {
         Connect with professionals near you, discover new opportunities, and expand your network.
         Share your journey, find collaborators, and grow together.
       </p>
-      <div className="space-x-4 mb-16">
-        {!currentUser ? (
-          <>
-            <Button size="lg" asChild>
-              <Link href="/signup">
-                Get Started <ArrowRight className="ml-2 h-5 w-5" />
-              </Link>
-            </Button>
-            <Button variant="outline" size="lg" asChild>
-              <Link href="/login">
-                Login
-              </Link>
-            </Button>
-          </>
-        ) : (
-           <Button size="lg" asChild>
-            <Link href="/map">
-              Explore Network Map <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </Button>
-        )}
-      </div>
+      
+      <HomeAuthButtons /> {/* Use the client component for buttons */}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl w-full">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-6xl w-full mt-16">
         <Card className="shadow-lg">
           <CardHeader>
             <CardTitle className="font-headline">Discover Nearby</CardTitle>
@@ -96,4 +71,3 @@ export default function HomePage() {
     </div>
   );
 }
-
