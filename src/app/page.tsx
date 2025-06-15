@@ -14,7 +14,7 @@ export default function HomePage() {
             src="/home_image.jpg"
             alt="Profinder - Professional Networking"
             fill
-            style={{ objectFit: 'contain' }}
+            style={{ objectFit: 'cover' }}
             data-ai-hint="professional network"
             priority
           />
