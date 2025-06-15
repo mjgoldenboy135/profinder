@@ -8,8 +8,8 @@ import HomeAuthButtons from "@/components/home/HomeAuthButtons"; // Import the n
 export default function HomePage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-10rem)] text-center py-8">
-      <div className="w-full max-w-6xl mx-auto mb-12">
-        <div className="relative aspect-[2/1] w-full overflow-hidden rounded-lg shadow-xl">
+      <div className="w-full mx-auto mb-12">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-lg shadow-xl">
           <Image
             src="/home_image.jpg"
             alt="Profinder - Professional Networking"
