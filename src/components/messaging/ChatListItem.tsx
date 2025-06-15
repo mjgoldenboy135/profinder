@@ -20,28 +20,31 @@ interface ChatListItemProps {
 // Helper function to determine a valid image source or fallback to a placeholder
 // THIS FUNCTION MUST BE IDENTICAL TO THE ONE IN ChatInterface.tsx
 const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string, context: string): string => {
-  console.log(`[ChatListItem - ${context}] getValidImageSrc called with rawUrl:`, rawUrl, "placeholder:", placeholder);
+  console.log(`[${context}] getValidImageSrc called with rawUrl:`, rawUrl, "placeholder:", placeholder);
   if (rawUrl && typeof rawUrl === 'string') {
     const trimmedUrl = rawUrl.trim();
     if (trimmedUrl !== "" && trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
       try {
-        const url = new URL(trimmedUrl);
-        if (url.protocol === "http:" || url.protocol === "https:") {
-          console.log(`[ChatListItem - ${context}] Using valid profilePictureUrl: "${trimmedUrl}"`);
+        // Basic check for common protocols. More robust validation could be added.
+        if (trimmedUrl.startsWith("http:") || trimmedUrl.startsWith("https:") || trimmedUrl.startsWith("data:")) {
+           // Attempt to construct a URL to catch malformed ones, though this might be too strict for some data URIs.
+           // For simplicity, we'll rely on the startsWith check for now for http/https/data.
+           // new URL(trimmedUrl); // This line can be very strict.
+          console.log(`[${context}] Using potentially valid profilePictureUrl: "${trimmedUrl}"`);
           return trimmedUrl;
         } else {
-          console.warn(`[ChatListItem - ${context}] Invalid protocol for profilePictureUrl: "${trimmedUrl}", falling back to placeholder.`);
+          console.warn(`[${context}] Invalid protocol or scheme for profilePictureUrl: "${trimmedUrl}", falling back to placeholder.`);
         }
       } catch (e) {
-        console.warn(`[ChatListItem - ${context}] Invalid profilePictureUrl structure: "${trimmedUrl}", (Error: ${(e as Error).message}), falling back to placeholder.`);
+        console.warn(`[${context}] Invalid profilePictureUrl structure: "${trimmedUrl}", (Error: ${(e as Error).message}), falling back to placeholder.`);
       }
     } else {
-       console.warn(`[ChatListItem - ${context}] profilePictureUrl is effectively empty (was "${rawUrl}"), falling back to placeholder.`);
+       console.warn(`[${context}] profilePictureUrl is effectively empty (was "${rawUrl}"), falling back to placeholder.`);
     }
   } else {
-    console.warn(`[ChatListItem - ${context}] profilePictureUrl is null, undefined, empty string, or not a string. Value:`, rawUrl, `Falling back to placeholder.`);
+    console.warn(`[${context}] profilePictureUrl is null, undefined, empty string, or not a string. Value:`, rawUrl, `Falling back to placeholder.`);
   }
-  console.log(`[ChatListItem - ${context}] Falling back to placeholder: "${placeholder}"`);
+  console.log(`[${context}] Falling back to placeholder: "${placeholder}"`);
   return placeholder;
 };
 
@@ -66,7 +69,10 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
   
   const rawProfilePicUrl = otherParticipant.profilePictureUrl;
   const placeholderUrl = `https://placehold.co/48x48.png?text=${encodeURIComponent(fallbackName)}`;
-  const imageSrcToUse = getValidImageSrc(rawProfilePicUrl, placeholderUrl, "Avatar");
+  const imageSrcToUse = getValidImageSrc(rawProfilePicUrl, placeholderUrl, `ChatListItem-Avatar-Participant-${otherParticipant.id}`);
+
+  // CRITICAL DEBUG LOG
+  console.log(`[ChatListItem DEBUG Participant ${otherParticipant.id}] Raw URL: '${rawProfilePicUrl}', Processed Avatar SRC: '${imageSrcToUse}'`);
 
 
   let lastMessageTimeDisplay = "";
