@@ -147,16 +147,19 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     ? participantFullName.split(" ").map(n => n[0]).join("").toUpperCase()
     : "??";
 
-  const rawProfilePicUrl = otherParticipant.profilePictureUrl;
+  // const rawProfilePicUrl = otherParticipant.profilePictureUrl;
   
-  const headerPlaceholderUrl = `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
+  // const headerPlaceholderUrl = `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
   const messagePlaceholderUrl = `https://placehold.co/32x32.png?text=${encodeURIComponent(fallbackName[0] || '?')}`;
 
-  const headerImageSrc = getValidImageSrc(rawProfilePicUrl, headerPlaceholderUrl, `ChatInterface-HeaderAvatar-Participant-${otherParticipant.id}`);
-  const messageAvatarSrc = getValidImageSrc(rawProfilePicUrl, messagePlaceholderUrl, `ChatInterface-MessageAvatar-Participant-${otherParticipant.id}`);
+  // const headerImageSrc = getValidImageSrc(rawProfilePicUrl, headerPlaceholderUrl, `ChatInterface-HeaderAvatar-Participant-${otherParticipant.id}`);
+  const headerImageSrc = `https://placehold.co/40x40.png?text=TEST`; // HARDCODED FOR DIAGNOSTICS
+  console.log(`[ChatInterface DEBUG] Hardcoded Header Avatar SRC: ${headerImageSrc}`);
   
-  // CRITICAL DEBUG LOG
-  console.log(`[ChatInterface DEBUG Participant ${otherParticipant.id}] Raw URL: '${rawProfilePicUrl}', Processed Header SRC: '${headerImageSrc}', Processed Message SRC: '${messageAvatarSrc}'`);
+  // For message avatars, we'll still use the dynamic logic for now, but focus on the header first.
+  const messageAvatarSrc = getValidImageSrc(otherParticipant.profilePictureUrl, messagePlaceholderUrl, `ChatInterface-MessageAvatar-Participant-${otherParticipant.id}`);
+  
+  console.log(`[ChatInterface DEBUG Participant ${otherParticipant.id}] Raw URL: '${otherParticipant.profilePictureUrl}', Processed Message SRC: '${messageAvatarSrc}'`);
 
 
   return (
@@ -246,3 +249,5 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     </div>
   );
 }
+
+    
