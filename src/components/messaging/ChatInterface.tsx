@@ -52,7 +52,7 @@ const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string
        console.warn(`[ChatInterface - ${context}] profilePictureUrl is effectively empty (was "${rawUrl}"), falling back to placeholder.`);
     }
   } else {
-    console.warn(`[ChatInterface - ${context}] profilePictureUrl is null, undefined, or empty string initially. Value:`, rawUrl, `Falling back to placeholder.`);
+    console.warn(`[ChatInterface - ${context}] profilePictureUrl is null, undefined, empty string, or not a string. Value:`, rawUrl, `Falling back to placeholder.`);
   }
   console.log(`[ChatInterface - ${context}] Falling back to placeholder: "${placeholder}"`);
   return placeholder;
@@ -150,8 +150,6 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
 
   const rawProfilePicUrl = otherParticipant.profilePictureUrl;
   
-  console.log(`[ChatInterface] Participant: ${participantFullName}, Raw Profile Pic URL:`, rawProfilePicUrl);
-
   const headerPlaceholderUrl = `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
   const messagePlaceholderUrl = `https://placehold.co/32x32.png?text=${encodeURIComponent(fallbackName[0] || '?')}`;
 

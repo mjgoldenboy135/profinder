@@ -17,14 +17,43 @@ interface ChatListItemProps {
   onInitiateDelete: (chatId: string) => void;
 }
 
+// Helper function to determine a valid image source or fallback to a placeholder
+// THIS FUNCTION MUST BE IDENTICAL TO THE ONE IN ChatInterface.tsx
+const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string, context: string): string => {
+  console.log(`[ChatListItem - ${context}] getValidImageSrc called with rawUrl:`, rawUrl, "placeholder:", placeholder);
+  if (rawUrl && typeof rawUrl === 'string') {
+    const trimmedUrl = rawUrl.trim();
+    if (trimmedUrl !== "" && trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
+      try {
+        const url = new URL(trimmedUrl);
+        if (url.protocol === "http:" || url.protocol === "https:") {
+          console.log(`[ChatListItem - ${context}] Using valid profilePictureUrl: "${trimmedUrl}"`);
+          return trimmedUrl;
+        } else {
+          console.warn(`[ChatListItem - ${context}] Invalid protocol for profilePictureUrl: "${trimmedUrl}", falling back to placeholder.`);
+        }
+      } catch (e) {
+        console.warn(`[ChatListItem - ${context}] Invalid profilePictureUrl structure: "${trimmedUrl}", (Error: ${(e as Error).message}), falling back to placeholder.`);
+      }
+    } else {
+       console.warn(`[ChatListItem - ${context}] profilePictureUrl is effectively empty (was "${rawUrl}"), falling back to placeholder.`);
+    }
+  } else {
+    console.warn(`[ChatListItem - ${context}] profilePictureUrl is null, undefined, empty string, or not a string. Value:`, rawUrl, `Falling back to placeholder.`);
+  }
+  console.log(`[ChatListItem - ${context}] Falling back to placeholder: "${placeholder}"`);
+  return placeholder;
+};
+
+
 export default function ChatListItem({ chat, currentUserId, isActive, onInitiateDelete }: ChatListItemProps) {
   const otherParticipant: ChatParticipantData | undefined = chat.participantsData?.find(p => p.id !== currentUserId);
 
   if (!otherParticipant) {
-    console.warn("ChatListItem: Other participant data is missing for chat ID:", chat.id);
+    console.warn("[ChatListItem] Other participant data is missing for chat ID:", chat.id, "Chat data:", chat);
     return (
       <div className="p-3 hover:bg-muted/50 transition-colors rounded-lg border border-destructive">
-        <p className="text-sm text-destructive-foreground">Error: Participant data missing or incomplete.</p>
+        <p className="text-sm text-destructive-foreground">Error: Participant data missing.</p>
         <p className="text-xs text-muted-foreground">Chat ID: {chat.id}</p>
       </div>
     );
@@ -35,29 +64,10 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
     ? participantFullName.split(" ").map(n => n[0]).join("").toUpperCase()
     : "??";
   
-  let imageSrcToUse: string;
   const rawProfilePicUrl = otherParticipant.profilePictureUrl;
   const placeholderUrl = `https://placehold.co/48x48.png?text=${encodeURIComponent(fallbackName)}`;
+  const imageSrcToUse = getValidImageSrc(rawProfilePicUrl, placeholderUrl, "Avatar");
 
-  if (rawProfilePicUrl && typeof rawProfilePicUrl === 'string' && rawProfilePicUrl.trim() !== "") {
-    const trimmedUrl = rawProfilePicUrl.trim();
-    if (trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
-      try {
-        // Validate if it's a well-formed URL. This doesn't check if the image exists.
-        new URL(trimmedUrl);
-        imageSrcToUse = trimmedUrl; // Use it if it's a valid URL structure
-      } catch (e) {
-        // If new URL() throws, it's not a valid URL structure
-        imageSrcToUse = placeholderUrl;
-      }
-    } else {
-      // Handle "null" or "undefined" strings
-      imageSrcToUse = placeholderUrl;
-    }
-  } else {
-    // Handle null, undefined, or empty string
-    imageSrcToUse = placeholderUrl;
-  }
 
   let lastMessageTimeDisplay = "";
   if (chat.lastMessageTimestamp) {
