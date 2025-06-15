@@ -265,21 +265,34 @@ export default function MapView() {
                 fullscreenControl={true}
                 disableDefaultUI={false} 
               >
-                {filteredUsers.map(user => (
-                  user.location && user.location.lat != null && user.location.lng != null ? (
+                {filteredUsers.map(user => {
+                  const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("").toUpperCase() : "U";
+                  const avatarSrc = user.profilePictureUrl || `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
+                  
+                  return user.location && user.location.lat != null && user.location.lng != null ? (
                     <AdvancedMarker
                         key={user.id}
                         position={{ lat: user.location.lat, lng: user.location.lng }}
-                        title={user.fullName}
+                        title={`${user.fullName}${user.profession ? ` - ${user.profession}` : ''}`}
                         onClick={() => router.push(`/users/${user.id}`)}
                     >
-                         <Avatar className="h-10 w-10 border-2 border-primary shadow-md">
-                            <AvatarImage src={user.profilePictureUrl || `https://placehold.co/40x40.png?text=${user.fullName?.[0]}`} alt={user.fullName} />
-                            <AvatarFallback>{user.fullName?.[0] || 'U'}</AvatarFallback>
-                        </Avatar>
+                        <div className="flex flex-col items-center text-center">
+                            <Avatar className="h-10 w-10 border-2 border-primary shadow-md">
+                                <AvatarImage src={avatarSrc} alt={user.fullName || 'User'} />
+                                <AvatarFallback>{fallbackName}</AvatarFallback>
+                            </Avatar>
+                            {user.profession && (
+                                <span 
+                                  className="mt-0.5 text-[10px] text-foreground font-medium bg-card/80 backdrop-blur-sm px-1 rounded shadow-sm whitespace-nowrap max-w-[100px] truncate"
+                                  style={{pointerEvents: 'none'}}
+                                >
+                                    {user.profession}
+                                </span>
+                            )}
+                        </div>
                     </AdvancedMarker>
                   ) : null
-                ))}
+                })}
               </Map>
             </APIProvider>
           </div>
