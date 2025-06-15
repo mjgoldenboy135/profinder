@@ -35,14 +35,14 @@ const mainHeaderNavLinks = [
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, loading } = useAuthContext();
+  const { currentUser } = useAuthContext(); // Removed 'loading' as we won't use the explicit loading block
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollTop, setLastScrollTop] = useState(0);
-  const scrollThreshold = 10; 
-  const headerHideThreshold = 80; 
+  const scrollThreshold = 10;
+  const headerHideThreshold = 80;
 
   const [hasUnreadActivity, setHasUnreadActivity] = useState(false);
   const [checkingMessages, setCheckingMessages] = useState(false);
@@ -53,7 +53,7 @@ export default function Header() {
       let st = window.pageYOffset || document.documentElement.scrollTop;
 
       if (Math.abs(lastScrollTop - st) <= scrollThreshold && st > headerHideThreshold) {
-        return; 
+        return;
       }
 
       if (st > lastScrollTop && st > headerHideThreshold) {
@@ -72,7 +72,7 @@ export default function Header() {
 
   useEffect(() => {
     if (isAuthenticated && currentUser) {
-      if (pathname.startsWith('/messages')) { 
+      if (pathname.startsWith('/messages')) {
         setHasUnreadActivity(false);
         return;
       }
@@ -93,7 +93,7 @@ export default function Header() {
           setCheckingMessages(false);
         });
     } else {
-      setHasUnreadActivity(false); 
+      setHasUnreadActivity(false);
     }
   }, [isAuthenticated, currentUser, pathname]);
 
@@ -105,7 +105,7 @@ export default function Header() {
         title: "Logged Out",
         description: "You have been successfully logged out.",
       });
-      setIsSidebarOpen(false); 
+      setIsSidebarOpen(false);
       router.push('/login');
     } catch (error) {
       console.error("Logout error:", error);
@@ -116,23 +116,12 @@ export default function Header() {
       });
     }
   };
-  
-  if (loading) {
-    return (
-      <header 
-        key="loading-header"
-        className="bg-card border-b sticky top-0 z-50 transform transition-transform duration-300 ease-in-out"
-      >
-        <div className="container mx-auto px-4 h-20 flex items-center justify-between">
-          <AppLogo key="logo-loading" />
-          <div className="text-sm text-muted-foreground">Loading...</div>
-        </div>
-      </header>
-    );
-  }
+
+  // Removed the explicit loading block:
+  // if (loading) { ... }
 
   return (
-    <header 
+    <header
       key="main-header"
       className={cn(
         "bg-card border-b sticky top-0 z-50 transform transition-transform duration-300 ease-in-out",
@@ -224,21 +213,21 @@ export default function Header() {
               </SheetFooter>
             </SheetContent>
           </Sheet>
-           <div className="hidden sm:block"> 
+           <div className="hidden sm:block">
              <AppLogo key="logo-main-nav" />
            </div>
         </div>
 
-        <nav className="flex items-center gap-2 sm:gap-4"> 
+        <nav className="flex items-center gap-2 sm:gap-4">
           {mainHeaderNavLinks.map((link) => (
             (link.authRequired && isAuthenticated) || !link.authRequired ? (
               <Link
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 p-1 sm:p-2 rounded-md transition-colors", 
+                  "flex flex-col items-center justify-center gap-1 p-1 sm:p-2 rounded-md transition-colors",
                   pathname === link.href || (link.href === '/messages' && pathname.startsWith('/messages/'))
-                    ? "text-primary" 
+                    ? "text-primary"
                     : "text-foreground hover:text-primary/90"
                 )}
                 title={link.label}
@@ -265,7 +254,7 @@ export default function Header() {
         <div className="hidden md:flex items-center gap-1 sm:gap-2">
           {isAuthenticated ? (
             <Button variant="default" size="sm" onClick={handleLogout} className="px-2 sm:px-3">
-              <LogOut className="h-4 w-4 sm:mr-1" /> 
+              <LogOut className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Logout</span>
             </Button>
           ) : (
@@ -273,7 +262,7 @@ export default function Header() {
               <Button variant="default" size="sm" asChild className="px-2 sm:px-3">
                 <Link href="/login">Login</Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="px-2 sm:px-3"> 
+              <Button variant="outline" size="sm" asChild className="px-2 sm:px-3">
                 <Link href="/signup">Sign Up</Link>
               </Button>
             </>
