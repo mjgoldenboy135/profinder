@@ -38,11 +38,7 @@ const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string
     const trimmedUrl = rawUrl.trim();
     if (trimmedUrl !== "" && trimmedUrl.toLowerCase() !== 'null' && trimmedUrl.toLowerCase() !== 'undefined') {
       try {
-        // Basic check for common protocols. More robust validation could be added.
         if (trimmedUrl.startsWith("http:") || trimmedUrl.startsWith("https:") || trimmedUrl.startsWith("data:")) {
-           // Attempt to construct a URL to catch malformed ones, though this might be too strict for some data URIs.
-           // For simplicity, we'll rely on the startsWith check for now for http/https/data.
-           // new URL(trimmedUrl); // This line can be very strict.
           console.log(`[${context}] Using potentially valid profilePictureUrl: "${trimmedUrl}"`);
           return trimmedUrl;
         } else {
@@ -171,12 +167,16 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
             <ArrowLeft className="h-5 w-5" />
           </Link>
         </Button>
-        <Avatar className="h-10 w-10 border">
-          <AvatarImage src={headerImageSrc} alt={participantFullName || "User"} />
-          <AvatarFallback>{fallbackName}</AvatarFallback>
-        </Avatar>
+        <Link href={`/users/${otherParticipant.id}`} passHref>
+          <Avatar className="h-10 w-10 border cursor-pointer hover:opacity-80 transition-opacity">
+            <AvatarImage src={headerImageSrc} alt={participantFullName || "User"} />
+            <AvatarFallback>{fallbackName}</AvatarFallback>
+          </Avatar>
+        </Link>
         <div className="ml-3">
-          <h3 className="font-semibold font-headline">{participantFullName || "Unknown User"}</h3>
+          <Link href={`/users/${otherParticipant.id}`} className="hover:underline">
+            <h3 className="font-semibold font-headline">{participantFullName || "Unknown User"}</h3>
+          </Link>
           {/* <p className="text-xs text-muted-foreground">
             {otherParticipant.isOnline ? "Online" : "Offline"}
           </p> */}
