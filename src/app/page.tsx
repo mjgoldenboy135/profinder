@@ -24,7 +24,7 @@ export default function HomePage() {
         Connect. Collaborate. Grow Together.
       </h1>
       <p className="text-lg sm:text-xl text-foreground mb-6 max-w-2xl mx-auto">
-        Discover professionals, buyers, and sellers around you — all in one powerful platform. Whether you're offering a service, searching for collaborators, or exploring new business opportunities, Profinder helps you build real connections that matter.
+        Discover professionals, traders around you — all in one powerful platform. Whether you're offering a service, searching for collaborators, or exploring new business opportunities, Profinder helps you build real connections that matter.
       </p>
       <div className="text-left max-w-lg mx-auto space-y-2 mb-8 text-foreground/90">
         <p className="flex items-start"><span className="mr-2 text-green-500">✅</span> Find professionals near you from all industries</p>
