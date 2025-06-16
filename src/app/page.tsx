@@ -21,11 +21,20 @@ export default function HomePage() {
         </div>
       </div>
       <h1 className="text-4xl sm:text-5xl font-headline font-bold mb-4 text-primary leading-tight">
-        Welcome to Profinder
+        Connect. Collaborate. Grow Together.
       </h1>
-      <p className="text-lg sm:text-xl text-foreground mb-8 max-w-xl mx-auto">
-        Connect with professionals near you, discover new opportunities, and expand your network.
-        Share your journey, find collaborators, and grow together.
+      <p className="text-lg sm:text-xl text-foreground mb-6 max-w-2xl mx-auto">
+        Discover professionals, buyers, and sellers around you — all in one powerful platform. Whether you're offering a service, searching for collaborators, or exploring new business opportunities, Profinder helps you build real connections that matter.
+      </p>
+      <div className="text-left max-w-lg mx-auto space-y-2 mb-8 text-foreground/90">
+        <p className="flex items-start"><span className="mr-2 text-green-500">✅</span> Find professionals near you from all industries</p>
+        <p className="flex items-start"><span className="mr-2 text-green-500">✅</span> Know who’s around you and what they do</p>
+        <p className="flex items-start"><span className="mr-2 text-green-500">✅</span> Buy and sell locally with trusted users</p>
+        <p className="flex items-start"><span className="mr-2 text-green-500">✅</span> Grow your network and unlock new opportunities</p>
+        <p className="flex items-start"><span className="mr-2 text-green-500">✅</span> Collaborate, share, and thrive together</p>
+      </div>
+      <p className="text-lg sm:text-xl text-foreground mb-8 max-w-xl mx-auto font-semibold">
+        Join Profinder today — where connections create success.
       </p>
       
       <HomeAuthButtons /> {/* Use the client component for buttons */}
