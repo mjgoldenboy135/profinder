@@ -1,20 +1,20 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth, GoogleAuthProvider } from 'firebase/auth'; // Added GoogleAuthProvider
+import { getAuth, type Auth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
-import { getStorage, type FirebaseStorage } from 'firebase/storage'; 
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, type Analytics } from "firebase/analytics";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyAF37yBNVryFJ43CjiEb_IK6JD42J7wF84",
-  authDomain: "profinder-90fe7.firebaseapp.com",
-  projectId: "profinder-90fe7",
-  storageBucket: "profinder-90fe7.firebasestorage.app", 
-  messagingSenderId: "89536222969",
-  appId: "1:89536222969:web:bd5cdd7cf2bd99f246f428",
-  measurementId: "G-7KC71SP72F"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
@@ -27,13 +27,14 @@ if (!getApps().length) {
 
 const auth: Auth = getAuth(app);
 // Get a reference to your 'profind' database
-const db: Firestore = getFirestore(app, 'profind'); 
-const storage: FirebaseStorage = getStorage(app); 
+const db: Firestore = getFirestore(app, 'profind');
+const storage: FirebaseStorage = getStorage(app);
 let analytics: Analytics | undefined;
+
 if (typeof window !== 'undefined') {
   analytics = getAnalytics(app);
 }
 
-const googleProvider = new GoogleAuthProvider(); // Added GoogleAuthProvider instance
+const googleProvider = new GoogleAuthProvider();
 
-export { app, auth, db, storage, analytics, googleProvider }; // Exported googleProvider
+export { app, auth, db, storage, analytics, googleProvider };
