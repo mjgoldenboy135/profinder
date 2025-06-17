@@ -5,7 +5,7 @@ import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, type Analytics } from "firebase/analytics";
 
-// Log the API key to help debug.
+// Log the API key and the entire config to help debug.
 // This will show up in your server terminal and browser console.
 console.log("[firebase.ts] Attempting to use Firebase API Key:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
 
@@ -18,6 +18,8 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
+
+console.log("[firebase.ts] Firebase Config Object being used:", firebaseConfig);
 
 // Initialize Firebase
 let app: FirebaseApp;
@@ -42,3 +44,4 @@ if (typeof window !== 'undefined') {
 const googleProvider = new GoogleAuthProvider();
 
 export { app, auth, db, storage, analytics, googleProvider };
+
