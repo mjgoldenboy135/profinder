@@ -18,8 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase"; // Import Firebase auth
-import { signInWithEmailAndPassword } from "firebase/auth"; // Import Firebase auth functions
+import { auth, googleProvider } from "@/lib/firebase"; // Import googleProvider
+import { signInWithEmailAndPassword, signInWithPopup, type UserCredential } from "firebase/auth"; // Import signInWithPopup
+import { getUserProfile, createUserProfile } from "@/services/userService"; // For checking/creating profile
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -40,20 +41,20 @@ export default function LoginForm() {
   });
 
   async function onSubmit(values: LoginFormValues) {
-    form.clearErrors(); // Clear previous errors
+    form.clearErrors(); 
     try {
       await signInWithEmailAndPassword(auth, values.email, values.password);
       toast({
         title: "Login Successful!",
         description: "Welcome back to Proximity Network.",
       });
-      router.push("/map"); // Redirect to a relevant page after login
+      router.push("/map"); 
     } catch (error: any) {
       console.error("Login error:", error);
       let errorMessage = "Invalid email or password. Please try again.";
       if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        form.setError("email", { type: "manual", message: " " }); // Add error to one field to trigger general message
-        form.setError("password", { type: "manual", message: " " }); // Add error to one field to trigger general message
+        form.setError("email", { type: "manual", message: " " }); 
+        form.setError("password", { type: "manual", message: " " }); 
       } else {
          errorMessage = "An unexpected error occurred. Please try again.";
       }
@@ -64,6 +65,62 @@ export default function LoginForm() {
       });
     }
   }
+
+  async function handleGoogleLogin() {
+    form.clearErrors();
+    try {
+      const result: UserCredential = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      if (!user.email) {
+        throw new Error("Email not provided by Google. Cannot proceed.");
+      }
+
+      const userProfile = await getUserProfile(user.uid);
+
+      if (!userProfile) {
+        await createUserProfile(user.uid, {
+          fullName: user.displayName || "Google User",
+          email: user.email, 
+          profilePictureUrl: user.photoURL || "",
+          education: "",
+          profession: "",
+          professionalDetails: "",
+          yearsOfExperience: 0,
+          linkedinProfileUrl: "",
+          phoneNumber: "",
+          isOnline: false, 
+          showContact: false, 
+          bio: "",
+          interests: [],
+          favoriteUserIds: [],
+          locationVisibility: 'public', // Default visibility for new users
+        });
+      }
+
+      toast({
+        title: "Login Successful!",
+        description: `Welcome back, ${user.displayName || "User"}!`,
+      });
+      router.push("/map");
+    } catch (error: any) {
+      console.error("Google login error:", error);
+      let errorMessage = "Failed to sign in with Google. Please try again.";
+      if (error.code === "auth/account-exists-with-different-credential") {
+        errorMessage = "An account already exists with this email. Please sign in using your original method.";
+      } else if (error.code === "auth/popup-closed-by-user") {
+        errorMessage = "Google sign-in popup was closed. Please try again.";
+      } else if (error.message === "Email not provided by Google. Cannot proceed.") {
+        errorMessage = "Your Google account did not provide an email address, which is required.";
+      }
+      toast({
+        title: "Google Login Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  }
+
 
   return (
     <Card className="w-full max-w-md shadow-xl">
@@ -101,7 +158,7 @@ export default function LoginForm() {
               )}
             />
             <div className="flex items-center justify-between">
-              <div /> {/* Empty div for spacing, if needed for checkbox like "Remember me" */}
+              <div /> 
               <Link
                 href="/forgot-password"
                 className="text-sm font-medium text-primary hover:underline"
@@ -114,6 +171,28 @@ export default function LoginForm() {
             </Button>
           </form>
         </Form>
+
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">
+              Or continue with
+            </span>
+          </div>
+        </div>
+
+        <Button 
+          variant="outline" 
+          className="w-full" 
+          onClick={handleGoogleLogin} 
+          disabled={form.formState.isSubmitting /* Or a new loading state for Google login */}
+        >
+          {/* You can add a Google icon here later, e.g., using an SVG or an icon library */}
+          Sign in with Google
+        </Button>
+
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <Link href="/signup" className="font-medium text-primary hover:underline">
