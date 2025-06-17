@@ -19,6 +19,7 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
+// Log the entire config object to see what Firebase is being initialized with
 console.log("[firebase.ts] Firebase Config Object being used:", firebaseConfig);
 
 // Initialize Firebase
@@ -44,3 +45,4 @@ if (typeof window !== 'undefined') {
 const googleProvider = new GoogleAuthProvider();
 
 export { app, auth, db, storage, analytics, googleProvider };
+
