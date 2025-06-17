@@ -44,4 +44,3 @@ if (typeof window !== 'undefined') {
 const googleProvider = new GoogleAuthProvider();
 
 export { app, auth, db, storage, analytics, googleProvider };
-
