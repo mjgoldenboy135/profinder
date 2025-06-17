@@ -108,8 +108,8 @@ export default function LoginForm() {
       let errorMessage = "Failed to sign in with Google. Please try again.";
       if (error.code === "auth/account-exists-with-different-credential") {
         errorMessage = "An account already exists with this email. Please sign in using your original method.";
-      } else if (error.code === "auth/popup-closed-by-user") {
-        errorMessage = "Google sign-in popup was closed. Please try again.";
+      } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
+        errorMessage = "Google sign-in popup was closed or cancelled. Please try again if you wish to sign in with Google.";
       } else if (error.message === "Email not provided by Google. Cannot proceed.") {
         errorMessage = "Your Google account did not provide an email address, which is required.";
       }
