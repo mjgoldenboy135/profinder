@@ -5,8 +5,10 @@ import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, type Analytics } from "firebase/analytics";
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// Log the API key to help debug.
+// This will show up in your server terminal and browser console.
+console.log("[firebase.ts] Attempting to use Firebase API Key:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -32,7 +34,9 @@ const storage: FirebaseStorage = getStorage(app);
 let analytics: Analytics | undefined;
 
 if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
+  if (firebaseConfig.measurementId) { // Only initialize if measurementId is present
+    analytics = getAnalytics(app);
+  }
 }
 
 const googleProvider = new GoogleAuthProvider();
