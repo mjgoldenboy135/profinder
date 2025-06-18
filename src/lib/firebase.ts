@@ -5,9 +5,14 @@ import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 import { getAnalytics, type Analytics } from "firebase/analytics";
 
-// Log the API key and the entire config to help debug.
-// This will show up in your server terminal and browser console.
-console.log("[firebase.ts] Attempting to use Firebase API Key:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+// Log each environment variable individually
+console.log("[firebase.ts] NEXT_PUBLIC_FIREBASE_API_KEY:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+console.log("[firebase.ts] NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:", process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN);
+console.log("[firebase.ts] NEXT_PUBLIC_FIREBASE_PROJECT_ID:", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+console.log("[firebase.ts] NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:", process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+console.log("[firebase.ts] NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:", process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID);
+console.log("[firebase.ts] NEXT_PUBLIC_FIREBASE_APP_ID:", process.env.NEXT_PUBLIC_FIREBASE_APP_ID);
+console.log("[firebase.ts] NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID:", process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID);
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -19,30 +24,72 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Log the entire config object to see what Firebase is being initialized with
 console.log("[firebase.ts] Firebase Config Object being used:", firebaseConfig);
 
-// Initialize Firebase
+// Initialize Firebase App
 let app: FirebaseApp;
 if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
+  try {
+    app = initializeApp(firebaseConfig);
+    console.log("[firebase.ts] Firebase app initialized successfully.");
+  } catch (error) {
+    console.error("[firebase.ts] CRITICAL: Firebase app initialization error:", error);
+    // Depending on the app's needs, you might want to throw the error
+    // or handle it in a way that degrades gracefully. For now, re-throw.
+    throw error;
+  }
 } else {
   app = getApp();
+  console.log("[firebase.ts] Firebase app already initialized, getting existing app.");
 }
 
-const auth: Auth = getAuth(app);
-// Get a reference to your 'profind' database
-const db: Firestore = getFirestore(app, 'profind');
-const storage: FirebaseStorage = getStorage(app);
-let analytics: Analytics | undefined;
+// Initialize Firebase Auth
+let auth: Auth;
+try {
+  auth = getAuth(app);
+  console.log("[firebase.ts] Firebase Auth initialized successfully.");
+} catch (error) {
+  console.error("[firebase.ts] CRITICAL: Firebase Auth initialization error:", error);
+  throw error;
+}
 
+// Initialize Firestore
+let db: Firestore;
+try {
+  // Get a reference to your 'profind' database
+  db = getFirestore(app, 'profind');
+  console.log("[firebase.ts] Firebase Firestore (profind database) initialized successfully.");
+} catch (error) {
+  console.error("[firebase.ts] CRITICAL: Firebase Firestore (profind database) initialization error:", error);
+  throw error;
+}
+
+// Initialize Firebase Storage
+let storage: FirebaseStorage;
+try {
+  storage = getStorage(app);
+  console.log("[firebase.ts] Firebase Storage initialized successfully.");
+} catch (error) {
+  console.error("[firebase.ts] CRITICAL: Firebase Storage initialization error:", error);
+  throw error;
+}
+
+// Initialize Firebase Analytics (conditionally)
+let analytics: Analytics | undefined;
 if (typeof window !== 'undefined') {
-  if (firebaseConfig.measurementId) { // Only initialize if measurementId is present
-    analytics = getAnalytics(app);
+  if (firebaseConfig.measurementId && firebaseConfig.measurementId.trim() !== "") {
+    try {
+      analytics = getAnalytics(app);
+      console.log("[firebase.ts] Firebase Analytics initialized successfully.");
+    } catch (error) {
+      console.warn("[firebase.ts] Firebase Analytics initialization error (non-critical):", error);
+      // Analytics is often non-critical, so we just log a warning.
+    }
+  } else {
+    console.log("[firebase.ts] Firebase Analytics not initialized (no measurementId provided in config).");
   }
 }
 
 const googleProvider = new GoogleAuthProvider();
 
 export { app, auth, db, storage, analytics, googleProvider };
-
