@@ -141,6 +141,7 @@ export default function ProfileForm() {
 
   const watchedIsOnline = form.watch("isOnline");
   const watchedLocationVisibility = form.watch("locationVisibility");
+  const watchedLocationAddress = form.watch("locationAddress"); // Watch address for useEffect
 
   const resetFormWithProfileData = useCallback((firestoreProfile: User | null) => {
     if (authUser) {
@@ -200,106 +201,114 @@ export default function ProfileForm() {
 
 
   useEffect(() => {
-    if (!authUser || isFetchingProfile) {
+    if (!authUser || isFetchingProfile || form.formState.isSubmitting || typeof watchedIsOnline === 'undefined') {
+      // If location tracking was active, turn it off
+      if (locationWatchId.current !== null) {
+        navigator.geolocation.clearWatch(locationWatchId.current);
+        locationWatchId.current = null;
+        console.log("[ProfileForm useEffect isOnline] Cleared location watch due to unmet conditions (e.g., submitting, not authUser).");
+      }
       return;
     }
     
-    if (form.getFieldState("isOnline").isDirty || (form.formState.isSubmitted && form.getFieldState("isOnline").isDirty) || watchedIsOnline) {
-      const manageLiveLocation = async (enable: boolean) => {
-        const currentAddress = form.getValues("locationAddress") || "";
-        const currentVisibility = form.getValues("locationVisibility");
+    const manageLiveLocation = async (enable: boolean) => {
+      console.log(`[ProfileForm manageLiveLocation] Called with enable: ${enable}, visibility: ${watchedLocationVisibility}, address: ${watchedLocationAddress}`);
+      const currentAddress = watchedLocationAddress || ""; // Use watched value
 
-        if (enable && currentVisibility !== 'none') {
-          setIsLocationPermissionDenied(false);
-          if (!navigator.geolocation) {
-            toast({ title: "Geolocation Not Supported", description: "Live location tracking is not available on your browser.", variant: "destructive" });
-            setTimeout(() => {
-              form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
-            }, 0);
-            await updateUserProfile(authUser.uid, { isOnline: false });
-            return;
-          }
-          navigator.geolocation.getCurrentPosition(
-            async (position) => {
-              const { latitude, longitude } = position.coords;
-              const locationData = { lat: latitude, lng: longitude, address: currentAddress };
-              try {
-                  await updateUserProfile(authUser.uid, { isOnline: true, location: locationData, locationVisibility: currentVisibility });
-                  toast({ title: "You are now Online!", description: "Your location is being shared based on your visibility settings." });
-              } catch (dbError) {
-                  toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
-                  setTimeout(() => {
-                    form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
-                  }, 0);
-                  return;
-              }
-              if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
-              locationWatchId.current = navigator.geolocation.watchPosition(
-                async (pos) => {
-                  const newLat = pos.coords.latitude;
-                  const newLng = pos.coords.longitude;
-                  const newLocationData = { lat: newLat, lng: newLng, address: form.getValues("locationAddress") || "" };
-                  try {
-                    await updateUserProfile(authUser.uid, { location: newLocationData });
-                  } catch (watchDbError) {
-                    // Silent fail for watch position updates
-                  }
-                },
-                (watchErr) => {
-                  toast({ title: "Location Tracking Error", description: `Could not update live location: ${watchErr.message}`, variant: "destructive" });
-                },
-                { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
-              );
-            },
-            async (error) => {
-              let message = "Could not get your location to go online.";
-              if (error.code === error.PERMISSION_DENIED) {
-                message = "Location permission denied. Please enable it in your browser settings to appear on the map.";
-                setIsLocationPermissionDenied(true);
-              } else {
-                message = `Could not get location: ${error.message}. Please try again.`;
-              }
-              toast({ title: "Location Error", description: message, variant: "destructive" });
-              setTimeout(() => {
-                form.setValue("isOnline", false, { shouldDirty: false, shouldValidate: false });
-              }, 0);
-              try {
-                  await updateUserProfile(authUser.uid, { isOnline: false });
-              } catch (dbError) {
-                 // Silent fail
-              }
-            }
-          );
-        } else { 
-          if (locationWatchId.current !== null) {
-            navigator.geolocation.clearWatch(locationWatchId.current);
-            locationWatchId.current = null;
-          }
-          if (form.getValues("isOnline") || (currentVisibility !== 'none' && enable === false)) {
+      if (enable && watchedLocationVisibility !== 'none') {
+        setIsLocationPermissionDenied(false);
+        if (!navigator.geolocation) {
+          toast({ title: "Geolocation Not Supported", description: "Live location tracking is not available on your browser.", variant: "destructive" });
+          form.setValue("isOnline", false, { shouldDirty: true }); // Set form state, not directly saving here.
+          await updateUserProfile(authUser.uid, { isOnline: false }); // Persist change
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          async (position) => {
+            const { latitude, longitude } = position.coords;
+            const locationData = { lat: latitude, lng: longitude, address: currentAddress };
             try {
-                await updateUserProfile(authUser.uid, { isOnline: false }); 
-                if (enable === false && currentVisibility !== 'none') { 
-                    toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
-                } else if (currentVisibility === 'none') {
-                    toast({ title: "Location Private", description: "Your location is not shared on the map." });
-                }
+                console.log("[ProfileForm manageLiveLocation] Got current position. Updating Firestore profile to online.");
+                await updateUserProfile(authUser.uid, { isOnline: true, location: locationData, locationVisibility: watchedLocationVisibility });
+                toast({ title: "You are now Online!", description: "Your location is being shared based on your visibility settings." });
             } catch (dbError) {
-                toast({ title: "Database Error", description: "Could not update offline status.", variant: "destructive" });
+                toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
+                form.setValue("isOnline", false, { shouldDirty: true });
+                return;
             }
+            if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
+            locationWatchId.current = navigator.geolocation.watchPosition(
+              async (pos) => {
+                const newLat = pos.coords.latitude;
+                const newLng = pos.coords.longitude;
+                const newLocationData = { lat: newLat, lng: newLng, address: form.getValues("locationAddress") || "" }; // Use getValues here as address can change
+                console.log("[ProfileForm manageLiveLocation] Watched position update:", newLocationData);
+                try {
+                  await updateUserProfile(authUser.uid, { location: newLocationData });
+                } catch (watchDbError) {
+                  console.warn("[ProfileForm manageLiveLocation] Silent fail for watch position update:", watchDbError);
+                }
+              },
+              (watchErr) => {
+                console.error("[ProfileForm manageLiveLocation] Location Tracking Error (watchPosition):", watchErr);
+                toast({ title: "Location Tracking Error", description: `Could not update live location: ${watchErr.message}`, variant: "destructive" });
+              },
+              { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
+            );
+          },
+          async (error) => {
+            let message = "Could not get your location to go online.";
+            if (error.code === error.PERMISSION_DENIED) {
+              message = "Location permission denied. Please enable it in your browser settings to appear on the map.";
+              setIsLocationPermissionDenied(true);
+            } else {
+              message = `Could not get location: ${error.message}. Please try again.`;
+            }
+            toast({ title: "Location Error", description: message, variant: "destructive" });
+            form.setValue("isOnline", false, { shouldDirty: true });
+            try {
+                await updateUserProfile(authUser.uid, { isOnline: false });
+            } catch (dbError) {
+               console.warn("[ProfileForm manageLiveLocation] DB error setting offline after location error:", dbError);
+            }
+          }
+        );
+      } else { 
+        if (locationWatchId.current !== null) {
+          navigator.geolocation.clearWatch(locationWatchId.current);
+          locationWatchId.current = null;
+          console.log("[ProfileForm manageLiveLocation] Cleared location watch.");
+        }
+        // Only update Firestore if the user was previously considered online by the form or if visibility is 'none'
+        const isCurrentlyConsideredOnlineInForm = form.getValues("isOnline");
+        if (isCurrentlyConsideredOnlineInForm || watchedLocationVisibility === 'none') {
+          try {
+              console.log("[ProfileForm manageLiveLocation] Setting user offline in Firestore.");
+              await updateUserProfile(authUser.uid, { isOnline: false }); 
+              if (enable === false && watchedLocationVisibility !== 'none') { 
+                  toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
+              } else if (watchedLocationVisibility === 'none' && form.getValues("isOnline") /* was true before change */) {
+                  toast({ title: "Location Private", description: "Your location is not shared on the map. You've been set offline." });
+              }
+          } catch (dbError) {
+              toast({ title: "Database Error", description: "Could not update offline status.", variant: "destructive" });
           }
         }
-      };
-      manageLiveLocation(watchedIsOnline);
-    }
+      }
+    };
+    
+    manageLiveLocation(watchedIsOnline);
 
     return () => {
       if (locationWatchId.current !== null) {
         navigator.geolocation.clearWatch(locationWatchId.current);
         locationWatchId.current = null;
+        console.log("[ProfileForm useEffect isOnline] Cleanup: Cleared location watch.");
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authUser, watchedIsOnline, isFetchingProfile, form.formState.isSubmitted, form.getValues, form.setValue]);
+  }, [authUser, watchedIsOnline, watchedLocationVisibility, watchedLocationAddress, isFetchingProfile, form.formState.isSubmitting]); // Added watchedLocationAddress
 
 
   const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -311,7 +320,7 @@ export default function ProfileForm() {
           description: `Image is too large. Please select an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
           variant: "destructive",
         });
-        event.target.value = "";
+        event.target.value = ""; // Reset file input
         return;
       }
 
@@ -319,7 +328,9 @@ export default function ProfileForm() {
       toast({ title: "Processing image...", description: "Resizing your image for optimal upload." });
 
       try {
+        console.log("[ProfileForm handleProfilePictureChange] Resizing image...");
         const resizedFile = await resizeImage(file, RESIZE_MAX_WIDTH, RESIZE_MAX_HEIGHT);
+        console.log("[ProfileForm handleProfilePictureChange] Image resized.");
          if (resizedFile.size > MAX_FILE_SIZE_BYTES) {
           toast({
             title: "Resized File Still Too Large",
@@ -328,7 +339,6 @@ export default function ProfileForm() {
           });
           event.target.value = "";
           setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null); 
-          setIsResizingImage(false);
           return;
         }
         
@@ -341,22 +351,24 @@ export default function ProfileForm() {
         const dataTransfer = new DataTransfer();
         dataTransfer.items.add(resizedFile);
         form.setValue("profilePicture", dataTransfer.files, { shouldDirty: true });
-        form.setValue("profilePictureUrl", "", { shouldDirty: true });
+        form.setValue("profilePictureUrl", "", { shouldDirty: true }); // Clear existing URL if new file is selected
         toast({ title: "Image Ready", description: "Resized image is ready for preview. Save changes to upload." });
 
       } catch (error) {
-        console.error("Error resizing image:", error);
+        console.error("[ProfileForm handleProfilePictureChange] Error resizing image:", error);
         toast({
           title: "Image Processing Failed",
           description: "Could not process the image. Please try another one or a different format.",
           variant: "destructive",
         });
-        setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null);
-        event.target.value = "";
+        setPreviewImage(form.getValues("profilePictureUrl") || authUser?.photoURL || null); // Revert to original/previous
+        event.target.value = ""; // Reset file input
       } finally {
         setIsResizingImage(false);
+        console.log("[ProfileForm handleProfilePictureChange] Finished image processing.");
       }
     } else {
+      // No file selected, or selection cancelled
       const existingUrl = form.getValues("profilePictureUrl") || authUser?.photoURL;
       setPreviewImage(existingUrl || null);
       form.setValue("profilePicture", undefined, { shouldDirty: true });
@@ -368,17 +380,18 @@ export default function ProfileForm() {
       toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
       return;
     }
-    console.log("[ProfileForm onSubmit] Starting submission...");
+    console.log("[ProfileForm onSubmit] Submission started. Current form values:", values);
+    console.log("[ProfileForm onSubmit] isSubmitting (RHF):", form.formState.isSubmitting, "isUploadingPicture:", isUploadingPicture, "isResizingImage:", isResizingImage);
 
     const { profilePicture, profilePictureUrl: currentFormPicUrl, locationAddress, ...dataForFirestore } = values;
     let newAuthPhotoURL = authUser.photoURL || currentFormPicUrl || "";
     
     try {
-        console.log("[ProfileForm onSubmit] Step 1: Profile picture handling");
+        console.log("[ProfileForm onSubmit] Step 1: Profile picture handling.");
         if (profilePicture && profilePicture.length > 0) {
             const fileToUpload = profilePicture[0]; 
             setIsUploadingPicture(true);
-            console.log("[ProfileForm onSubmit] Attempting to upload profile picture...", fileToUpload.name);
+            console.log(`[ProfileForm onSubmit] Attempting to upload profile picture: ${fileToUpload.name}`);
             try {
                 newAuthPhotoURL = await uploadProfilePicture(authUser.uid, fileToUpload);
                 console.log("[ProfileForm onSubmit] Profile picture uploaded successfully. URL:", newAuthPhotoURL);
@@ -386,31 +399,33 @@ export default function ProfileForm() {
                 console.error("[ProfileForm onSubmit] Error during profile picture upload:", uploadError);
                 let detailedErrorMessage = "Could not upload profile picture. Please try again.";
                 if (uploadError.code === 'storage/retry-limit-exceeded') {
-                    detailedErrorMessage = "Upload failed: The network request timed out or connection was too slow. Please check your internet connection and try again. If the issue persists, consider using a smaller image file.";
+                    detailedErrorMessage = "Upload failed: Network timeout or slow connection. Check internet and try again, or use a smaller image.";
                 } else if (uploadError.code) {
                    detailedErrorMessage = `Upload failed: ${uploadError.code}. ${uploadError.message || ''}`;
                 } else if (uploadError.message) {
                    detailedErrorMessage = `Upload failed: ${uploadError.message}`;
                 }
                 toast({ title: "Upload Failed", description: detailedErrorMessage, variant: "destructive" });
-                // setIsUploadingPicture(false); // Moved to finally block of this inner try-catch
-                return; 
+                // No return here, let it fall through to the main finally for RHF isSubmitting to reset
+                throw uploadError; // Re-throw to be caught by the main catch block
             } finally {
-                 setIsUploadingPicture(false); // Ensures reset regardless of upload success/failure
+                 setIsUploadingPicture(false);
+                 console.log("[ProfileForm onSubmit] Profile picture upload attempt finished. isUploadingPicture set to false.");
             }
         } else if (previewImage === null && (authUser.photoURL || currentFormPicUrl)) {
-            console.log("[ProfileForm onSubmit] Profile picture marked for removal.");
+            console.log("[ProfileForm onSubmit] Profile picture marked for removal (previewImage is null).");
             newAuthPhotoURL = "";
         }
         console.log("[ProfileForm onSubmit] Step 1 Complete. New auth photo URL:", newAuthPhotoURL);
         
-        console.log("[ProfileForm onSubmit] Step 2: Firebase Auth profile update");
+        console.log("[ProfileForm onSubmit] Step 2: Firebase Auth profile update.");
         const authUpdates: { displayName?: string; photoURL?: string | null } = {};
         const photoURLForAuth = newAuthPhotoURL === "" ? null : newAuthPhotoURL;
 
         if (values.fullName !== authUser.displayName) {
             authUpdates.displayName = values.fullName;
         }
+        // Compare with authUser.photoURL (actual current value) not a potentially stale form value for photoURL
         if (photoURLForAuth !== (authUser.photoURL || null)) { 
             authUpdates.photoURL = photoURLForAuth;
         }
@@ -420,28 +435,30 @@ export default function ProfileForm() {
             await updateAuthProfile(authUser, authUpdates);
             console.log("[ProfileForm onSubmit] Firebase Auth profile updated.");
             if (refreshUserProfile) {
-                console.log("[ProfileForm onSubmit] Refreshing user profile context...");
+                console.log("[ProfileForm onSubmit] Refreshing user profile context (AuthContext)...");
                 await refreshUserProfile();
-                console.log("[ProfileForm onSubmit] User profile context refreshed.");
+                console.log("[ProfileForm onSubmit] User profile context (AuthContext) refreshed.");
             }
         } else {
              console.log("[ProfileForm onSubmit] No changes to Firebase Auth profile needed.");
         }
         console.log("[ProfileForm onSubmit] Step 2 Complete.");
         
-        console.log("[ProfileForm onSubmit] Step 3: Firestore profile update");
+        console.log("[ProfileForm onSubmit] Step 3: Firestore profile update.");
+        console.log("[ProfileForm onSubmit] Fetching existing Firestore profile before update...");
         const existingProfile = await getUserProfile(authUser.uid);
         console.log("[ProfileForm onSubmit] Fetched existing Firestore profile:", existingProfile);
+        
         const finalIsOnline = values.locationVisibility === 'none' ? false : values.isOnline;
 
         const finalDataToSaveToFirestore: Partial<User> = {
             ...dataForFirestore, 
             fullName: values.fullName,
-            email: values.email,
+            email: values.email, // Email is disabled but good to include for completeness if ever changeable
             profilePictureUrl: newAuthPhotoURL,
-            location: {
-                lat: finalIsOnline && existingProfile?.location?.lat !== undefined ? existingProfile.location.lat : null,
-                lng: finalIsOnline && existingProfile?.location?.lng !== undefined ? existingProfile.location.lng : null,
+            location: { // Preserve lat/lng if user is online and they exist, otherwise set to null
+                lat: finalIsOnline && existingProfile?.location?.lat != null ? existingProfile.location.lat : null,
+                lng: finalIsOnline && existingProfile?.location?.lng != null ? existingProfile.location.lng : null,
                 address: values.locationAddress || ""
             },
             isOnline: finalIsOnline, 
@@ -463,25 +480,28 @@ export default function ProfileForm() {
         const newResetValues: ProfileFormValues = {
           ...values, 
           profilePictureUrl: newAuthPhotoURL || "", 
-          profilePicture: undefined,
-          isOnline: finalIsOnline,
+          profilePicture: undefined, // Clear the FileList
+          isOnline: finalIsOnline, // Ensure reset uses the correctly determined online state
         };
         console.log("[ProfileForm onSubmit] Resetting form with new values:", newResetValues);
-        form.reset(newResetValues);
-        setPreviewImage(newAuthPhotoURL || null);
-        console.log("[ProfileForm onSubmit] Submission complete.");
+        form.reset(newResetValues); // Resets form values and dirty state
+        setPreviewImage(newAuthPhotoURL || null); // Update preview image to the new URL
+        console.log("[ProfileForm onSubmit] Submission successfully completed.");
 
     } catch (error: any) {
         console.error("[ProfileForm onSubmit] General error during submission process:", error);
         let generalErrorMessage = `Failed to update profile: ${error.message || 'Please try again.'}`;
         if (error.code === 'storage/retry-limit-exceeded' && !(error.message && error.message.includes("Upload failed"))) {
-            generalErrorMessage = "Profile update failed after an issue with image upload (network/timeout). Please check connection and try again.";
+            generalErrorMessage = "Profile update failed due to an image upload issue (network/timeout). Please check connection and try again.";
         }
         toast({ title: "Update Error", description: generalErrorMessage, variant: "destructive" });
     } finally {
-        // isUploadingPicture is handled in its specific try/catch/finally block
-        // form.formState.isSubmitting is managed by react-hook-form and should reset
-        console.log("[ProfileForm onSubmit] Reaching final finally block. isSubmitting:", form.formState.isSubmitting);
+        // RHF manages isSubmitting. isUploadingPicture is managed in its own try/finally.
+        // isResizingImage is managed by handleProfilePictureChange.
+        // Ensure all custom loading states are false if not already.
+        if(isUploadingPicture) setIsUploadingPicture(false);
+        if(isResizingImage) setIsResizingImage(false); // Should already be false by now
+        console.log("[ProfileForm onSubmit] Reached main finally block. isSubmitting (RHF):", form.formState.isSubmitting, "isUploadingPicture:", isUploadingPicture, "isResizingImage:", isResizingImage);
     }
   }
 
@@ -534,6 +554,8 @@ export default function ProfileForm() {
                                 className="hidden"
                                 onChange={handleProfilePictureChange}
                                 disabled={isUploadingPicture || isResizingImage} 
+                                // Key added to allow re-selection of the same file if previous attempt failed
+                                key={previewImage || Date.now()} 
                             />
                         </FormControl>
                         <FormDescription>
@@ -739,7 +761,7 @@ export default function ProfileForm() {
                         </FormLabel>
                         <FormDescription className={cn(isOnlineSwitchDisabled && "cursor-not-allowed")}>
                           {isOnlineSwitchDisabled 
-                            ? "Set Location Visibility above to enable this." 
+                            ? "Set Location Visibility above to 'Public' or 'Favorites' to enable this." 
                             : (field.value ? "You are set to appear online. Live location is active if permission granted." : "You are set to appear offline.")
                           }
                           {isLocationPermissionDenied && !isOnlineSwitchDisabled && <span className="text-destructive block"> Location permission denied. Please enable it in browser settings.</span>}
@@ -779,7 +801,7 @@ export default function ProfileForm() {
 
             <Button type="submit" className="w-full sm:w-auto" disabled={isSaveDisabled}>
               {(form.formState.isSubmitting || isUploadingPicture || isResizingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isResizingImage ? "Processing Image..." : (isUploadingPicture || form.formState.isSubmitting ? "Saving..." : "Save Changes")}
+              {isResizingImage ? "Processing Image..." : (isUploadingPicture ? "Uploading..." : (form.formState.isSubmitting ? "Saving Profile..." : "Save Changes"))}
             </Button>
           </form>
         </Form>
@@ -787,1982 +809,3 @@ export default function ProfileForm() {
     </Card>
   );
 }
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    
-
-    

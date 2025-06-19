@@ -32,27 +32,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (user) {
         console.log(`[AuthContext] Setting current Firebase user at ${eventTime}. UID: ${user.uid}`);
         setCurrentUser(user);
-        // setLoading(true) // Temporarily set loading while fetching profile
+        setLoading(true); // Set loading true before fetching profile
         try {
-          console.log(`[AuthContext] Fetching Firestore profile for UID: ${user.uid} at ${eventTime}`);
+          console.log(`[AuthContext] Fetching Firestore profile for UID: ${user.uid} at ${eventTime} (onAuthStateChanged)`);
           const profile = await getUserProfile(user.uid);
           console.log(`[AuthContext] Firestore profile fetched for UID: ${user.uid} at ${eventTime}. Profile:`, profile);
-          console.log(`[AuthContext] Setting current app profile for UID: ${user.uid} at ${eventTime}`);
           setCurrentUserProfile(profile);
         } catch (error) {
           console.error("[AuthContext] Error fetching user profile after auth state change:", error);
-          console.log(`[AuthContext] Setting current app profile to null due to error for UID: ${user.uid} at ${eventTime}`);
           setCurrentUserProfile(null);
         } finally {
-          // setLoading(false); // Moved below
+          setLoading(false); 
         }
       } else {
         console.log(`[AuthContext] No Firebase user. Setting currentUser and currentUserProfile to null at ${eventTime}`);
         setCurrentUser(null);
         setCurrentUserProfile(null);
+        setLoading(false);
       }
-      console.log(`[AuthContext] Setting loading to false at ${eventTime}`);
-      setLoading(false); // Set loading to false after auth state and initial profile fetch attempt
     });
 
     return () => {
@@ -63,36 +60,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshUserProfile = async () => {
     const refreshTime = new Date().toISOString();
-    console.log(`[AuthContext] refreshUserProfile called at ${refreshTime}`);
+    console.log(`[AuthContext refreshUserProfile] Called at ${refreshTime}`);
     const firebaseAuthUser = auth.currentUser;
-    console.log(`[AuthContext] auth.currentUser in refreshUserProfile at ${refreshTime}:`, firebaseAuthUser ? { uid: firebaseAuthUser.uid, email: firebaseAuthUser.email } : null);
-
+    console.log(`[AuthContext refreshUserProfile] auth.currentUser:`, firebaseAuthUser ? { uid: firebaseAuthUser.uid, email: firebaseAuthUser.email } : null);
 
     if (firebaseAuthUser) {
-      console.log(`[AuthContext] refreshUserProfile: Firebase user found (UID: ${firebaseAuthUser.uid}). Setting loading to true at ${refreshTime}`);
+      console.log(`[AuthContext refreshUserProfile] Firebase user found (UID: ${firebaseAuthUser.uid}). Setting loading to true.`);
       setLoading(true);
       try {
-        console.log(`[AuthContext] refreshUserProfile: Fetching Firestore profile for UID: ${firebaseAuthUser.uid} at ${refreshTime}`);
+        console.log(`[AuthContext refreshUserProfile] Attempting to fetch Firestore profile for UID: ${firebaseAuthUser.uid}.`);
         const firestoreProfile = await getUserProfile(firebaseAuthUser.uid);
-        console.log(`[AuthContext] refreshUserProfile: Firestore profile fetched for UID: ${firebaseAuthUser.uid}. Profile:`, firestoreProfile, `at ${refreshTime}`);
-        console.log(`[AuthContext] refreshUserProfile: Setting current app profile for UID: ${firebaseAuthUser.uid} at ${refreshTime}`);
+        console.log(`[AuthContext refreshUserProfile] Firestore profile fetched for UID: ${firebaseAuthUser.uid}. Profile:`, firestoreProfile);
+        
+        console.log(`[AuthContext refreshUserProfile] Setting currentUserProfile.`);
         setCurrentUserProfile(firestoreProfile);
 
-        console.log(`[AuthContext] refreshUserProfile: Setting current Firebase user state (from auth.currentUser) for UID: ${firebaseAuthUser.uid} at ${refreshTime}`);
-        setCurrentUser(firebaseAuthUser);
+        // Re-set currentUser from auth.currentUser to ensure it's the latest from Firebase Auth SDK
+        // especially if things like displayName or photoURL were updated directly via auth methods.
+        console.log(`[AuthContext refreshUserProfile] Setting currentUser state (from auth.currentUser).`);
+        setCurrentUser(firebaseAuthUser); // This ensures current user reflects any immediate auth changes.
 
       } catch (error) {
-        console.error("[AuthContext] Error refreshing user profile:", error);
+        console.error("[AuthContext refreshUserProfile] Error refreshing user profile:", error);
+        // Potentially set currentUserProfile to null or keep existing if fetch fails?
+        // For now, just log error. The UI might rely on existing profile if fetch fails.
       } finally {
-        console.log(`[AuthContext] refreshUserProfile: Setting loading to false for UID: ${firebaseAuthUser.uid} at ${refreshTime}`);
+        console.log(`[AuthContext refreshUserProfile] Setting loading to false for UID: ${firebaseAuthUser.uid}.`);
         setLoading(false);
       }
     } else {
-      console.log(`[AuthContext] refreshUserProfile: No Firebase user. Setting currentUser and currentUserProfile to null at ${refreshTime}`);
+      console.log(`[AuthContext refreshUserProfile] No Firebase user. Setting currentUser and currentUserProfile to null.`);
       setCurrentUserProfile(null);
       setCurrentUser(null);
       setLoading(false);
     }
+    console.log(`[AuthContext refreshUserProfile] Finished at ${new Date().toISOString()}`);
   };
 
 
@@ -113,4 +115,3 @@ export const useAuthContext = () => {
   }
   return context;
 };
-
