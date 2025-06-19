@@ -67,14 +67,10 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
     ? participantFullName.split(" ").map(n => n[0]).join("").toUpperCase()
     : "??";
   
-  // const rawProfilePicUrl = otherParticipant.profilePictureUrl;
-  // const placeholderUrl = `https://placehold.co/48x48.png?text=${encodeURIComponent(fallbackName)}`;
-  // const imageSrcToUse = getValidImageSrc(rawProfilePicUrl, placeholderUrl, `ChatListItem-Avatar-Participant-${otherParticipant.id}`);
-  const imageSrcToUse = `https://placehold.co/48x48.png?text=ITEM`; // HARDCODED FOR DIAGNOSTICS
-  console.log(`[ChatListItem DEBUG] Hardcoded List Item Avatar SRC for participant ${otherParticipant.id}: ${imageSrcToUse}`);
-
-  // CRITICAL DEBUG LOG
-  // console.log(`[ChatListItem DEBUG Participant ${otherParticipant.id}] Raw URL: '${rawProfilePicUrl}', Processed Avatar SRC: '${imageSrcToUse}'`);
+  const placeholderUrl = `https://placehold.co/48x48.png?text=${encodeURIComponent(fallbackName)}`;
+  const imageSrcToUse = getValidImageSrc(otherParticipant.profilePictureUrl, placeholderUrl, `ChatListItem-Avatar-Participant-${otherParticipant.id}`);
+  
+  console.log(`[ChatListItem DEBUG Participant ${otherParticipant.id}] Raw URL: '${otherParticipant.profilePictureUrl}', Processed Avatar SRC: '${imageSrcToUse}'`);
 
 
   let lastMessageTimeDisplay = "";
@@ -164,5 +160,4 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
     </div>
   );
 }
-
     
