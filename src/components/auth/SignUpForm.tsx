@@ -122,20 +122,23 @@ export default function SignUpForm() {
   }
 
   return (
-    <Card className="w-full max-w-md shadow-xl">
-      <CardHeader>
-        <div className="mb-4 flex justify-center">
-          <Image
-            src="https://placehold.co/150x100.png"
-            alt="Sign Up Illustration"
-            width={150}
-            height={100}
-            className="rounded-md"
-            data-ai-hint="AI abstract illustration"
-          />
+    <Card className="w-full max-w-md shadow-xl overflow-hidden"> {/* Added overflow-hidden to Card */}
+      <CardHeader className="p-0"> {/* Removed padding from CardHeader */}
+        <div className="overflow-hidden rounded-t-lg"> {/* Optional: if you want image to also have rounded top corners independent of card */}
+          <div className="relative aspect-video w-full">
+            <Image
+              src="/home_image.jpg"
+              alt="Profinder - Professional Networking"
+              fill
+              style={{ objectFit: 'cover' }}
+              data-ai-hint="professional network"
+            />
+          </div>
         </div>
-        <CardTitle className="text-3xl font-headline text-center">Create an Account</CardTitle>
-        <CardDescription className="text-center">Join Profinder to connect with professionals.</CardDescription>
+        <div className="p-6 text-center"> {/* Wrapper for text content with padding */}
+          <CardTitle className="text-3xl font-headline">Create an Account</CardTitle>
+          <CardDescription>Join Profinder to connect with professionals.</CardDescription>
+        </div>
       </CardHeader>
       <CardContent>
         <Form {...form}>
