@@ -9,7 +9,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyAF37yBNVryFJ43CjiEb_IK6JD42J7wF84",
   authDomain: "profinder-90fe7.firebaseapp.com",
   projectId: "profinder-90fe7",
-  storageBucket: "profinder-90fe7.appspot.com",
+  storageBucket: "profinder-90fe7.firebasestorage.app",
   messagingSenderId: "89536222969",
   appId: "1:89536222969:web:bd5cdd7cf2bd99f246f428",
   measurementId: "G-7KC71SP72F"
