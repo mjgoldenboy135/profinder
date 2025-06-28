@@ -46,7 +46,9 @@ export default function Header() {
 
   const [hasUnreadActivity, setHasUnreadActivity] = useState(false);
   const [checkingMessages, setCheckingMessages] = useState(false);
-  const isAuthenticated = !!currentUser;
+  
+  // A user is fully authenticated only if they exist and their email is verified.
+  const isAuthenticatedAndVerified = !!currentUser && currentUser.emailVerified;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -71,7 +73,7 @@ export default function Header() {
   }, [lastScrollTop, headerHideThreshold, scrollThreshold]);
 
   useEffect(() => {
-    if (isAuthenticated && currentUser) {
+    if (isAuthenticatedAndVerified && currentUser) {
       if (pathname.startsWith('/messages')) {
         setHasUnreadActivity(false);
         return;
@@ -95,7 +97,7 @@ export default function Header() {
     } else {
       setHasUnreadActivity(false);
     }
-  }, [isAuthenticated, currentUser, pathname]);
+  }, [isAuthenticatedAndVerified, currentUser, pathname]);
 
 
   const handleLogout = async () => {
@@ -144,33 +146,37 @@ export default function Header() {
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex-grow p-4 space-y-2">
-                {isAuthenticated && (
+                {!!currentUser && ( // Show if user object exists (verified or not)
                   <>
-                    <SheetClose asChild>
-                      <Link
-                        href="/profile"
-                        className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                          pathname === "/profile" ? "bg-accent text-accent-foreground" : "text-foreground"
-                        )}
-                      >
-                        <UserCircle className="h-5 w-5" />
-                        Profile
-                      </Link>
-                    </SheetClose>
-                     <SheetClose asChild>
-                      <Link
-                        href="/favorites"
-                        className={cn(
-                          "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                          pathname === "/favorites" ? "bg-accent text-accent-foreground" : "text-foreground"
-                        )}
-                      >
-                        <Star className="h-5 w-5" />
-                        Favorites
-                      </Link>
-                    </SheetClose>
-                    <Separator className="my-3"/>
+                    {isAuthenticatedAndVerified && ( // Only show main navigation if verified
+                      <>
+                        <SheetClose asChild>
+                          <Link
+                            href="/profile"
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                              pathname === "/profile" ? "bg-accent text-accent-foreground" : "text-foreground"
+                            )}
+                          >
+                            <UserCircle className="h-5 w-5" />
+                            Profile
+                          </Link>
+                        </SheetClose>
+                         <SheetClose asChild>
+                          <Link
+                            href="/favorites"
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                              pathname === "/favorites" ? "bg-accent text-accent-foreground" : "text-foreground"
+                            )}
+                          >
+                            <Star className="h-5 w-5" />
+                            Favorites
+                          </Link>
+                        </SheetClose>
+                        <Separator className="my-3"/>
+                      </>
+                    )}
                     <Button
                       variant="ghost"
                       onClick={handleLogout}
@@ -181,7 +187,7 @@ export default function Header() {
                     </Button>
                   </>
                 )}
-                {!isAuthenticated && (
+                {!currentUser && (
                   <>
                      <SheetClose asChild>
                       <Link
@@ -220,7 +226,7 @@ export default function Header() {
 
         <nav className="flex items-center gap-2 sm:gap-4">
           {mainHeaderNavLinks.map((link) => (
-            (link.authRequired && isAuthenticated) || !link.authRequired ? (
+            (link.authRequired && isAuthenticatedAndVerified) || !link.authRequired ? (
               <Link
                 key={link.href}
                 href={link.href}
@@ -252,7 +258,7 @@ export default function Header() {
         </nav>
 
         <div className="hidden md:flex items-center gap-1 sm:gap-2">
-          {isAuthenticated ? (
+          {!!currentUser ? ( // Logout button shows if a user object exists, even if unverified
             <Button variant="default" size="sm" onClick={handleLogout} className="px-2 sm:px-3">
               <LogOut className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Logout</span>

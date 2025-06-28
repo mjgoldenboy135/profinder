@@ -20,7 +20,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase"; 
-import { createUserWithEmailAndPassword, updateProfile as updateAuthProfile } from "firebase/auth"; 
+import {
+  createUserWithEmailAndPassword,
+  updateProfile as updateAuthProfile,
+  sendEmailVerification, // Import sendEmailVerification
+} from "firebase/auth"; 
 import { createUserProfile } from "@/services/userService"; // Import userService
 
 const signUpSchema = z.object({
@@ -86,7 +90,15 @@ export default function SignUpForm() {
           favoriteUserIds: [], // Initialize favoriteUserIds
         });
 
-        await Promise.all([authProfilePromise, firestoreProfilePromise]);
+        // Send verification email
+        const emailVerificationPromise = sendEmailVerification(user);
+
+        await Promise.all([
+          authProfilePromise,
+          firestoreProfilePromise,
+          emailVerificationPromise,
+        ]);
+
       } else {
         // This case should ideally not happen if createUserWithEmailAndPassword resolves successfully
         throw new Error("User creation succeeded but no user object was returned from Firebase Auth.");
@@ -94,10 +106,10 @@ export default function SignUpForm() {
 
       toast({
         title: "Sign Up Successful!",
-        description: "Welcome to Profinder!",
+        description: "Please check your email to verify your account.",
       });
-      console.log("Attempting to redirect to / from SignUpForm"); // Diagnostic log
-      router.push("/"); 
+      console.log("Attempting to redirect to /verify-email from SignUpForm"); // Diagnostic log
+      router.push("/verify-email"); 
     } catch (error: any) {
       console.error("Sign up process error details:", error); // More detailed error logging
       let errorMessage = "An unexpected error occurred. Please try again.";

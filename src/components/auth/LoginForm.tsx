@@ -43,7 +43,18 @@ export default function LoginForm() {
   async function onSubmit(values: LoginFormValues) {
     form.clearErrors(); 
     try {
-      await signInWithEmailAndPassword(auth, values.email, values.password);
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
+
+      if (!user.emailVerified) {
+        toast({
+          title: "Email Not Verified",
+          description: "Please verify your email address to continue.",
+        });
+        router.push("/verify-email");
+        return;
+      }
+      
       toast({
         title: "Login Successful!",
         description: "Welcome back to Proximity Network.",
