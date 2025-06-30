@@ -1,10 +1,11 @@
 
 "use client";
 
-import { Suspense } from 'react';
-import MapView from "@/components/map/MapView";
-import { Loader2 } from 'lucide-react';
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import MapView from "@/components/map/MapView";
 
 function MapLoadingFallback() {
   return (
@@ -28,9 +29,9 @@ function MapLoadingFallback() {
 export default function MapPage() {
   return (
     <div className="py-8">
-      <Suspense fallback={<MapLoadingFallback />}>
-        <MapView />
-      </Suspense>
+       <Suspense fallback={<MapLoadingFallback />}>
+         <MapView />
+       </Suspense>
     </div>
   );
 }
