@@ -212,15 +212,25 @@ export default function MapView() {
     return (
       <Card className="mt-4 shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline">Map View Unavailable</CardTitle>
-          <CardDescription>Google Maps API Key is not configured. Please set <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> in your <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file and restart your server.</CardDescription>
+          <CardTitle className="text-3xl font-headline">Map Configuration Required</CardTitle>
+          <CardDescription>The Google Maps API Key is missing.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mt-4 p-4 border rounded-md bg-muted min-h-[400px] flex flex-col items-center justify-center text-center">
-            <MapPinIcon className="h-16 w-16 text-muted-foreground mb-4" />
-            <p className="text-lg font-semibold text-foreground mb-1">Map Placeholder</p>
-            <p className="text-muted-foreground">The interactive map would display online users here, but the API key is missing.</p>
-          </div>
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Action Needed</AlertTitle>
+                <UILabelAlertDescription>
+                    <p className="font-bold">For Local Development:</p>
+                    <p className="mb-2">Create a <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file in your project root and add the line: <code className="bg-muted px-1 py-0.5 rounded block mt-1">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_KEY_HERE</code></p>
+                    <p className="font-bold">For the Deployed Site:</p>
+                    <p>Ensure the API key is correctly set in your <code className="bg-muted px-1 py-0.5 rounded">apphosting.yaml</code> file and that the change has been successfully deployed. Check your GitHub repository and Firebase Console deployment status.</p>
+                </UILabelAlertDescription>
+            </Alert>
+            <div className="mt-4 p-4 border rounded-md bg-muted min-h-[400px] flex flex-col items-center justify-center text-center">
+                <MapPinIcon className="h-16 w-16 text-muted-foreground mb-4" />
+                <p className="text-lg font-semibold text-foreground mb-1">Map Placeholder</p>
+                <p className="text-muted-foreground">The interactive map would display online users here, but the API key is missing.</p>
+            </div>
         </CardContent>
       </Card>
     );
@@ -341,4 +351,3 @@ export default function MapView() {
     
 
     
-
