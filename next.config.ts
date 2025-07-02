@@ -4,6 +4,8 @@ import type {NextConfig} from 'next';
 const nextConfig: NextConfig = {
   /* config options here */
   env: {
+    // This maps the server-side variable (from apphosting.yaml) 
+    // to the name the client-side code expects.
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.google_maps_api_key,
   },
   typescript: {
