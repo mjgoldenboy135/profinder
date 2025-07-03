@@ -76,3 +76,8 @@ For the deployed site to access the Google Maps API, you must create a secret in
 6. For the **Secret name**, enter `GOOGLE_MAPS_API_KEY`.
 7. For the **Secret value**, paste your actual Google Maps API key.
 8. Click **Create and Deploy**.
+
+### Deployment Troubleshooting
+
+*   **Deployment Fails with "Directory 'out' does not exist":** If you see this error in your GitHub repository's "Actions" tab, it means you have a conflicting, older deployment workflow. **You must delete the file `.github/workflows/firebase-hosting.yml` from your repository.** This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file.
+*   **Map Still Shows "API Key Missing" after Deploy:** This means the secret was not created correctly. Double-check the secret name in the Firebase Console is exactly `GOOGLE_MAPS_API_KEY` and that you have redeployed after creating it.
