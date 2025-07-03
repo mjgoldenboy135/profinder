@@ -41,8 +41,8 @@ You need to have [Node.js](https://nodejs.org/en/) (version 20.x or higher) and 
     npm install
     ```
 
-3.  **Set up Environment Variables:**
-    Create a file named `.env.local` in the root of your project and add the following variables. You'll need to get these from your Google Cloud project.
+3.  **Set up Environment Variables for Local Development:**
+    Create a file named `.env.local` in the root of your project and add the following variables.
 
     ```env
     NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
@@ -61,4 +61,18 @@ Open [http://localhost:9002](http://localhost:9002) with your browser to see the
 
 ## Deployment
 
-This application is configured for easy deployment with [Firebase App Hosting](https://firebase.google.com/docs/app-hosting).
+This application is configured for easy deployment with **Firebase App Hosting**.
+
+When you push your code to the `master` branch on GitHub, App Hosting will automatically build and deploy your application based on the `apphosting.yaml` file in your project.
+
+### Required: Create Deployment Secret
+
+For the deployed site to access the Google Maps API, you must create a secret in the Firebase Console:
+1. Go to your Firebase project.
+2. In the left menu, select **Build > App Hosting**.
+3. Select your backend (e.g., "profinder-app").
+4. Go to the **Settings** tab.
+5. In the "Secrets" section, click **Add secret**.
+6. For the **Secret name**, enter `GOOGLE_MAPS_API_KEY`.
+7. For the **Secret value**, paste your actual Google Maps API key.
+8. Click **Create and Deploy**.
