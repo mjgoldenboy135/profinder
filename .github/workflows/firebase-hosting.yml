@@ -31,4 +31,4 @@ jobs:
           expires: 7d
           entryPoint: .
           firebaseToolsVersion: latest
-          channelId: ${{ github.head_ref }}
+          channelId: preview
