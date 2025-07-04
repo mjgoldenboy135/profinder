@@ -18,8 +18,7 @@ jobs:
 
       - run: npm install
 
-      - name: Create .env.local
-        run: echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}" > .env.local
+     
 
       - run: npm run build
 
