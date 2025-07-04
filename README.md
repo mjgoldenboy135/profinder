@@ -65,27 +65,28 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 ### Deployment Troubleshooting & Required Steps
 
-If your map shows an API key error after deployment, follow these steps exactly.
+If your map shows an API key error or the build fails with a "Misconfigured secret" error, **you must complete the two steps below**.
 
-**Step 1 (Required): Create Deployment Secret**
+**Step 1 (Required): Create the Deployment Secret**
 
-For the deployed site to access the Google Maps API, you must create a secret in the Firebase Console:
-1. Go to your Firebase project.
-2. In the left menu, select **Build > App Hosting**.
-3. Select your backend (e.g., "profinder-app").
-4. Go to the **Settings** tab.
-5. In the "Secrets" section, click **Add secret**.
-6. For the **Secret name**, enter `GOOGLE_MAPS_API_KEY`.
-7. For the **Secret value**, paste your actual Google Maps API key.
-8. Click **Create and Deploy**.
+The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_KEY/...` means you have not created the required secret in your Firebase project. This is **not a GitHub secret**.
 
-**Step 2 (Required): Delete Old Workflow File**
+1.  Go to your Firebase project: [https://console.firebase.google.com/](https://console.firebase.google.com/)
+2.  In the left menu, go to **Build > App Hosting**.
+3.  Select your backend (e.g., "profinder-app").
+4.  Go to the **Settings** tab.
+5.  In the "Secrets" section, click **Add secret**.
+6.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
+7.  For the **Secret value**, paste your actual Google Maps API key.
+8.  Click **Create and Deploy**. This will trigger a new build that should now succeed.
 
-This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file. An old, conflicting workflow file (`firebase-hosting.yml`) is causing deployment errors. **You must delete it.**
+**Step 2 (Required): Delete the Old GitHub Workflow File**
 
-1. Go to your repository on GitHub.
-2. Navigate to the `.github/workflows/` directory.
-3. Delete the `firebase-hosting.yml` file.
-4. Commit the deletion.
+This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file. An old, conflicting workflow file (`firebase-hosting.yml`) may be causing deployment errors. **You must delete it.**
+
+1.  Go to your repository on GitHub.
+2.  Navigate to the `.github/workflows/` directory.
+3.  Delete the `firebase-hosting.yml` file if it exists.
+4.  Commit the deletion.
 
 After completing these two steps and pushing the latest code, your deployment will succeed.
