@@ -59,13 +59,15 @@ npm run dev
 
 Open [http://localhost:9002](http://localhost:9002) with your browser to see the result.
 
-## Deployment
+## Deployment with Firebase App Hosting
 
-This application is configured for easy deployment with **Firebase App Hosting**.
+This application is configured for easy deployment with **Firebase App Hosting**. When you push to your `master` branch, App Hosting automatically builds and deploys your app based on the `apphosting.yaml` file.
 
-When you push your code to the `master` branch on GitHub, App Hosting will automatically build and deploy your application based on the `apphosting.yaml` file in your project.
+### Deployment Troubleshooting & Required Steps
 
-### Required: Create Deployment Secret
+If your map shows an API key error after deployment, follow these steps exactly.
+
+**Step 1 (Required): Create Deployment Secret**
 
 For the deployed site to access the Google Maps API, you must create a secret in the Firebase Console:
 1. Go to your Firebase project.
@@ -77,7 +79,13 @@ For the deployed site to access the Google Maps API, you must create a secret in
 7. For the **Secret value**, paste your actual Google Maps API key.
 8. Click **Create and Deploy**.
 
-### Deployment Troubleshooting
+**Step 2 (Required): Delete Old Workflow File**
 
-*   **Deployment Fails with "Directory 'out' does not exist":** If you see this error in your GitHub repository's "Actions" tab, it means you have a conflicting, older deployment workflow. **You must delete the file `.github/workflows/firebase-hosting.yml` from your repository.** This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file.
-*   **Map Still Shows "API Key Missing" after Deploy:** This means the secret was not created correctly. Double-check the secret name in the Firebase Console is exactly `GOOGLE_MAPS_API_KEY` and that you have redeployed after creating it.
+This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file. An old, conflicting workflow file (`firebase-hosting.yml`) is causing deployment errors. **You must delete it.**
+
+1. Go to your repository on GitHub.
+2. Navigate to the `.github/workflows/` directory.
+3. Delete the `firebase-hosting.yml` file.
+4. Commit the deletion.
+
+After completing these two steps and pushing the latest code, your deployment will succeed.
