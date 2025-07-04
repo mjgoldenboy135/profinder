@@ -73,12 +73,13 @@ The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_
 
 1.  Go to your Firebase project: [https://console.firebase.google.com/](https://console.firebase.google.com/)
 2.  In the left menu, go to **Build > App Hosting**.
-3.  Select your backend (e.g., "profinder-app").
+3.  Select your backend (it should be named **profinder**).
 4.  Go to the **Settings** tab.
-5.  In the "Secrets" section, click **Add secret**.
-6.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
-7.  For the **Secret value**, paste your actual Google Maps API key.
-8.  Click **Create and Deploy**. This will trigger a new build that should now succeed.
+5.  Click on the **Environment** section. Inside, you will find the secrets management area.
+6.  Click **Add secret**.
+7.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
+8.  For the **Secret value**, paste your actual Google Maps API key.
+9.  Click **Create and Deploy**. This will trigger a new build that should now succeed.
 
 **Step 2 (Required): Delete the Old GitHub Workflow File**
 
