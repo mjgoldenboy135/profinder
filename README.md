@@ -75,11 +75,12 @@ The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_
 2.  In the left menu, go to **Build > App Hosting**.
 3.  Select your backend (it should be named **profinder**).
 4.  Go to the **Settings** tab.
-5.  Click on the **Environment** section. Inside, you will find the secrets management area.
-6.  Click **Add secret**.
-7.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
-8.  For the **Secret value**, paste your actual Google Maps API key.
-9.  Click **Create and Deploy**. This will trigger a new build that should now succeed.
+5.  Click on the **Environment** section.
+6.  You will be prompted for an "Environment name". Type `prod` and click **Save**.
+7.  The page will reload. Now, you will see an **Add secret** button. Click it.
+8.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
+9.  For the **Secret value**, paste your actual Google Maps API key.
+10. Click **Create and Deploy**. This will trigger a new build that should now succeed.
 
 **Step 2 (Required): Delete the Old GitHub Workflow File**
 
