@@ -1,0 +1,13 @@
+runtime: nodejs20
+
+env:
+  secrets:
+    - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+
+# Optional: specify which file to use as the entrypoint
+# entrypoint:
+#   command: "npm run start"
+
+# Optional if you want to set environment variables from secrets at runtime
+# Instead of hardcoding anything, access this in your code using:
+# process.env.GOOGLE_MAPS_API_KEY
