@@ -76,7 +76,7 @@ The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_
 3.  Select your backend (it should be named **profinder**).
 4.  Go to the **Settings** tab.
 5.  Click on the **Environment** section.
-6.  You will be prompted for an "Environment name". Type `prod` and click **Save**.
+6.  You will be prompted for an "Environment name". Type `prod` and click the **Save** button.
 7.  The page will reload. Now, you will see an **Add secret** button. Click it.
 8.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
 9.  For the **Secret value**, paste your actual Google Maps API key.
