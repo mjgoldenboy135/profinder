@@ -71,17 +71,37 @@ If your map shows an API key error or the build fails with a "Misconfigured secr
 
 The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_KEY/...` means you have not created the required secret in your Firebase project. This is **not a GitHub secret**.
 
+#### Method 1: Using the Firebase Console (Recommended)
+
 1.  Go to your Firebase project: [https://console.firebase.google.com/](https://console.firebase.google.com/)
 2.  In the left menu, go to **Build > App Hosting**.
 3.  Select your backend (it should be named **profinder**).
 4.  Go to the **Settings** tab.
 5.  Click on the **Environment** section.
 6.  You will be prompted for an "Environment name". Type `prod` into the box.
-7.  Click the blue **Save** button.
+7.  **Scroll down and click the blue Save button.** The page should reload.
 8.  The page will reload. Now, you will see an **Add secret** button. Click it.
 9.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
 10. For the **Secret value**, paste your actual Google Maps API key.
 11. Click **Create and Deploy**. This will trigger a new build that should now succeed.
+
+#### Method 2: Using the Firebase CLI (If Console UI fails)
+
+If the Firebase Console UI is not working, you can use the command line.
+First, make sure you have the Firebase CLI installed (`npm install -g firebase-tools`) and are logged in (`firebase login`).
+
+1.  **Set the Secret:**
+    Run the following command in your terminal. It will securely prompt you to enter the key value.
+    ```bash
+    firebase apphosting:secrets:set GOOGLE_MAPS_API_KEY --project profinder-90fe7
+    ```
+2.  **Grant Access to the Backend:**
+    Run this command to give your `profinder` backend permission to use the secret.
+     ```bash
+    firebase apphosting:secrets:grantaccess GOOGLE_MAPS_API_KEY --backend profinder --project profinder-90fe7
+    ```
+3.  **Trigger a New Deployment:**
+    Push a small change to your repository to start a new build.
 
 **Step 2 (Required): Delete the Old GitHub Workflow File**
 
