@@ -1,8 +1,15 @@
+# Configures the build and run settings for Firebase App Hosting
 build:
+  # Specifies the command to build the Next.js application
   command: npm run build
 run:
+  # Specifies the command to start the Next.js application
   command: npm run start
+  # The port the application will run on inside the container
   port: 3000
+# Defines environment variables and secrets for the application
 env:
+  # Tells App Hosting to look for a secret named GOOGLE_MAPS_API_KEY
+  # and make it available as an environment variable called 'google_maps_api_key'.
   - variable: google_maps_api_key
     secret: GOOGLE_MAPS_API_KEY

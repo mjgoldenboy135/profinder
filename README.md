@@ -20,45 +20,6 @@ Profinder is a professional social networking platform designed to help you conn
 - **Backend & Database:** [Firebase](https://firebase.google.com/) (Authentication, Firestore, Storage)
 - **Generative AI:** [Genkit](https://firebase.google.com/docs/genkit) (for future AI features)
 
-## Getting Started
-
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
-
-### Prerequisites
-
-You need to have [Node.js](https://nodejs.org/en/) (version 20.x or higher) and npm installed on your computer.
-
-### Installation
-
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/your-username/your-repo-name.git
-    cd your-repo-name
-    ```
-
-2.  **Install NPM packages:**
-    ```bash
-    npm install
-    ```
-
-3.  **Set up Environment Variables for Local Development:**
-    Create a file named `.env.local` in the root of your project and add the following variables.
-
-    ```env
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
-    NEXT_PUBLIC_GOOGLE_MAPS_ID=YOUR_GOOGLE_MAPS_ID
-    ```
-
-### Running the Development Server
-
-To run the app in development mode, execute the following command:
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:9002](http://localhost:9002) with your browser to see the result.
-
 ## Deployment with Firebase App Hosting
 
 This application is configured for easy deployment with **Firebase App Hosting**. When you push to your `master` branch, App Hosting automatically builds and deploys your app based on the `apphosting.yaml` file.
