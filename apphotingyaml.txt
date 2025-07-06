@@ -1,8 +1,0 @@
-build:
-  command: npm run build
-run:
-  command: npm run start
-  port: 3000
-env:
-  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  
