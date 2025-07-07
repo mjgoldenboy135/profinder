@@ -1,13 +1,11 @@
 # apphosting.yaml
-# Corrected configuration for Firebase App Hosting environment variables
-
 build:
   command: npm run build
   env:
-    # Map the secret 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY' to the environment variable 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'
+    - variable: TEST_BUILD_VAR
+      value: "build_works"
     - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    # Map the secret 'NEXT_PUBLIC_GOOGLE_MAPS_ID' to the environment variable 'NEXT_PUBLIC_GOOGLE_MAPS_ID'
     - variable: NEXT_PUBLIC_GOOGLE_MAPS_ID
       secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
 
@@ -15,9 +13,9 @@ run:
   command: npm run start
   port: 3000
   env:
-    # Map the secret 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY' to the environment variable 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY'
+    - variable: TEST_RUN_VAR
+      value: "run_works"
     - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    # Map the secret 'NEXT_PUBLIC_GOOGLE_MAPS_ID' to the environment variable 'NEXT_PUBLIC_GOOGLE_MAPS_ID'
     - variable: NEXT_PUBLIC_GOOGLE_MAPS_ID
       secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
