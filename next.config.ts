@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   env: {
     // This maps the server-side variable (from apphosting.yaml) 
     // to the name the client-side code expects.
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.google_maps_api_key,
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   },
   typescript: {
     ignoreBuildErrors: true,
