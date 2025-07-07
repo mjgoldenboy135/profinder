@@ -2,20 +2,13 @@
 build:
   command: npm run build
   env:
-    - variable: TEST_BUILD_VAR
-      value: "build_works"
-    - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    - variable: NEXT_PUBLIC_GOOGLE_MAPS_ID
-      secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
 
 run:
   command: npm run start
   port: 3000
   env:
-    - variable: TEST_RUN_VAR
-      value: "run_works"
-    - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    - variable: NEXT_PUBLIC_GOOGLE_MAPS_ID
-      secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
+
