@@ -61,7 +61,7 @@ Open [http://localhost:9002](http://localhost:9002) with your browser to see the
 
 ## Deployment with Firebase App Hosting
 
-This application is configured for easy deployment with **Firebase App Hosting**. When you push to your `master` branch, App Hosting automatically builds and deploys your app based on the `apphosting.yaml` file.
+This application is configured for easy deployment with **Firebase App Hosting**. When you push to your `master` branch, App Hosting automatically builds and deploys your app based on the `apphosting.yaml` file..
 
 ### Deployment Troubleshooting & Required Steps
 
