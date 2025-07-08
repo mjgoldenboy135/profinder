@@ -1,1 +1,5 @@
-m
+# .github/workflows/deploy.yml
+- name: Create .env.production
+  run: |
+    echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}" >> .env.production
+    echo "NEXT_PUBLIC_GOOGLE_MAPS_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_ID }}" >> .env.production
