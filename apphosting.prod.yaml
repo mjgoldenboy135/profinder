@@ -1,14 +1,14 @@
 # apphosting.yaml
-build:
-  command: npm run build
+# build:
+#   command: npm run build
   env:
     - secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     - secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
 
-run:
-  command: npm run start
-  port: 3000
-  env:
-    - secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    - secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
+# run:
+#   command: npm run start
+#   port: 3000
+#   env:
+#     - secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+#     - secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
 
