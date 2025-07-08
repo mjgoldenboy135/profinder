@@ -1,41 +1,19 @@
 
-# Name of the GitHub Actions workflow (shown in GitHub UI)
-name: Build Project with Google Maps API Key
+# apphosting.yaml
+runtime: nodejs20
 
-# Trigger this workflow when there is a push to the master branch
-on:
-  push:
-    branches:
-      - master  # Your only branch
+build:
+  command: npm run build
+  env:
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
 
-jobs:
-  build:  # The name of the job
-    runs-on: ubuntu-latest  # The virtual machine OS used for running the job (Ubuntu Linux)
-
-    steps:
-      # Step 1: Check out the repository code onto the runner
-      - name: Checkout code
-        uses: actions/checkout@v3  # GitHub-provided action to clone your code
-
-      # Step 2: Set up Node.js (required to run npm commands)
-      - name: Set up Node.js
-        uses: actions/setup-node@v3  # GitHub-provided action to set up Node.js
-        with:
-          node-version: 20  # The Node.js version to use (you can change this if needed)
-
-      # Step 3: Install dependencies defined in package.json
-      - name: Install dependencies
-        run: npm install  # Installs all project dependencies
-
-      # Step 4: Create .env.production file and write the Google Maps API key from GitHub Secrets
-      - name: Inject Google Maps API Key
-        run: echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}" > .env.production
-        # This line creates .env.production with your secret key injected
-        # Make sure your project uses VITE_GOOGLE_MAPS_API_KEY inside code
-
-      # Step 5: Build the project using your build command
-      - name: Build project
-        run: npm run build  # Builds the project using the defined script in package.json
+run:
+  command: npm run start
+  port: 3000
+  env:
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    - secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
 # # apphosting.yaml
 # build:
 #   # command: npm run build
