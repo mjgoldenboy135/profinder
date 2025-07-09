@@ -1,5 +1,33 @@
-# .github/workflows/deploy.yml
-- name: Create .env.production
-  run: |
-    echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}" >> .env.production
-    echo "NEXT_PUBLIC_GOOGLE_MAPS_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_ID }}" >> .env.production
+name: Build Next.js with Google Maps API Key
+
+on:
+  push:
+    branches:
+      - master  # Trigger on push to master branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # GitHub provides a fresh Ubuntu VM
+
+    steps:
+      # Step 1: Clone your repo code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Node.js (version 20 as in your package.json)
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      # Step 3: Install your project dependencies
+      - name: Install dependencies
+        run: npm install
+
+      # ✅ Step 4: Securely inject the API key as .env.local
+      - name: Create .env.local with API key
+        run: echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}" > .env.local
+
+      # Step 5: Build your Next.js app
+      - name: Build the app
+        run: npm run build
