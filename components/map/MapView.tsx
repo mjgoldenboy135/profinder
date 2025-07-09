@@ -29,6 +29,12 @@ if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
   console.log('[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID);
   console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
+  / ADD THE DEBUGGING CODE HERE
+  console.log('Environment variables:', {
+    apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+    mapId: process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID,
+    nodeEnv: process.env.NODE_ENV
+    });
 }
 
 export default function MapView() {
