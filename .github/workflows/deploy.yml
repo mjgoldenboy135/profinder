@@ -1,4 +1,4 @@
-name: Build Next.js with Google Maps API Key
+name: Build and Deploy
 
 on:
   push:
