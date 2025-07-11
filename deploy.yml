@@ -1,6 +1,5 @@
-
 name: Build and Deploy to Firebase Hosting
-# ad 
+
 on:
   push:
     branches:
@@ -11,32 +10,41 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # Step 2: Set up Node.js (change version if needed)
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
 
+      # Step 3: Install project dependencies
       - name: Install dependencies
         run: npm install
 
-      - name: env
-        
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-          NEXT_PUBLIC_GOOGLE_MAPS_ID:${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_ID }}
+      # ✅ Step 4: Inject environment variables from GitHub Secrets
+      - name: Set Environment Variables
+        run: |
+          echo "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}" >> .env.local
+          echo "NEXT_PUBLIC_GOOGLE_MAPS_ID=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_ID }}" >> .env.local
 
+      # Step 5: Build the project
       - name: Build project
         run: npm run build
 
-    #   - name: Install Firebase CLI
-    #     run: npm install -g firebase-tools
+      # Step 6: Install Firebase CLI
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
 
-    #   - name: Deploy to Firebase Hosting
-    #     run: firebase deploy
+      # ✅ Step 7: Deploy to Firebase Hosting
+      - name: Deploy to Firebase Hosting
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only hosting
 
-    #   - name: Deploy to Firebase Hosting
-    # env:
-    #     FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-    #     run: firebase deploy --only hosting
+      # 🔔 Step 8: Optional failure notification (placeholder)
+      - name: Notify on Failure
+        if: failure()
+        run: echo "❌ Deployment failed!"
