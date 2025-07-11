@@ -26,9 +26,18 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 ### Deployment Troubleshooting & Required Steps
 
-If your map shows an API key error or the build fails with a "Misconfigured secret" error, **you must complete the two steps below**.
+If your build fails with a "Misconfigured secret" or "Invalid apphosting.yaml" error, **you must complete the two steps below**.
 
-**Step 1 (Required): Create the Deployment Secret (CLI Method - Recommended)**
+**Step 1 (Required): Delete the Old GitHub Workflow File**
+
+This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file. An old, conflicting workflow file (`firebase-hosting.yml`) may be causing deployment errors. **You must delete it.**
+
+1.  Go to your repository on GitHub.
+2.  Navigate to the `.github/workflows/` directory.
+3.  Delete the `firebase-hosting.yml` file if it exists.
+4.  Commit the deletion.
+
+**Step 2 (Required): Create the Deployment Secret (CLI Method - Recommended)**
 
 The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_KEY/...` means you have not created the required secret in your Firebase project. This is **not a GitHub secret**. The recommended way to fix this is with the Firebase Command Line Interface (CLI), which bypasses any issues with the web console.
 
@@ -48,15 +57,6 @@ First, make sure you have the Firebase CLI installed (`npm install -g firebase-t
     
 3.  **Trigger a New Deployment:**
     Push a small change to your repository to start a new build.
-
-**Step 2 (Required): Delete the Old GitHub Workflow File**
-
-This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file. An old, conflicting workflow file (`firebase-hosting.yml`) may be causing deployment errors. **You must delete it.**
-
-1.  Go to your repository on GitHub.
-2.  Navigate to the `.github/workflows/` directory.
-3.  Delete the `firebase-hosting.yml` file if it exists.
-4.  Commit the deletion.
 
 After completing these two steps and pushing the latest code, your deployment will succeed.
 
