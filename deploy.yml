@@ -1,19 +1,21 @@
+# Settings for the Cloud Run service that hosts your app.
 runConfig:
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
   minInstances: 0
   maxInstances: 100
-  concurrency: 80
-  cpu: 1.0
-  memoryMiB: 512
 
+# Environment variables and secrets for your application.
 env:
+  # Defines the Google Maps API Key environment variable.
   - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    # Specifies that the value should be taken from a secret
+    # named 'NEXT_PUBLIC_GOOGLE_MAPS_API_KEY' in Google Secret Manager.
     secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    availability:
-      - BUILD
-      - RUNTIME
 
+  # Defines the Google Maps ID environment variable.
   - variable: NEXT_PUBLIC_GOOGLE_MAPS_ID
+    # Specifies that the value should be taken from a secret
+    # named 'NEXT_PUBLIC_GOOGLE_MAPS_ID' in Google Secret Manager.
     secret: NEXT_PUBLIC_GOOGLE_MAPS_ID
-    availability:
-      - BUILD
-      - RUNTIME
