@@ -39,7 +39,7 @@
     "@radix-ui/react-tooltip": "^1.1.8",
     "@vis.gl/react-google-maps": "^1.1.0",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
+    "clsx": "^2.1.2",
     "date-fns": "^3.6.0",
     "dotenv": "^16.5.0",
     "firebase": "^11.8.1",
