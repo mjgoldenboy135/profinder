@@ -221,7 +221,22 @@ export default function MapView() {
                 ) : (
                     <div className="h-[600px] w-full rounded-md overflow-hidden border">
                         <APIProvider apiKey={API_KEY}>
-                            <Map
+                        <Map
+                          onLoad={(map) => { mapRef.current = map; }}
+                          center={currentCenter}
+                          zoom={currentZoom}
+                          onCenterChanged={handleCenterChanged}
+                          onZoomChanged={handleZoomChanged}
+                          mapId={MAP_ID}
+                          gestureHandling="greedy"
+                          style={{ width: '100%', height: '100%' }}   // ✅ use style instead of className
+                          zoomControl={true}
+                          fullscreenControl={true}
+                          mapTypeControl={false}
+                          streetViewControl={false}
+                          disableDefaultUI={false}
+                        />
+{/*                             <Map
                                 onLoad={map => { mapRef.current = map; }}
                                 center={currentCenter}
                                 zoom={currentZoom}
@@ -235,7 +250,7 @@ export default function MapView() {
                                 zoomControl={true}
                                 fullscreenControl={true}
                                 disableDefaultUI={false}
-                            >
+                            > */}
                                 {visibleUsers.map(user => {
                                     const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("").toUpperCase() : "U";
                                     const avatarSrc = user.profilePictureUrl || `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
