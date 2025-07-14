@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
@@ -26,8 +25,9 @@ const DEFAULT_ZOOM = 9;
 const FOCUSED_ZOOM = 14;
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
 
+// Add console logs for debugging on the deployed site
 if (typeof window !== 'undefined') {
-  console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
+  console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available on client:', !!API_KEY);
   console.log('[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID);
   console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
 }
