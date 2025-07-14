@@ -24,9 +24,30 @@ Profinder is a professional social networking platform designed to help you conn
 
 This application is configured for easy deployment with **Firebase App Hosting**. When you push to your `master` branch, App Hosting automatically builds and deploys your app based on the `apphosting.yaml` file.
 
-### Deployment Troubleshooting & Required Steps
+---
 
-If your build fails with a "Misconfigured secret" or "Invalid apphosting.yaml" error, **you must complete the two steps below**.
+## Troubleshooting Common Deployment Issues
+
+### Issue 1: Map shows markers but no map background (blank map)
+
+If your deployed app shows user markers on a blank gray map, it means your Google Maps API Key is not configured to work on your new website URL.
+
+**Solution: Add your website URL to the API Key restrictions.**
+
+1.  **Get your website URL:** Your deployed URL is `profinder--profinder-90fe7.us-central1.hosted.app`
+2.  **Go to Google Cloud Console:** Open the API Credentials page: [https://console.cloud.google.com/google/maps-apis/credentials](https://console.cloud.google.com/google/maps-apis/credentials)
+3.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
+4.  **Click on your API Key:** Find the key you are using (likely named "Google Maps API Key for profinder-90fe7" or similar) and click its name to edit it.
+5.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
+6.  **Add a new URL:** Under "Website restrictions", click **"ADD"**.
+7.  **Enter the URL:** In the new field, type `profinder--profinder-90fe7.us-central1.hosted.app`
+8.  **Save your changes:** Click the "Save" button at the bottom.
+
+The changes can take up to 5 minutes to take effect. After that, refresh your deployed app page, and the map should appear correctly.
+
+### Issue 2: Build fails with "Misconfigured secret" or "Invalid apphosting.yaml"
+
+If your build fails, you must complete the two steps below.
 
 **Step 1 (Required): Delete the Old GitHub Workflow File**
 
@@ -59,21 +80,3 @@ First, make sure you have the Firebase CLI installed (`npm install -g firebase-t
     Push a small change to your repository to start a new build.
 
 After completing these two steps and pushing the latest code, your deployment will succeed.
-
----
-
-#### Alternative: Creating the Secret with the Firebase Console
-
-If you cannot use the Firebase CLI, you can try using the Firebase Console.
-
-1.  Go to your Firebase project: [https://console.firebase.google.com/](https://console.firebase.google.com/)
-2.  In the left menu, go to **Build > App Hosting**.
-3.  Select your backend (it should be named **profinder**).
-4.  Go to the **Settings** tab.
-5.  Click on the **Environment** section.
-6.  You will be prompted for an "Environment name". Type `prod` into the box.
-7.  **Scroll down and click the blue Save button.** The page should reload.
-8.  The page will reload. Now, you will see an **Add secret** button. Click it.
-9.  For the **Secret name**, enter **exactly** `GOOGLE_MAPS_API_KEY`.
-10. For the **Secret value**, paste your actual Google Maps API key.
-11. Click **Create and Deploy**. This will trigger a new build that should now succeed.
