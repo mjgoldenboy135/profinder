@@ -32,18 +32,21 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 If your deployed app shows user markers on a blank gray map, it means your Google Maps API Key is not configured to work on your new website URL.
 
-**Solution: Add your website URL to the API Key restrictions.**
+**Solution: Add a wildcard URL to the API Key restrictions.**
 
-1.  **Get your website URL:** Your deployed URL is `profinder--profinder-90fe7.us-central1.hosted.app`
-2.  **Go to Google Cloud Console:** Open the API Credentials page: [https://console.cloud.google.com/google/maps-apis/credentials](https://console.cloud.google.com/google/maps-apis/credentials)
-3.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
-4.  **Click on your API Key:** Find the key you are using (likely named "Google Maps API Key for profinder-90fe7" or similar) and click its name to edit it.
-5.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
-6.  **Add a new URL:** Under "Website restrictions", click **"ADD"**.
-7.  **Enter the URL:** In the new field, type `profinder--profinder-90fe7.us-central1.hosted.app`
-8.  **Save your changes:** Click the "Save" button at the bottom.
+This is the most common deployment issue. The key is to use a wildcard (`*.`) to ensure all subdomains of your app are authorized.
 
-The changes can take up to 5 minutes to take effect. After that, refresh your deployed app page, and the map should appear correctly.
+1.  **Go to Google Cloud Console:** Open the API Credentials page: [https://console.cloud.google.com/google/maps-apis/credentials](https://console.cloud.google.com/google/maps-apis/credentials)
+2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
+3.  **Click on your API Key:** Find the key you are using (check your `apphosting.yaml` secret name) and click its name to edit it.
+4.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
+5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button.
+6.  **Enter the Wildcard URL:** In the new field, type this exactly:
+    `*.profinder-90fe7.us-central1.hosted.app`
+    *(Using `*.` at the start is the key part of this fix.)*
+7.  **Save your changes:** Click the "Save" button at the bottom.
+
+The changes can take up to 5 minutes to take effect. After waiting, refresh your deployed app page, and the map should appear correctly.
 
 ### Issue 2: Build fails with "Misconfigured secret" or "Invalid apphosting.yaml"
 
