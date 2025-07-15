@@ -30,19 +30,22 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 ### Issue 1: Google Sign-In popup opens and closes immediately
 
-If the Google Sign-In window appears and then quickly disappears without letting you log in, it means your app's **OAuth Consent Screen** is not configured for public use. It is likely set to "Internal" or is in "Testing" mode.
+If the Google Sign-In window appears and then quickly disappears, and your OAuth Consent Screen is already **"In production"**, the issue is that your project's credentials are not authorized for your deployed website's URL.
 
-**Solution: Set User Type to External, then Publish the App.**
+**Solution: Add your website's URL to the Authorized JavaScript origins.**
 
-1.  **Go to Google Cloud Console:** Open the OAuth Consent Screen page: [https://console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)
+1.  **Go to Google Cloud Credentials:** Open the Credentials page: [https://console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
 2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
-3.  **Check User Type:** Look for the "User type" setting.
-    - If it says **Internal**, click **"EDIT APP"**.
-    - On the next screen, select the **"External"** option and click **"SAVE"**.
-4.  **Click "Publish App":** After returning to the main consent screen page, you should now see a button that says **"PUBLISH APP"** under the "Publishing status" section. Click it.
-5.  **Confirm:** A popup will ask you to confirm. Click **"CONFIRM"**.
+3.  **Find your Web Client ID:** Under the "OAuth 2.0 Client IDs" section, find the client that is of type **"Web application"** and click on its name to edit it. *(Do not edit the one for "Web client (auto created by Google Service)")*.
+4.  **Add the Origin URI:**
+    -   Look for the **"Authorized JavaScript origins"** section.
+    -   Click the **"+ ADD URI"** button.
+    -   In the new field that appears, enter your app's full URL exactly as follows:
+        `https://profinder--profinder-90fe7.us-central1.hosted.app`
+    -   Press Enter or click away to confirm the entry.
+5.  **Save your changes:** Scroll down and click the "SAVE" button.
 
-The status should now change to **"In production"**. The change can take a few minutes to take effect. After waiting, refresh your app, and Google Sign-In will work for all users.
+The change can take a few minutes to take effect. After waiting, refresh your app, and Google Sign-In should now work correctly.
 
 ### Issue 2: Map shows markers but no map background (blank map)
 
