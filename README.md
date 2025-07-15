@@ -28,17 +28,28 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 ## Troubleshooting Common Deployment Issues
 
-### Issue 1: Map shows markers but no map background (blank map)
+### Issue 1: Google Sign-In popup opens and closes immediately
+
+If the Google Sign-In window appears and then quickly disappears without letting you log in, it means your app's **OAuth Consent Screen** is not published. It is in "Testing" mode by default, which only allows pre-approved test users.
+
+**Solution: Publish the App in Google Cloud Console.**
+
+1.  **Go to Google Cloud Console:** Open the OAuth Consent Screen page: [https://console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)
+2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
+3.  **Click "Publish App":** Look for a button that says **"PUBLISH APP"** under the "Publishing status" section. Click it.
+4.  **Confirm:** A popup will ask you to confirm. Click **"CONFIRM"**.
+
+The status should now change to **"In production"**. The change can take a few minutes to take effect. After waiting, refresh your app, and Google Sign-In will work for all users.
+
+### Issue 2: Map shows markers but no map background (blank map)
 
 If your deployed app shows user markers on a blank gray map, it means your Google Maps API Key is not configured to work on your new website URL.
 
 **Solution: Add a wildcard URL to the API Key restrictions.**
 
-This is the most common deployment issue. The key is to use a wildcard (`*.`) to ensure all subdomains of your app are authorized.
-
 1.  **Go to Google Cloud Console:** Open the API Credentials page: [https://console.cloud.google.com/google/maps-apis/credentials](https://console.cloud.google.com/google/maps-apis/credentials)
 2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
-3.  **Click on your API Key:** Find the key you are using (check your `apphosting.yaml` secret name) and click its name to edit it.
+3.  **Click on your API Key:** Find the key you are using and click its name to edit it.
 4.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
 5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button.
 6.  **Enter the Wildcard URL:** In the new field, type this exactly:
@@ -48,24 +59,11 @@ This is the most common deployment issue. The key is to use a wildcard (`*.`) to
 
 The changes can take up to 5 minutes to take effect. After waiting, refresh your deployed app page, and the map should appear correctly.
 
-### Issue 2: Build fails with "Misconfigured secret" or "Invalid apphosting.yaml"
+### Issue 3: Build fails with "Misconfigured secret"
 
-If your build fails, you must complete the two steps below.
+The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_KEY/...` means you have not created the required secret in your Firebase project.
 
-**Step 1 (Required): Delete the Old GitHub Workflow File**
-
-This project uses `apphosting.yaml` and does not need a GitHub Actions workflow file. An old, conflicting workflow file (`firebase-hosting.yml`) may be causing deployment errors. **You must delete it.**
-
-1.  Go to your repository on GitHub.
-2.  Navigate to the `.github/workflows/` directory.
-3.  Delete the `firebase-hosting.yml` file if it exists.
-4.  Commit the deletion.
-
-**Step 2 (Required): Create the Deployment Secret (CLI Method - Recommended)**
-
-The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_KEY/...` means you have not created the required secret in your Firebase project. This is **not a GitHub secret**. The recommended way to fix this is with the Firebase Command Line Interface (CLI), which bypasses any issues with the web console.
-
-First, make sure you have the Firebase CLI installed (`npm install -g firebase-tools`) and are logged in (`firebase login`).
+**Solution: Create the secret using the Firebase CLI.**
 
 1.  **Set the Secret:**
     Run the following command in your terminal. It will securely prompt you to enter the key value.
@@ -81,5 +79,3 @@ First, make sure you have the Firebase CLI installed (`npm install -g firebase-t
     
 3.  **Trigger a New Deployment:**
     Push a small change to your repository to start a new build.
-
-After completing these two steps and pushing the latest code, your deployment will succeed.
