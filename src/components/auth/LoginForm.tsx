@@ -18,9 +18,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { auth, googleProvider } from "@/lib/firebase"; // Import googleProvider
-import { signInWithEmailAndPassword, signInWithPopup, type UserCredential } from "firebase/auth"; // Import signInWithPopup
-import { getUserProfile, createUserProfile } from "@/services/userService"; // For checking/creating profile
+import { auth, googleProvider } from "@/lib/firebase";
+import { signInWithEmailAndPassword, signInWithRedirect } from "firebase/auth";
+import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -32,6 +33,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginForm() {
   const { toast } = useToast();
   const router = useRouter();
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -78,61 +80,20 @@ export default function LoginForm() {
   }
 
   async function handleGoogleLogin() {
-    form.clearErrors();
+    setIsGoogleLoading(true);
     try {
-      const result: UserCredential = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      if (!user.email) {
-        throw new Error("Email not provided by Google. Cannot proceed.");
-      }
-
-      const userProfile = await getUserProfile(user.uid);
-
-      if (!userProfile) {
-        await createUserProfile(user.uid, {
-          fullName: user.displayName || "Google User",
-          email: user.email, 
-          profilePictureUrl: user.photoURL || "",
-          education: "",
-          profession: "",
-          professionalDetails: "",
-          yearsOfExperience: 0,
-          linkedinProfileUrl: "",
-          phoneNumber: "",
-          isOnline: false, 
-          showContact: false, 
-          bio: "",
-          interests: [],
-          favoriteUserIds: [],
-          locationVisibility: 'public', // Default visibility for new users
-        });
-      }
-
-      toast({
-        title: "Login Successful!",
-        description: `Welcome back, ${user.displayName || "User"}!`,
-      });
-      router.push("/map");
+      // Step 1: Change signInWithPopup to signInWithRedirect
+      await signInWithRedirect(auth, googleProvider);
+      // The user will be redirected to Google. The rest of the logic
+      // is now handled in AuthContext after they return.
     } catch (error: any) {
-      // Don't show a toast for intentional popup closures
-      if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
-        console.log("Google sign-in popup closed by user."); // Log for debugging, but no user-facing error
-        return;
-      }
-
-      console.error("Google login error:", error);
-      let errorMessage = "Failed to sign in with Google. Please try again.";
-      if (error.code === "auth/account-exists-with-different-credential") {
-        errorMessage = "An account already exists with this email. Please sign in using your original method.";
-      } else if (error.message === "Email not provided by Google. Cannot proceed.") {
-        errorMessage = "Your Google account did not provide an email address, which is required.";
-      }
+      console.error("Google sign-in redirect initiation error:", error);
       toast({
         title: "Google Login Failed",
-        description: errorMessage,
+        description: "Could not start the sign-in process. Please try again.",
         variant: "destructive",
       });
+      setIsGoogleLoading(false);
     }
   }
 
@@ -202,9 +163,9 @@ export default function LoginForm() {
           variant="outline" 
           className="w-full" 
           onClick={handleGoogleLogin} 
-          disabled={form.formState.isSubmitting /* Or a new loading state for Google login */}
+          disabled={form.formState.isSubmitting || isGoogleLoading}
         >
-          {/* You can add a Google icon here later, e.g., using an SVG or an icon library */}
+          {isGoogleLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           Sign in with Google
         </Button>
 
