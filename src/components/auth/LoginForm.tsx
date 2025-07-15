@@ -115,12 +115,16 @@ export default function LoginForm() {
       });
       router.push("/map");
     } catch (error: any) {
+      // Don't show a toast for intentional popup closures
+      if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
+        console.log("Google sign-in popup closed by user."); // Log for debugging, but no user-facing error
+        return;
+      }
+
       console.error("Google login error:", error);
       let errorMessage = "Failed to sign in with Google. Please try again.";
       if (error.code === "auth/account-exists-with-different-credential") {
         errorMessage = "An account already exists with this email. Please sign in using your original method.";
-      } else if (error.code === "auth/popup-closed-by-user" || error.code === "auth/cancelled-popup-request") {
-        errorMessage = "Google sign-in popup was closed or cancelled. Please try again if you wish to sign in with Google.";
       } else if (error.message === "Email not provided by Google. Cannot proceed.") {
         errorMessage = "Your Google account did not provide an email address, which is required.";
       }
