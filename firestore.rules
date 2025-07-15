@@ -2,46 +2,35 @@
 rules_version = '2';
 
 service cloud.firestore {
-  match /databases/{database}/documents {
+  // Specifically target your 'profind' database
+  match /databases/profind/documents {
 
-    // Users Collection
-    // - Anyone can read user profiles (public profiles).
-    // - Only the authenticated owner can create or update their own profile.
-    // - Deletion is disallowed through client SDKs for safety.
+    // Users can read anyone's profile, as they are public by design in this app.
+    // They can only create their own profile (document ID must match their UID).
+    // They can only update their own profile.
+    // Deletion of profiles is disallowed for safety.
     match /users/{userId} {
-      allow read: if true; // Publicly readable
+      allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false; // Or set to `if request.auth != null && request.auth.uid == userId;` if needed
+      allow delete: if false; 
     }
 
-    // Chats Collection
-    // - Users can only access chats they are participants in.
-    // - Creating a chat requires authentication.
-    // - Updating a chat (e.g., last message) requires authentication and participation.
+    // A user can read a chat if they are one of the participants.
+    // A user can create a chat if they are one of the participants.
+    // A user can update a chat (e.g., last message) if they are a participant.
+    // A user can delete a chat if they are a participant.
     match /chats/{chatId} {
-      allow get: if request.auth != null && request.auth.uid in resource.data.participantIds;
-      // For listing/querying chats:
-      // This rule allows an authenticated user to query the chats collection.
-      // The actual filtering (e.g., `where('participantIds', 'array-contains', userId)`)
-      // is done in the client-side query. This ensures that even if a broader list
-      // is requested, the security rules for individual document reads (`get`)
-      // would still apply if not for this specific list rule.
-      allow list: if request.auth != null;
+      allow read, update, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
       allow create: if request.auth != null && request.auth.uid in request.resource.data.participantIds;
-      allow update: if request.auth != null && request.auth.uid in resource.data.participantIds;
-      allow delete: if request.auth != null && request.auth.uid in resource.data.participantIds; // Allow participants to delete the chat doc
-
-      // Messages Subcollection within Chats
-      // - Users can only read/write messages in chats they participate in.
+      
+      // Messages can be read by anyone in the chat.
+      // A user can only create messages as themselves (senderId must match their UID).
+      // Updating/deleting messages is disallowed for simplicity and record-keeping.
       match /messages/{messageId} {
-        allow read: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.senderId && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
-        // No updates for messages by default to maintain chat history integrity
-        allow update: if false;
-        // Allow participants of the chat to delete messages within that chat.
-        // This is necessary for the `deleteChat` function which deletes messages first.
-        allow delete: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+        allow read: if get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+        allow create: if request.auth != null && request.resource.data.senderId == request.auth.uid;
+        allow update, delete: if false;
       }
     }
   }
