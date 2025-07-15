@@ -26,7 +26,7 @@ function FullPageLoader() {
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[200]">
       <div className="flex flex-col items-center">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Signing in...</p>
+        <p className="text-muted-foreground">Finalizing sign in...</p>
       </div>
     </div>
   );
@@ -36,18 +36,19 @@ function FullPageLoader() {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
   const [currentUserProfile, setCurrentUserProfile] = useState<AppUser | null>(null);
-  const [loading, setLoading] = useState(true); // Start with loading true
-  const [isProcessingRedirect, setIsProcessingRedirect] = useState(true); // New state to track redirect processing
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
 
   useEffect(() => {
-    // This effect handles the result of the redirect sign-in.
-    // It runs only once on component mount.
-    getRedirectResult(auth)
-      .then(async (result: UserCredential | null) => {
+    // This combined effect handles all authentication initialization.
+    // It's structured to prevent race conditions between the redirect result and the auth state listener.
+    const processAuth = async () => {
+      try {
+        const result: UserCredential | null = await getRedirectResult(auth);
+        
         if (result) {
-          // If result exists, it means the user just signed in via redirect.
+          // This block runs only if the user has just signed in via redirect.
           const user = result.user;
           toast({
             title: "Login Successful!",
@@ -56,7 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           const userProfile = await getUserProfile(user.uid);
           if (!userProfile) {
-            // Create a profile if one doesn't exist
+            // Create a profile if one doesn't exist for the new user.
             await createUserProfile(user.uid, {
               fullName: user.displayName || "Google User",
               email: user.email || "", 
@@ -66,45 +67,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               locationVisibility: 'public',
             });
           }
-          // The onAuthStateChanged listener below will handle setting the final user state
-          // and fetching the complete profile. We don't need to do anything else here.
+          // The onAuthStateChanged listener below will now reliably have the correct user.
         }
-      })
-      .catch((error) => {
-        console.error("Error during sign-in redirect:", error);
+      } catch (error: any) {
+        // Handle errors from the redirect result itself.
+        console.error("Error during sign-in redirect processing:", error);
         toast({
           title: "Google Login Failed",
-          description: `An error occurred during sign-in: ${error.message}`,
+          description: `An error occurred during sign-in: ${error.message || 'Please try again.'}`,
           variant: "destructive",
         });
-      })
-      .finally(() => {
-        // Mark the redirect processing as complete, regardless of outcome.
-        setIsProcessingRedirect(false);
-      });
+      }
 
-    // This listener handles all auth state changes, including the one from the redirect result above.
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        try {
-          const profile = await getUserProfile(user.uid);
-          setCurrentUserProfile(profile);
-        } catch (error) {
-          console.error("[AuthContext] Error fetching user profile:", error);
+      // Set up the listener that will react to all auth changes.
+      // It runs *after* the redirect has been processed, ensuring it has the latest auth state.
+      const unsubscribe = onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          setCurrentUser(user);
+          try {
+            const profile = await getUserProfile(user.uid);
+            setCurrentUserProfile(profile);
+          } catch (error) {
+            console.error("[AuthContext] Error fetching user profile:", error);
+            setCurrentUserProfile(null);
+          }
+        } else {
+          setCurrentUser(null);
           setCurrentUserProfile(null);
         }
-      } else {
-        setCurrentUser(null);
-        setCurrentUserProfile(null);
-      }
-      // Only set loading to false once the initial auth state has been determined.
-      setLoading(false);
-    });
+        // At this point, all auth processing is complete. We can stop showing the loader.
+        setLoading(false);
+      });
 
-    return () => {
-      unsubscribe();
+      return () => {
+        unsubscribe();
+      };
     };
+
+    processAuth();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -130,13 +130,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     currentUser,
     currentUserProfile,
-    loading: loading || isProcessingRedirect, // The app is loading if either is true
+    loading: loading,
     refreshUserProfile,
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {(loading || isProcessingRedirect) ? <FullPageLoader /> : children}
+      {loading ? <FullPageLoader /> : children}
     </AuthContext.Provider>
   );
 };
