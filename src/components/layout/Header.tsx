@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star } from 'lucide-react';
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2 } from 'lucide-react'; // Added Loader2
 import { useAuthContext } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -22,8 +22,8 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Separator } from '@/components/ui/separator';
-import { getUserChats } from '@/services/chatService'; // Added
-import type { Chat } from '@/lib/types'; // Added
+import { getUserChats } from '@/services/chatService'; 
+import type { Chat } from '@/lib/types'; 
 
 const mainHeaderNavLinks = [
   { href: '/map', label: 'Map', icon: MapPin, authRequired: true },
@@ -35,7 +35,7 @@ const mainHeaderNavLinks = [
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser } = useAuthContext(); // Removed 'loading' as we won't use the explicit loading block
+  const { currentUser, loading: authLoading } = useAuthContext();
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -47,7 +47,6 @@ export default function Header() {
   const [hasUnreadActivity, setHasUnreadActivity] = useState(false);
   const [checkingMessages, setCheckingMessages] = useState(false);
   
-  // A user is fully authenticated only if they exist and their email is verified.
   const isAuthenticatedAndVerified = !!currentUser && currentUser.emailVerified;
 
   useEffect(() => {
@@ -119,8 +118,16 @@ export default function Header() {
     }
   };
 
-  // Removed the explicit loading block:
-  // if (loading) { ... }
+  if (authLoading) {
+    return (
+      <header
+        key="loading-header"
+        className="bg-card border-b sticky top-0 z-50 h-20 flex items-center justify-center"
+      >
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </header>
+    );
+  }
 
   return (
     <header
