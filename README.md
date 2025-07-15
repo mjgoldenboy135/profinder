@@ -30,14 +30,17 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 ### Issue 1: Google Sign-In popup opens and closes immediately
 
-If the Google Sign-In window appears and then quickly disappears without letting you log in, it means your app's **OAuth Consent Screen** is not published. It is in "Testing" mode by default, which only allows pre-approved test users.
+If the Google Sign-In window appears and then quickly disappears without letting you log in, it means your app's **OAuth Consent Screen** is not configured for public use. It is likely set to "Internal" or is in "Testing" mode.
 
-**Solution: Publish the App in Google Cloud Console.**
+**Solution: Set User Type to External, then Publish the App.**
 
 1.  **Go to Google Cloud Console:** Open the OAuth Consent Screen page: [https://console.cloud.google.com/apis/credentials/consent](https://console.cloud.google.com/apis/credentials/consent)
 2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
-3.  **Click "Publish App":** Look for a button that says **"PUBLISH APP"** under the "Publishing status" section. Click it.
-4.  **Confirm:** A popup will ask you to confirm. Click **"CONFIRM"**.
+3.  **Check User Type:** Look for the "User type" setting.
+    - If it says **Internal**, click **"EDIT APP"**.
+    - On the next screen, select the **"External"** option and click **"SAVE"**.
+4.  **Click "Publish App":** After returning to the main consent screen page, you should now see a button that says **"PUBLISH APP"** under the "Publishing status" section. Click it.
+5.  **Confirm:** A popup will ask you to confirm. Click **"CONFIRM"**.
 
 The status should now change to **"In production"**. The change can take a few minutes to take effect. After waiting, refresh your app, and Google Sign-In will work for all users.
 
