@@ -19,7 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { auth, googleProvider } from "@/lib/firebase"; // Import googleProvider
-import { signInWithEmailAndPassword, signInWithPopup, type UserCredential } from "firebase/auth"; // Import signInWithPopup
+import { signInWithEmailAndPassword, signInWithRedirect, type UserCredential } from "firebase/auth"; // Import signInWithRedirect
 import { getUserProfile, createUserProfile } from "@/services/userService"; // For checking/creating profile
 
 const loginSchema = z.object({
@@ -80,7 +80,7 @@ export default function LoginForm() {
   async function handleGoogleLogin() {
     form.clearErrors();
     try {
-      const result: UserCredential = await signInWithPopup(auth, googleProvider);
+      const result: UserCredential = await signInWithRedirect(auth, googleProvider);
       const user = result.user;
 
       if (!user.email) {
