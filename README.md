@@ -28,9 +28,11 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 ## Troubleshooting Common Deployment Issues
 
-### Issue 1: Google Sign-In popup opens and closes immediately
+### Issue 1: "accounts.google.com refused to connect" or Google Sign-In popup closes immediately
 
-If the Google Sign-In window appears and then quickly disappears, and your OAuth Consent Screen is already **"In production"**, the issue is that your project's credentials are not authorized for your deployed website's URL.
+If the Google Sign-In window appears and then quickly disappears, or you see a "refused to connect" error in the console, it means your project's credentials are not authorized for your deployed website's URL.
+
+**This is the most common deployment issue and is the solution to most login problems.**
 
 **Solution: Add your website's URL to the Authorized JavaScript origins.**
 
