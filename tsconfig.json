@@ -13,9 +13,9 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": "src",               <== ✅ add this line
+    "baseUrl": "src",               
     "paths": {
-      "@/*": ["*"]                 <== ✅ remove `./src` from here
+      "@/*": ["*"]               
     },
     "plugins": [
       {
