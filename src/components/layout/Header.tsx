@@ -279,175 +279,169 @@
 //   );
 // }"use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { Menu, X } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { mainHeaderNavLinks } from "@/constants";
-import { useAuthContext } from "@/context/AuthContext";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { useUnreadMessages } from "@/hooks/use-unread-messages";
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useRouter } from 'next/router';
+import { Menu, X } from 'lucide-react';
+
+import { cn } from '@/lib/utils';
+import { mainHeaderNavLinks } from '@/constants';
+import { useAuthContext } from '@/context/auth-context';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser } = useAuthContext();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { hasUnreadActivity, checkingMessages } = useUnreadMessages();
+  const { currentUser, checkingAuthStatus, hasUnreadActivity, checkingMessages } =
+    useAuthContext();
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    setIsSidebarOpen(false);
-    setTimeout(() => router.push("/login"), 50); // small delay to prevent layout flash
-  };
-
-  const isAuthenticatedAndVerified =
-    currentUser && currentUser.emailVerified;
+  const isAuthenticatedAndVerified = !!currentUser && currentUser.emailVerified;
 
   return (
-    <header className="sticky bottom-0 z-50 flex w-full items-center justify-between gap-3 border-t bg-background p-1 shadow sm:hidden">
-      <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-        <SheetTrigger asChild>
-          <Button size="icon" variant="ghost">
-            <Menu className="h-6 w-6" />
-          </Button>
-        </SheetTrigger>
+    <>
+      <header className="fixed bottom-0 z-50 flex w-full items-center justify-center bg-background border-t px-4 py-2 sm:hidden">
+        <nav className="flex w-full max-w-md items-center justify-between gap-1">
+          {mainHeaderNavLinks.map((link) => {
+            const Icon = link.icon;
+            const isActive =
+              pathname === link.href ||
+              (link.href === '/messages' && pathname.startsWith('/messages/'));
 
-        <SheetContent side="left" className="w-[300px] sm:w-[400px]">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">Menu</h2>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setIsSidebarOpen(false)}
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
+            if ((link.authRequired && isAuthenticatedAndVerified) || !link.authRequired) {
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={cn(
+                    'flex flex-col items-center justify-center gap-1 p-1 sm:p-2 rounded-md transition-colors',
+                    isActive ? 'text-primary' : 'text-foreground hover:text-primary/90'
+                  )}
+                  title={link.label}
+                >
+                  {link.href === '/messages' ? (
+                    <div className="relative">
+                      <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                      {hasUnreadActivity && !checkingMessages && (
+                        <span
+                          className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-destructive ring-1 ring-card"
+                          aria-label="New messages"
+                        />
+                      )}
+                    </div>
+                  ) : (
+                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
+                  )}
+                  <span className="text-[10px] sm:text-xs font-medium">{link.label}</span>
+                </Link>
+              );
+            }
+            return null;
+          })}
+        </nav>
+      </header>
 
-          {isAuthenticatedAndVerified && (
-            <div className="mb-6 flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage
-                  src={currentUser.photoURL || ""}
-                  alt={currentUser.displayName || ""}
-                />
-                <AvatarFallback>
-                  {currentUser.displayName
-                    ? currentUser.displayName[0]
-                    : "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <div className="font-semibold">
-                  {currentUser.displayName || "User"}
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {currentUser.email}
-                </div>
-              </div>
-            </div>
-          )}
+      <header className="fixed top-0 z-50 hidden w-full border-b bg-background px-4 py-2 sm:block">
+        <div className="flex max-w-6xl items-center justify-between mx-auto">
+          <Link
+            href="/"
+            className="text-xl font-semibold tracking-tight text-foreground"
+          >
+            MyApp
+          </Link>
 
-          <nav className="flex flex-col space-y-2">
+          <div className="hidden sm:flex gap-4">
             {mainHeaderNavLinks.map((link) => {
-              const Icon = link.icon;
               const isActive =
                 pathname === link.href ||
-                (link.href === "/messages" &&
-                  pathname.startsWith("/messages/"));
+                (link.href === '/messages' && pathname.startsWith('/messages/'));
 
-              if (
-                (link.authRequired && isAuthenticatedAndVerified) ||
-                !link.authRequired
-              ) {
+              if ((link.authRequired && isAuthenticatedAndVerified) || !link.authRequired) {
                 return (
                   <Link
                     key={link.href}
                     href={link.href}
-                    onClick={() => setIsSidebarOpen(false)}
+                    aria-current={isActive ? 'page' : undefined}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-3 py-2 transition-colors",
-                      isActive
-                        ? "bg-accent text-accent-foreground"
-                        : "hover:bg-muted"
+                      'text-sm font-medium transition-colors hover:text-primary',
+                      isActive ? 'text-primary' : 'text-foreground'
                     )}
                   >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-sm font-medium">{link.label}</span>
+                    {link.label}
                   </Link>
                 );
               }
               return null;
             })}
-          </nav>
+          </div>
 
-          {isAuthenticatedAndVerified && (
-            <Button
-              variant="ghost"
-              onClick={handleLogout}
-              className="mt-4 w-full justify-start"
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            className="sm:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="h-6 w-6" />
+          </button>
+        </div>
+      </header>
+
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 sm:hidden">
+          <div className="fixed top-0 right-0 w-64 h-full bg-white shadow-lg p-4">
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="mb-4"
+              aria-label="Close menu"
             >
-              Logout
-            </Button>
-          )}
-        </SheetContent>
-      </Sheet>
+              <X className="h-6 w-6" />
+            </button>
 
-      {/* Bottom Navigation */}
-      <nav className="flex flex-1 justify-around">
-        {mainHeaderNavLinks.map((link) => {
-          const Icon = link.icon;
-          const isActive =
-            pathname === link.href ||
-            (link.href === "/messages" && pathname.startsWith("/messages/"));
+            <nav className="flex flex-col gap-4">
+              {mainHeaderNavLinks.map((link) => {
+                const isActive =
+                  pathname === link.href ||
+                  (link.href === '/messages' && pathname.startsWith('/messages/'));
 
-          if (
-            (link.authRequired && isAuthenticatedAndVerified) ||
-            !link.authRequired
-          ) {
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 p-1 sm:p-2 rounded-md transition-colors",
-                  isActive
-                    ? "text-primary"
-                    : "text-foreground hover:text-primary/90"
-                )}
-                title={link.label}
-              >
-                {link.href === "/messages" ? (
-                  <div className="relative">
-                    <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-                    {hasUnreadActivity && !checkingMessages && (
-                      <span
-                        className="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-destructive ring-1 ring-card"
-                        aria-label="New messages"
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
-                )}
-                <span className="text-[10px] sm:text-xs font-medium">
-                  {link.label}
-                </span>
-              </Link>
-            );
-          }
+                if ((link.authRequired && isAuthenticatedAndVerified) || !link.authRequired) {
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setIsSidebarOpen(false)}
+                      aria-current={isActive ? 'page' : undefined}
+                      className={cn(
+                        'text-sm font-medium transition-colors hover:text-primary',
+                        isActive ? 'text-primary' : 'text-foreground'
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                }
+                return null;
+              })}
 
-          return null;
-        })}
-      </nav>
-    </header>
+              {isAuthenticatedAndVerified && (
+                <button
+                  onClick={async () => {
+                    await signOut(auth);
+                    setIsSidebarOpen(false);
+                    setTimeout(() => router.push('/login'), 50); // Prevent layout flash
+                  }}
+                  className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
+                >
+                  Logout
+                </button>
+              )}
+            </nav>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
-
