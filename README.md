@@ -38,7 +38,7 @@ If the Google Sign-In window appears and then quickly disappears, or you see a "
 
 1.  **Go to Google Cloud Credentials:** Open the Credentials page: [https://console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
 2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
-3.  **Find your Web Client ID:** Under the "OAuth 2.0 Client IDs" section, find the client that is of type **"Web application"** and click on its name to edit it. *(Do not edit the one for "Web client (auto created by Google Service)")*.
+3.  **Find your Web Client ID:** Under the "OAuth 2.0 Client IDs" section, find the client that is of type **"Web application"** and click on its name to edit it. *(It is okay if the name is "Web client (auto created by Google Service)"; as long as the type is "Web application", this is the correct one to edit.)*.
 4.  **Add the Origin URI:**
     -   Look for the **"Authorized JavaScript origins"** section.
     -   Click the **"+ ADD URI"** button.
@@ -61,7 +61,7 @@ If your deployed app shows user markers on a blank gray map, it means your Googl
 4.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
 5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button.
 6.  **Enter the Wildcard URL:** In the new field, type this exactly:
-    `*.profinder-90fe7.us-central1.hosted.app`
+    `*.profinder--profinder-90fe7.us-central1.hosted.app`
     *(Using `*.` at the start is the key part of this fix.)*
 7.  **Save your changes:** Click the "Save" button at the bottom.
 
@@ -87,3 +87,4 @@ The error `Error resolving secret version with name=.../secrets/GOOGLE_MAPS_API_
     
 3.  **Trigger a New Deployment:**
     Push a small change to your repository to start a new build.
+
