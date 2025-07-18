@@ -1,46 +1,24 @@
 rules_version = '2';
 
-// Specify the database to apply the rules to
 service cloud.firestore {
-  match /databases/profind/documents {
+  match /databases/{database}/documents {
 
-    // Rules for the 'users' collection
+    // Users can be read by any authenticated user, but only written by the user themselves.
     match /users/{userId} {
-      // Allow anyone to create their own user document
-      // This is necessary for the initial sign-up process.
-      // The request.auth.uid must match the document's userId.
-      allow create: if request.auth != null && request.auth.uid == userId;
-
-      // Allow any authenticated user to read any other user's profile.
-      // This is for public profile viewing.
       allow read: if request.auth != null;
-
-      // Allow a user to update their own document.
-      // This is for editing their own profile.
-      allow update: if request.auth != null && request.auth.uid == userId;
-
-      // Generally, deleting users should be handled by a server-side process or admin role.
-      // For this app, we disallow client-side deletion of user profiles.
-      allow delete: if false;
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Rules for the 'chats' collection and its 'messages' subcollection
+    // Chats can be read and written by participants.
+    // Deletion is allowed for participants as well.
     match /chats/{chatId} {
-      // A user can read or write to a chat document only if their UID is in the participantIds array.
-      allow read, write, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
+      allow read, create, update, delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
 
-      // Rules for the 'messages' subcollection within a chat
+      // Messages can be read and written by chat participants.
       match /messages/{messageId} {
-        // A user can read messages in a chat if they are a participant of that chat.
-        // We use get() to check the parent chat document's participantIds.
-        allow read: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
-        
-        // A user can create a message if they are a participant in the chat
-        // and the message they are creating is from them.
-        allow create: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]) && request.resource.data.senderId == request.auth.uid;
-        
-        // Users cannot update or delete individual messages.
-        allow update, delete: if false;
+        allow read, create: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+        // Update/delete of messages is disallowed for simplicity, but can be enabled here if needed.
+        allow update, delete: if false; 
       }
     }
   }
