@@ -1,73 +1,52 @@
-
 rules_version = '2';
 
+// The 'profind' database
 service cloud.firestore {
-  // Specify the database name explicitly.
   match /databases/profind/documents {
-    
-    // =====================================================================
-    //   User Profiles (`users`)
-    // =====================================================================
-    match /users/{userId} {
-      
-      // --- READ ---
-      // Anyone who is logged in can read anyone else's profile.
-      // This is necessary for the user list, map view, and public profile pages.
-      allow read: if request.auth != null;
 
-      // --- CREATE ---
-      // A user can only create their OWN profile document.
-      // This is the critical rule for fixing the sign-up/login flow.
+    // Rules for the 'users' collection
+    match /users/{userId} {
+      // ANYONE can read a user's public profile data.
+      // This is necessary for the user list, map, and public profile pages to work.
+      allow read: if true;
+
+      // A user can ONLY CREATE their OWN profile document.
+      // The `request.auth.uid` must match the document's ID (`userId`).
       allow create: if request.auth != null && request.auth.uid == userId;
 
-      // --- UPDATE ---
-      // A user can only update their OWN profile document.
-      // They cannot change their ID, email, or creation date.
-      allow update: if request.auth != null && request.auth.uid == userId
-                    && request.resource.data.id == resource.data.id
-                    && request.resource.data.email == resource.data.email
-                    && request.resource.data.createdAt == resource.data.createdAt;
-                    
-      // --- DELETE ---
-      // Deleting user documents is not allowed from the client for data integrity.
+      // A user can ONLY UPDATE their OWN profile document.
+      allow update: if request.auth != null && request.auth.uid == userId;
+
+      // Deleting user documents is not allowed from the client-side.
       allow delete: if false;
     }
 
-    // =====================================================================
-    //   Chats (`chats`) and Messages (`chats/{chatId}/messages`)
-    // =====================================================================
+    // Rules for the 'chats' collection
     match /chats/{chatId} {
-      
-      // Helper function to check if the requesting user is a participant in the chat.
-      function isParticipant() {
-        return request.auth != null && request.auth.uid in resource.data.participantIds;
-      }
-      
-      // --- READ ---
-      // Only participants of the chat can read the chat document (and its messages).
-      allow get, list: if isParticipant();
+      // Allow read/get if the user is a participant in the chat.
+      // This is essential for opening a chat and listing existing chats.
+      allow get, list: if request.auth != null && request.auth.uid in resource.data.participantIds;
 
-      // --- CREATE ---
-      // An authenticated user can create a chat, as long as they are one of the participants.
+      // A logged-in user can create a new chat.
+      // Additional security: ensure the creator is one of the participants.
       allow create: if request.auth != null && request.auth.uid in request.resource.data.participantIds;
 
-      // --- UPDATE ---
-      // Only a participant can update a chat document (e.g., to update the last message).
-      allow update: if isParticipant();
-      
-      // --- DELETE ---
-      // Only a participant can delete a chat document.
-      allow delete: if isParticipant();
+      // Only a participant can update a chat (e.g., to change the last message).
+      allow update: if request.auth != null && request.auth.uid in resource.data.participantIds;
 
-      // --- Messages Subcollection ---
+      // Allow a participant to delete a chat.
+      allow delete: if request.auth != null && request.auth.uid in resource.data.participantIds;
+
+      // Rules for the 'messages' subcollection within a chat
       match /messages/{messageId} {
-        // Inherit the read rule: only participants can read messages.
-        allow read: if isParticipant();
+        // Allow read/list of messages if the user is a participant of the parent chat document.
+        allow get, list: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]);
+
+        // Allow a user to create a message if they are a participant in the chat
+        // AND the message they are creating is from themselves.
+        allow create: if request.auth != null && get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds.hasAny([request.auth.uid]) && request.resource.data.senderId == request.auth.uid;
         
-        // A participant can create a message.
-        allow create: if isParticipant();
-        
-        // No one can update or delete individual messages from the client.
+        // Messages cannot be updated or deleted from the client-side.
         allow update, delete: if false;
       }
     }
