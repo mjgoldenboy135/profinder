@@ -2,20 +2,36 @@
 "use client";
 
 import type { User as FirebaseUser } from 'firebase/auth';
-import { onAuthStateChanged } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult, type UserCredential } from 'firebase/auth';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { auth } from '@/lib/firebase'; // Your Firebase auth instance
 import type { User as AppUser } from '@/lib/types'; // Import your app's User type
-import { getUserProfile } from '@/services/userService'; // Import userService
+import { getUserProfile, createUserProfile } from '@/services/userService'; // Import userService
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
+import { Loader2 } from 'lucide-react'; // Import Loader2
 
 interface AuthContextType {
-  currentUser: FirebaseUser | null; // Firebase Auth user
-  currentUserProfile: AppUser | null; // Firestore user profile
+  currentUser: FirebaseUser | null;
+  currentUserProfile: AppUser | null;
   loading: boolean;
-  refreshUserProfile: () => Promise<void>; // Added refreshUserProfile to type
+  refreshUserProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// A simple full-page loader component
+function FullPageLoader() {
+  return (
+    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[200]">
+      <div className="flex flex-col items-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Checking authentication...</p>
+      </div>
+    </div>
+  );
+}
+
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
@@ -23,80 +39,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log(`[AuthContext] AuthProvider mounted at ${new Date().toISOString()}`);
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      const eventTime = new Date().toISOString();
-      console.log(`[AuthContext] onAuthStateChanged fired at ${eventTime}. User:`, user ? { uid: user.uid, email: user.email } : null);
-
       if (user) {
-        console.log(`[AuthContext] Setting current Firebase user at ${eventTime}. UID: ${user.uid}`);
         setCurrentUser(user);
-        setLoading(true); // Set loading true before fetching profile
         try {
-          console.log(`[AuthContext] Fetching Firestore profile for UID: ${user.uid} at ${eventTime} (onAuthStateChanged)`);
           const profile = await getUserProfile(user.uid);
-          console.log(`[AuthContext] Firestore profile fetched for UID: ${user.uid} at ${eventTime}. Profile:`, profile);
           setCurrentUserProfile(profile);
         } catch (error) {
-          console.error("[AuthContext] Error fetching user profile after auth state change:", error);
+          console.error("[AuthContext] Error fetching user profile:", error);
           setCurrentUserProfile(null);
-        } finally {
-          setLoading(false); 
         }
       } else {
-        console.log(`[AuthContext] No Firebase user. Setting currentUser and currentUserProfile to null at ${eventTime}`);
         setCurrentUser(null);
         setCurrentUserProfile(null);
-        setLoading(false);
       }
+      setLoading(false);
     });
 
-    return () => {
-      console.log(`[AuthContext] AuthProvider unmounting, unsubscribing from onAuthStateChanged at ${new Date().toISOString()}`);
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   const refreshUserProfile = async () => {
-    const refreshTime = new Date().toISOString();
-    console.log(`[AuthContext refreshUserProfile] Called at ${refreshTime}`);
     const firebaseAuthUser = auth.currentUser;
-    console.log(`[AuthContext refreshUserProfile] auth.currentUser:`, firebaseAuthUser ? { uid: firebaseAuthUser.uid, email: firebaseAuthUser.email } : null);
-
     if (firebaseAuthUser) {
-      console.log(`[AuthContext refreshUserProfile] Firebase user found (UID: ${firebaseAuthUser.uid}). Setting loading to true.`);
-      setLoading(true);
       try {
-        console.log(`[AuthContext refreshUserProfile] Attempting to fetch Firestore profile for UID: ${firebaseAuthUser.uid}.`);
         const firestoreProfile = await getUserProfile(firebaseAuthUser.uid);
-        console.log(`[AuthContext refreshUserProfile] Firestore profile fetched for UID: ${firebaseAuthUser.uid}. Profile:`, firestoreProfile);
-        
-        console.log(`[AuthContext refreshUserProfile] Setting currentUserProfile.`);
         setCurrentUserProfile(firestoreProfile);
-
-        // Re-set currentUser from auth.currentUser to ensure it's the latest from Firebase Auth SDK
-        // especially if things like displayName or photoURL were updated directly via auth methods.
-        console.log(`[AuthContext refreshUserProfile] Setting currentUser state (from auth.currentUser).`);
-        setCurrentUser(firebaseAuthUser); // This ensures current user reflects any immediate auth changes.
-
+        await firebaseAuthUser.reload();
+        setCurrentUser(auth.currentUser);
       } catch (error) {
         console.error("[AuthContext refreshUserProfile] Error refreshing user profile:", error);
-        // Potentially set currentUserProfile to null or keep existing if fetch fails?
-        // For now, just log error. The UI might rely on existing profile if fetch fails.
-      } finally {
-        console.log(`[AuthContext refreshUserProfile] Setting loading to false for UID: ${firebaseAuthUser.uid}.`);
-        setLoading(false);
       }
     } else {
-      console.log(`[AuthContext refreshUserProfile] No Firebase user. Setting currentUser and currentUserProfile to null.`);
       setCurrentUserProfile(null);
       setCurrentUser(null);
-      setLoading(false);
     }
-    console.log(`[AuthContext refreshUserProfile] Finished at ${new Date().toISOString()}`);
   };
-
 
   const value = {
     currentUser,
@@ -105,7 +83,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     refreshUserProfile,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {loading ? <FullPageLoader /> : children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuthContext = () => {
