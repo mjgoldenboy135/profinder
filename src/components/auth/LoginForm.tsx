@@ -19,9 +19,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { auth, googleProvider } from "@/lib/firebase";
-import { signInWithEmailAndPassword, signInWithRedirect } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { createUserProfile, getUserProfile } from "@/services/userService";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -82,17 +83,44 @@ export default function LoginForm() {
   async function handleGoogleLogin() {
     setIsGoogleLoading(true);
     try {
-      // Step 1: Change signInWithPopup to signInWithRedirect
-      await signInWithRedirect(auth, googleProvider);
-      // The user will be redirected to Google. The rest of the logic
-      // is now handled in AuthContext after they return.
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      const userProfile = await getUserProfile(user.uid);
+      if (!userProfile) {
+        await createUserProfile(user.uid, {
+          fullName: user.displayName || "Google User",
+          email: user.email || "", 
+          profilePictureUrl: user.photoURL || "",
+          isOnline: false, 
+          showContact: false, 
+          locationVisibility: 'public',
+        });
+      }
+
+      toast({
+        title: "Login Successful!",
+        description: `Welcome back, ${user.displayName || "User"}!`,
+      });
+      router.push("/map");
+
     } catch (error: any) {
-      console.error("Google sign-in redirect initiation error:", error);
+      console.error("Google sign-in popup error:", error);
+      let errorMessage = "Could not sign in with Google. Please try again.";
+      if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Sign-in window was closed. Please try again.';
+      } else if (error.code === 'auth/cancelled-popup-request') {
+        // This can happen if the popup is closed quickly or another is opened.
+        // It's often better to say nothing here.
+        setIsGoogleLoading(false);
+        return;
+      }
       toast({
         title: "Google Login Failed",
-        description: "Could not start the sign-in process. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+    } finally {
       setIsGoogleLoading(false);
     }
   }
