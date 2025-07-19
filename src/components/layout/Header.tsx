@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2 } from 'lucide-react'; // Added Loader2
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2 } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
@@ -22,8 +22,8 @@ import {
   SheetFooter,
 } from "@/components/ui/sheet";
 import { Separator } from '@/components/ui/separator';
-import { getUserChats } from '@/services/chatService'; 
-import type { Chat } from '@/lib/types'; 
+import { getUserChats } from '@/services/chatService';
+import type { Chat } from '@/lib/types';
 
 const mainHeaderNavLinks = [
   { href: '/map', label: 'Map', icon: MapPin, authRequired: true },
