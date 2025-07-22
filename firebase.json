@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 
-=======
->>>>>>> e2792b871e43f7aee4d0d72f82ade80cb04158c8
 {
   "hosting": {
     "source": ".",
@@ -12,7 +9,6 @@
     ],
     "frameworksBackend": {
       "region": "us-central1"
-<<<<<<< HEAD
     },
     "headers": [
       {
@@ -29,8 +25,5 @@
   "firestore": {
     "database": "profind",
     "rules": "firestore.rules"
-=======
-    }
->>>>>>> e2792b871e43f7aee4d0d72f82ade80cb04158c8
   }
 }
