@@ -1,14 +1,9 @@
 
 import type {NextConfig} from 'next';
+import getConfig from 'next/config';
 
 const nextConfig: NextConfig = {
   /* config options here */
-  env: {
-    // This maps the server-side variable (from apphosting.yaml) 
-    // to the name the client-side code expects.
-    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: process.env.google_maps_api_key,
-    NEXT_PUBLIC_GOOGLE_MAPS_ID: process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -59,4 +54,6 @@ const nextConfig: NextConfig = {
   }
 };
 
-export default nextConfig;
+// This wrapper is required to make environment variables available to the client side.
+const withAppHosting = require('@apphosting/nextjs-options');
+export default withAppHosting(nextConfig);
