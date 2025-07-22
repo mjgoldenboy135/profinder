@@ -1,6 +1,5 @@
 
 import type {NextConfig} from 'next';
-import getConfig from 'next/config';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -54,6 +53,4 @@ const nextConfig: NextConfig = {
   }
 };
 
-// This wrapper is required to make environment variables available to the client side.
-const withAppHosting = require('@apphosting/nextjs-options');
-export default withAppHosting(nextConfig);
+export default nextConfig;
