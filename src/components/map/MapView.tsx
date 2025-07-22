@@ -17,19 +17,12 @@ import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/contexts/AuthContext'; // Import useAuthContext
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
-const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId.trim() : undefined;
+const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || undefined;
 
 const ALL_PROFESSIONS_FILTER_VALUE = "__ALL_PROFESSIONS__";
 const DEFAULT_ZOOM = 9;
 const FOCUSED_ZOOM = 14;
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
-
-if (typeof window !== 'undefined') {
-  console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available:', !!API_KEY);
-  console.log('[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID);
-  console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
-}
 
 export default function MapView() {
   const [allOnlineUsers, setAllOnlineUsers] = useState<User[]>([]);
@@ -150,7 +143,7 @@ export default function MapView() {
                     <p className="font-bold">For Local Development:</p>
                     <p className="mb-2">Create a <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file in your project root and add the line: <code className="bg-muted px-1 py-0.5 rounded block mt-1">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_KEY_HERE</code></p>
                     <p className="font-bold">For the Deployed Site:</p>
-                    <p>Ensure the API key is correctly set in your <code className="bg-muted px-1 py-0.5 rounded">apphosting.yaml</code> file and that the change has been successfully deployed. Check your GitHub repository and Firebase Console deployment status.</p>
+                    <p>Ensure the API key is correctly set as a secret in your Firebase Project and that the <code className="bg-muted px-1 py-0.5 rounded">apphosting.yaml</code> file is configured to use it. If the issue persists, check the "Troubleshooting" section in your README file.</p>
                 </UILabelAlertDescription>
             </Alert>
             <div className="mt-4 p-4 border rounded-md bg-muted min-h-[400px] flex flex-col items-center justify-center text-center">
@@ -201,7 +194,7 @@ export default function MapView() {
                 <UILabelAlertDescription>
                 The <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_ID</code> environment variable is not set.
                 Advanced Markers (used for user avatars on the map) require a Map ID and may not function correctly without it.
-                Please set this variable in your <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file and restart your server.
+                Please set this variable in your <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file (for local development) or as a secret for deployment.
                 </UILabelAlertDescription>
             </Alert>
         )}
