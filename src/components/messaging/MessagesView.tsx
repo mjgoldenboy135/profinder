@@ -43,9 +43,23 @@ export default function MessagesView() {
   const [chatToDeleteId, setChatToDeleteId] = useState<string | null>(null);
   const [isDeletingChat, setIsDeletingChat] = useState(false);
 
+  // Helper to get a consistent timestamp for sorting/comparison
+  const getComparableTimestamp = (ts: any): number => {
+    if (!ts) return 0;
+    // Handle Firestore Timestamp objects specifically
+    if (ts && typeof ts.toMillis === 'function') return ts.toMillis();
+    // Handle cases where ts might already be a number (milliseconds)
+    if (typeof ts === 'number') return ts;
+    // Handle Date objects or ISO strings (fallback)
+    const date = new Date(ts);
+    // Ensure we don't return NaN, which can break sorting
+    return !isNaN(date.getTime()) ? date.getTime() : 0;
+  };
 
   useEffect(() => {
-    const initializeChatsAndNavigation = async () => {
+    // This effect runs once when the user logs in to fetch initial chats.
+    // It will not re-run on path changes within the messages page.
+    const fetchInitialChats = async () => {
       if (authLoading || !currentUser) {
         setIsLoading(true);
         return;
@@ -53,94 +67,25 @@ export default function MessagesView() {
       setIsLoading(true);
 
       try {
-        console.log("[MessagesPage] Attempting to fetch user chats for:", currentUser.uid);
         const rawUserChats = await getUserChats(currentUser.uid);
-        console.log("[MessagesPage] Fetched raw user chats:", rawUserChats.length);
 
-        // De-duplicate chats client-side
+        // De-duplicate chats client-side to handle any data inconsistencies
         const uniqueChatsMap = new Map<string, Chat>();
-        
-        const getComparableTimestamp = (ts: any): number => {
-          if (!ts) return 0;
-          // Handle Firestore Timestamp objects specifically
-          if (ts && typeof ts.toMillis === 'function') return ts.toMillis();
-          // Handle cases where ts might already be a number (milliseconds)
-          if (typeof ts === 'number') return ts;
-          // Fallback for Date objects or ISO strings
-          const date = new Date(ts);
-          return isNaN(date.getTime()) ? 0 : date.getTime();
-        };
-
         rawUserChats.forEach(chat => {
           const otherParticipantId = chat.participantIds.find(id => id !== currentUser.uid);
           if (otherParticipantId) {
             const existingChatForParticipant = uniqueChatsMap.get(otherParticipantId);
             const currentChatTimestamp = getComparableTimestamp(chat.updatedAt);
 
-            if (!existingChatForParticipant) {
+            if (!existingChatForParticipant || currentChatTimestamp > getComparableTimestamp(existingChatForParticipant.updatedAt)) {
               uniqueChatsMap.set(otherParticipantId, chat);
-            } else {
-              const existingChatTimestamp = getComparableTimestamp(existingChatForParticipant.updatedAt);
-              if (currentChatTimestamp > existingChatTimestamp) {
-                uniqueChatsMap.set(otherParticipantId, chat);
-              }
             }
           }
         });
         const deDupedUserChats = Array.from(uniqueChatsMap.values());
-        console.log("[MessagesPage] De-duplicated user chats:", deDupedUserChats.length);
         setChats(deDupedUserChats);
-
-
-        const chatWithId = searchParams.get("chatWith");
-        const pathSegments = currentPathname.split('/');
-        const chatIdFromPath = pathSegments.length > 2 && pathSegments[1] === 'messages' && pathSegments[2] ? pathSegments[2] : undefined;
-        
-        console.log("[MessagesPage] Initial navigation check: chatWithId:", chatWithId, "chatIdFromPath:", chatIdFromPath);
-
-        if (chatWithId) {
-          console.log("[MessagesPage] 'chatWith' param found:", chatWithId);
-          const existingChatWithTargetUser = deDupedUserChats.find( // Use deDupedUserChats
-            (c) => c.participantIds.includes(currentUser.uid) && c.participantIds.includes(chatWithId)
-          );
-
-          if (existingChatWithTargetUser && existingChatWithTargetUser.id === chatIdFromPath) {
-            console.log("[MessagesPage] Already on the correct chat page:", existingChatWithTargetUser.id);
-            setActiveChatId(existingChatWithTargetUser.id);
-          } else if (existingChatWithTargetUser) {
-            console.log("[MessagesPage] Navigating to existing chat:", existingChatWithTargetUser.id);
-            router.replace(`/messages/${existingChatWithTargetUser.id}`); 
-            setActiveChatId(existingChatWithTargetUser.id);
-          } else {
-            console.log("[MessagesPage] No existing chat, attempting to find or create for:", chatWithId);
-            const newChatId = await findOrCreateChat(currentUser.uid, chatWithId);
-            console.log("[MessagesPage] findOrCreateChat returned ID:", newChatId, "navigating to it.");
-            router.replace(`/messages/${newChatId}`);
-            setActiveChatId(newChatId);
-            const updatedUserChats = await getUserChats(currentUser.uid); // Re-fetch to get new chat
-             // Re-apply de-duplication after re-fetch
-            const reFetchedUniqueChatsMap = new Map<string, Chat>();
-            updatedUserChats.forEach(chat => {
-                const otherParticipantId = chat.participantIds.find(id => id !== currentUser.uid);
-                if (otherParticipantId) {
-                    const existing = reFetchedUniqueChatsMap.get(otherParticipantId);
-                    const currentTS = getComparableTimestamp(chat.updatedAt);
-                    if (!existing || currentTS > getComparableTimestamp(existing.updatedAt)) {
-                        reFetchedUniqueChatsMap.set(otherParticipantId, chat);
-                    }
-                }
-            });
-            setChats(Array.from(reFetchedUniqueChatsMap.values()));
-          }
-        } else if (chatIdFromPath) {
-           console.log("[MessagesPage] Navigated directly to chat page:", chatIdFromPath);
-           setActiveChatId(chatIdFromPath);
-        } else {
-           console.log("[MessagesPage] No specific chat targeted in URL.");
-        }
-
       } catch (error) {
-        console.error("[MessagesPage] Error initializing chats or navigation:", error);
+        console.error("[MessagesPage] Error fetching initial chats:", error);
         toast({
           title: "Error Loading Chats",
           description: (error as Error).message || "Could not load your conversations.",
@@ -148,13 +93,63 @@ export default function MessagesView() {
         });
       } finally {
         setIsLoading(false);
-        console.log("[MessagesPage] Initialization complete. isLoading: false");
+      }
+    };
+    
+    fetchInitialChats();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, authLoading]);
+
+
+  useEffect(() => {
+    // This effect handles navigation and creating new chats based on URL changes.
+    // It does NOT re-fetch the entire chat list.
+    const handleNavigation = async () => {
+      if (!currentUser) return;
+
+      const chatWithId = searchParams.get("chatWith");
+      const pathSegments = currentPathname.split('/');
+      const chatIdFromPath = pathSegments.length > 2 && pathSegments[1] === 'messages' && pathSegments[2] ? pathSegments[2] : undefined;
+
+      setActiveChatId(chatIdFromPath); // Always sync active chat with URL
+
+      if (chatWithId) {
+        const existingChat = chats.find(
+          c => c.participantIds.includes(chatWithId)
+        );
+
+        if (existingChat) {
+          // If we have an existing chat but the URL isn't pointing to it, correct the URL.
+          if (existingChat.id !== chatIdFromPath) {
+            router.replace(`/messages/${existingChat.id}`);
+          }
+        } else {
+          // No existing chat found, create a new one.
+          setIsLoading(true);
+          try {
+            const newChatId = await findOrCreateChat(currentUser.uid, chatWithId);
+            // After creating, refetch the single new chat to add to the list
+            const newChatDetails = await getChatDetails(newChatId);
+            if (newChatDetails) {
+              setChats(prev => [...prev, newChatDetails]);
+            }
+            router.replace(`/messages/${newChatId}`);
+          } catch(err) {
+            toast({ title: "Error", description: "Could not create new chat.", variant: "destructive" });
+            router.replace('/messages'); // Go back to safety
+          } finally {
+            setIsLoading(false);
+          }
+        }
       }
     };
 
-    initializeChatsAndNavigation();
+    if (!isLoading && !authLoading) {
+      handleNavigation();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, authLoading, searchParams, currentPathname]); // router removed to prevent loops on replace
+  }, [searchParams, currentPathname, currentUser, chats, isLoading, authLoading]); // router removed
+
 
   const handleInitiateDelete = (chatId: string) => {
     setChatToDeleteId(chatId);
@@ -200,15 +195,8 @@ export default function MessagesView() {
     // Ensure otherParticipant and fullName exist before calling toLowerCase
     return otherParticipant?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
   }).sort((a, b) => {
-    // Ensure lastMessageTimestamp is handled correctly if it's a Firestore Timestamp or number
-    const getSortableTimestamp = (ts: any): number => {
-        if (!ts) return 0;
-        if (typeof ts.toMillis === 'function') return ts.toMillis(); // Firestore Timestamp
-        if (typeof ts === 'number') return ts; // Milliseconds
-        return new Date(ts).getTime() || 0; // Fallback for Date objects or ISO strings
-    };
-    const timeA = getSortableTimestamp(a.lastMessageTimestamp);
-    const timeB = getSortableTimestamp(b.lastMessageTimestamp);
+    const timeA = getComparableTimestamp(a.lastMessageTimestamp);
+    const timeB = getComparableTimestamp(b.lastMessageTimestamp);
     return timeB - timeA;
   });
 
@@ -309,3 +297,5 @@ export default function MessagesView() {
     </div>
   );
 }
+
+    
