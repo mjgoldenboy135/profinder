@@ -1,7 +1,7 @@
 
 "use client";
 
-import { APIProvider, Map, AdvancedMarker } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -32,6 +32,34 @@ if (typeof window !== 'undefined') {
   console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
 }
 
+const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnlineUsers }: {
+  targetUserId: string | null;
+  targetLatParam: string | null;
+  targetLngParam: string | null;
+  allOnlineUsers: User[];
+}) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (map) {
+        const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
+        if (targetLatParam && targetLngParam) {
+            const lat = parseFloat(targetLatParam);
+            const lng = parseFloat(targetLngParam);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                map.panTo({ lat, lng });
+                map.setZoom(FOCUSED_ZOOM);
+            }
+        } else if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
+            map.panTo({ lat: targetUser.location.lat, lng: targetUser.location.lng });
+            map.setZoom(FOCUSED_ZOOM);
+        }
+    }
+  }, [map, targetUserId, targetLatParam, targetLngParam, allOnlineUsers]);
+
+  return null;
+}
+
 export default function MapView() {
   const [allOnlineUsers, setAllOnlineUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,7 +68,6 @@ export default function MapView() {
   const [selectedProfession, setSelectedProfession] = useState<string>(ALL_PROFESSIONS_FILTER_VALUE);
   const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
   const { currentUser } = useAuthContext();
-  const mapRef = useRef<google.maps.Map | null>(null);
 
   const targetUserId = searchParams.get('userId');
   const targetLatParam = searchParams.get('lat');
@@ -118,23 +145,6 @@ export default function MapView() {
     return (targetLatParam && targetLngParam) || targetUserId ? FOCUSED_ZOOM : DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam, targetUserId]);
   
-  useEffect(() => {
-    if (mapRef.current) {
-        const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
-        if (targetLatParam && targetLngParam) {
-            const lat = parseFloat(targetLatParam);
-            const lng = parseFloat(targetLngParam);
-            if (!isNaN(lat) && !isNaN(lng)) {
-                mapRef.current.panTo({ lat, lng });
-                mapRef.current.setZoom(FOCUSED_ZOOM);
-            }
-        } else if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
-            mapRef.current.panTo({ lat: targetUser.location.lat, lng: targetUser.location.lng });
-            mapRef.current.setZoom(FOCUSED_ZOOM);
-        }
-    }
-  }, [targetUserId, targetLatParam, targetLngParam, allOnlineUsers]);
-
 
   if (!API_KEY) {
     return (
@@ -215,7 +225,6 @@ export default function MapView() {
           <div className="h-[600px] w-full rounded-md overflow-hidden border">
             <APIProvider apiKey={API_KEY}>
               <Map
-                ref={mapRef}
                 defaultCenter={initialCenter}
                 defaultZoom={initialZoom}
                 mapId={MAP_ID}
@@ -256,6 +265,12 @@ export default function MapView() {
                   ) : null
                 })}
               </Map>
+              <MapController 
+                targetUserId={targetUserId}
+                targetLatParam={targetLatParam}
+                targetLngParam={targetLngParam}
+                allOnlineUsers={allOnlineUsers}
+              />
             </APIProvider>
           </div>
         )}
