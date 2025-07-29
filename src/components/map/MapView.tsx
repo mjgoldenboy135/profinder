@@ -5,7 +5,7 @@ import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-m
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react";
@@ -17,8 +17,7 @@ import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/contexts/AuthContext'; // Import useAuthContext
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
-const MAP_ID = rawMapId && rawMapId.trim() !== "" ? rawMapId.trim() : undefined;
+const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || "";
 
 const ALL_PROFESSIONS_FILTER_VALUE = "__ALL_PROFESSIONS__";
 const DEFAULT_ZOOM = 9;
@@ -28,8 +27,7 @@ const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 };
 // Add console logs for debugging on the deployed site
 if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available on client:', !!API_KEY);
-  console.log('[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env:', process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID);
-  console.log('[MapView] Evaluated MAP_ID for <Map> component:', MAP_ID);
+  console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_ID available on client:', !!MAP_ID);
 }
 
 const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnlineUsers }: {
@@ -78,6 +76,10 @@ export default function MapView() {
       console.warn("[MapView] Google Maps API Key is missing. Map functionality will be disabled.");
       setIsLoading(false);
       return;
+    }
+    if (!MAP_ID) {
+      console.warn("[MapView] Google Maps Map ID is missing. Advanced Markers may not function.");
+      // We don't stop loading, but the UI will show an error message.
     }
 
     setIsLoading(true);
@@ -146,31 +148,52 @@ export default function MapView() {
   }, [targetLatParam, targetLngParam, targetUserId]);
   
 
-  if (!API_KEY) {
-    return (
+  const renderErrorCard = (title: string, description: string, children: React.ReactNode) => (
       <Card className="mt-4 shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-headline">Map Configuration Required</CardTitle>
-          <CardDescription>The Google Maps API Key is missing.</CardDescription>
+          <CardTitle className="text-3xl font-headline">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
             <Alert variant="destructive">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertTitle>Action Needed</AlertTitle>
                 <UILabelAlertDescription>
-                    <p className="font-bold">For Local Development:</p>
-                    <p className="mb-2">Create a <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file in your project root and add the line: <code className="bg-muted px-1 py-0.5 rounded block mt-1">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_KEY_HERE</code></p>
-                    <p className="font-bold">For the Deployed Site:</p>
-                    <p>Ensure the API key is correctly set in your <code className="bg-muted px-1 py-0.5 rounded">apphosting.yaml</code> file and that the change has been successfully deployed. Check your GitHub repository and Firebase Console deployment status.</p>
+                    {children}
                 </UILabelAlertDescription>
             </Alert>
             <div className="mt-4 p-4 border rounded-md bg-muted min-h-[400px] flex flex-col items-center justify-center text-center">
                 <MapPinIcon className="h-16 w-16 text-muted-foreground mb-4" />
                 <p className="text-lg font-semibold text-foreground mb-1">Map Placeholder</p>
-                <p className="text-muted-foreground">The interactive map would display online users here, but the API key is missing.</p>
+                <p className="text-muted-foreground">The interactive map is disabled until the configuration is fixed.</p>
             </div>
         </CardContent>
       </Card>
+  );
+
+  if (!API_KEY) {
+    return renderErrorCard(
+        "Map Configuration Required",
+        "The Google Maps API Key is missing.",
+        <>
+            <p className="font-bold">For Local Development:</p>
+            <p className="mb-2">Create a <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file in your project root and add the line: <code className="bg-muted px-1 py-0.5 rounded block mt-1">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_KEY_HERE</code></p>
+            <p className="font-bold">For the Deployed Site:</p>
+            <p>Ensure the <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code> secret is correctly set in your Firebase App Hosting backend configuration.</p>
+        </>
+    );
+  }
+
+  if (!MAP_ID) {
+    return renderErrorCard(
+        "Map Configuration Required",
+        "The Google Maps Map ID is missing. User avatars cannot be shown without it.",
+        <>
+            <p className="font-bold">For Local Development:</p>
+            <p className="mb-2">In your <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file, add the line: <code className="bg-muted px-1 py-0.5 rounded block mt-1">NEXT_PUBLIC_GOOGLE_MAPS_ID=YOUR_MAP_ID_HERE</code></p>
+            <p className="font-bold">For the Deployed Site:</p>
+            <p>Ensure the <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_ID</code> secret is correctly set in your Firebase App Hosting backend configuration. This is a separate secret from the API Key.</p>
+        </>
     );
   }
 
@@ -205,17 +228,6 @@ export default function MapView() {
         </div>
       </CardHeader>
       <CardContent>
-        {!MAP_ID && API_KEY && (
-            <Alert variant="destructive" className="mb-4">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Map Configuration Incomplete</AlertTitle>
-                <UILabelAlertDescription>
-                The <code className="bg-muted px-1 py-0.5 rounded">NEXT_PUBLIC_GOOGLE_MAPS_ID</code> environment variable is not set.
-                Advanced Markers (used for user avatars on the map) require a Map ID and may not function correctly without it.
-                Please set this variable in your <code className="bg-muted px-1 py-0.5 rounded">.env.local</code> file and restart your server.
-                </UILabelAlertDescription>
-            </Alert>
-        )}
         {isLoading ? (
           <div className="h-[600px] w-full rounded-md border flex flex-col items-center justify-center bg-muted">
             <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -264,13 +276,13 @@ export default function MapView() {
                     </AdvancedMarker>
                   ) : null
                 })}
+                 <MapController 
+                    targetUserId={targetUserId}
+                    targetLatParam={targetLatParam}
+                    targetLngParam={targetLngParam}
+                    allOnlineUsers={allOnlineUsers}
+                 />
               </Map>
-              <MapController 
-                targetUserId={targetUserId}
-                targetLatParam={targetLatParam}
-                targetLngParam={targetLngParam}
-                allOnlineUsers={allOnlineUsers}
-              />
             </APIProvider>
           </div>
         )}
