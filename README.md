@@ -38,24 +38,27 @@ If your map is blank/gray, or if you see a `RefererNotAllowedMapError` in the br
 2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
 3.  **Click on your API Key:** Find the key you are using for this app and click its name to edit it.
 4.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
-5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button to add the following entries one by one.
+5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button to add the following entries one by one. **It is critical that you copy these exactly, including the `https://` and the `*` characters.**
+
+    *   **For the Deployed Site (Most Important):**
+        Add this exact URL to allow the map to work on your live website.
+        ```
+        https://*.profinder--profinder-90fe7.us-central1.hosted.app/*
+        ```
 
     *   **For the Development Environment:**
         Add this exact URL to allow the map to work in your coding environment:
         ```
-        https://*.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev
-        ```
-
-    *   **For the Deployed Site:**
-        Add this exact URL to allow the map to work on your live website. Use a wildcard (`*.`) at the beginning.
-        ```
-        *.profinder--profinder-90fe7.us-central1.hosted.app
+        https://*.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev/*
         ```
         
     *   **For Localhost (Optional but Recommended):**
         ```
         http://localhost:9002
         ```
+
+    Your final configuration should look like this:
+    ![Correct API Key Configuration](https://storage.googleapis.com/profinder-90fe7.appspot.com/correct_api_restrictions.png)
 
 6.  **Save your changes:** Click the "Save" button at the bottom.
 
