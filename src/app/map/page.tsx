@@ -1,6 +1,5 @@
 
-"use client";
-
+import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,7 +25,6 @@ function MapLoadingFallback() {
 }
 
 // Dynamically import the MapView component with server-side rendering (SSR) disabled.
-// This is the key change to fix the build error.
 const MapViewWithNoSSR = dynamic(() => import("@/components/map/MapView"), {
   ssr: false,
   loading: () => <MapLoadingFallback />,
@@ -36,7 +34,9 @@ const MapViewWithNoSSR = dynamic(() => import("@/components/map/MapView"), {
 export default function MapPage() {
   return (
     <div className="py-8">
-      <MapViewWithNoSSR />
+      <Suspense fallback={<MapLoadingFallback />}>
+        <MapViewWithNoSSR />
+      </Suspense>
     </div>
   );
 }
