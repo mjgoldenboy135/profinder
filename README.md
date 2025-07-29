@@ -26,46 +26,56 @@ This application is configured for easy deployment with **Firebase App Hosting**
 
 ---
 
-## Troubleshooting Common Deployment Issues
+## Troubleshooting Common Errors
 
-### Issue 1: "accounts.google.com refused to connect" or Google Sign-In popup closes immediately
+### Issue 1: Map shows markers but no map background (or fails with `RefererNotAllowedMapError`)
+
+If your map is blank/gray, or if you see a `RefererNotAllowedMapError` in the browser console, it means your Google Maps API Key is not configured to work on your website's URL. This needs to be fixed for **both** your development environment and your final deployed site.
+
+**Solution: Add your website URLs to the API Key's "Website restrictions".**
+
+1.  **Go to Google Cloud Console:** Open the API Credentials page: [https://console.cloud.google.com/google/maps-apis/credentials](https://console.cloud.google.com/google/maps-apis/credentials)
+2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
+3.  **Click on your API Key:** Find the key you are using for this app and click its name to edit it.
+4.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
+5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button to add the following entries one by one.
+
+    *   **For the Development Environment:**
+        Add this exact URL to allow the map to work in your coding environment:
+        ```
+        https://*.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev
+        ```
+
+    *   **For the Deployed Site:**
+        Add this exact URL to allow the map to work on your live website. Use a wildcard (`*.`) at the beginning.
+        ```
+        *.profinder--profinder-90fe7.us-central1.hosted.app
+        ```
+        
+    *   **For Localhost (Optional but Recommended):**
+        ```
+        http://localhost:9002
+        ```
+
+6.  **Save your changes:** Click the "Save" button at the bottom.
+
+The changes can take up to 5 minutes to take effect. After waiting, refresh your app page, and the map should appear correctly in all environments.
+
+### Issue 2: "accounts.google.com refused to connect" or Google Sign-In popup closes immediately
 
 If the Google Sign-In window appears and then quickly disappears, or you see a "refused to connect" error in the console, it means your project's credentials are not authorized for your deployed website's URL.
-
-**This is the most common deployment issue and is the solution to most login problems.**
 
 **Solution: Add your website's URL to the Authorized JavaScript origins.**
 
 1.  **Go to Google Cloud Credentials:** Open the Credentials page: [https://console.cloud.google.com/apis/credentials](https://console.cloud.google.com/apis/credentials)
 2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
-3.  **Find your Web Client ID:** Under the "OAuth 2.0 Client IDs" section, find the client that is of type **"Web application"** and click on its name to edit it. *(It is okay if the name is "Web client (auto created by Google Service)"; as long as the type is "Web application", this is the correct one to edit.)*.
+3.  **Find your Web Client ID:** Under the "OAuth 2.0 Client IDs" section, find the client that is of type **"Web application"** and click on its name to edit it.
 4.  **Add the Origin URI:**
     -   Look for the **"Authorized JavaScript origins"** section.
     -   Click the **"+ ADD URI"** button.
     -   In the new field that appears, enter your app's full URL exactly as follows:
         `https://profinder--profinder-90fe7.us-central1.hosted.app`
-    -   Press Enter or click away to confirm the entry.
 5.  **Save your changes:** Scroll down and click the "SAVE" button.
-
-The change can take a few minutes to take effect. After waiting, refresh your app, and Google Sign-In should now work correctly.
-
-### Issue 2: Map shows markers but no map background (blank map)
-
-If your deployed app shows user markers on a blank gray map, it means your Google Maps API Key is not configured to work on your new website URL.
-
-**Solution: Add a wildcard URL to the API Key restrictions.**
-
-1.  **Go to Google Cloud Console:** Open the API Credentials page: [https://console.cloud.google.com/google/maps-apis/credentials](https://console.cloud.google.com/google/maps-apis/credentials)
-2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
-3.  **Click on your API Key:** Find the key you are using and click its name to edit it.
-4.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
-5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button.
-6.  **Enter the Wildcard URL:** In the new field, type this exactly:
-    `*.profinder--profinder-90fe7.us-central1.hosted.app`
-    *(Using `*.` at the start is the key part of this fix.)*
-7.  **Save your changes:** Click the "Save" button at the bottom.
-
-The changes can take up to 5 minutes to take effect. After waiting, refresh your deployed app page, and the map should appear correctly.
 
 ### Issue 3: Build fails with "Misconfigured secret"
 
