@@ -1,10 +1,10 @@
 
-import { Suspense } from "react";
+"use client";
+
+import dynamic from "next/dynamic";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import MapLoader from "@/components/map/MapLoader";
 
-// Define a loading component to show while the map is loading
 function MapLoadingFallback() {
   return (
     <Card className="shadow-xl">
@@ -24,12 +24,13 @@ function MapLoadingFallback() {
   )
 }
 
-export default function MapPage() {
-  return (
-    <div className="py-8">
-      <Suspense fallback={<MapLoadingFallback />}>
-        <MapLoader />
-      </Suspense>
-    </div>
-  );
+// Dynamically import the MapView component with server-side rendering (SSR) disabled.
+// This is now done in a client component.
+const MapViewWithNoSSR = dynamic(() => import("@/components/map/MapView"), {
+  ssr: false,
+  loading: () => <MapLoadingFallback />,
+});
+
+export default function MapLoader() {
+  return <MapViewWithNoSSR />;
 }
