@@ -1,7 +1,7 @@
 
 "use client";
 
-import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useMap, MapCameraChangedEvent } from '@vis.gl/react-google-maps';
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,18 +40,24 @@ const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnline
 
   useEffect(() => {
     if (map) {
-        const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
-        if (targetLatParam && targetLngParam) {
-            const lat = parseFloat(targetLatParam);
-            const lng = parseFloat(targetLngParam);
-            if (!isNaN(lat) && !isNaN(lng)) {
-                map.panTo({ lat, lng });
+        // Trigger a resize event to ensure the map fits its container, especially on first load.
+        // The timeout gives the browser a moment to finalize layout calculations.
+        setTimeout(() => {
+            google.maps.event.trigger(map, 'resize');
+        
+            const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
+            if (targetLatParam && targetLngParam) {
+                const lat = parseFloat(targetLatParam);
+                const lng = parseFloat(targetLngParam);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    map.panTo({ lat, lng });
+                    map.setZoom(FOCUSED_ZOOM);
+                }
+            } else if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
+                map.panTo({ lat: targetUser.location.lat, lng: targetUser.location.lng });
                 map.setZoom(FOCUSED_ZOOM);
             }
-        } else if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
-            map.panTo({ lat: targetUser.location.lat, lng: targetUser.location.lng });
-            map.setZoom(FOCUSED_ZOOM);
-        }
+        }, 100); // 100ms delay
     }
   }, [map, targetUserId, targetLatParam, targetLngParam, allOnlineUsers]);
 
@@ -300,3 +306,4 @@ export default function MapView() {
     </Card>
   );
 }
+
