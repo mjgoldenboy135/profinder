@@ -37,7 +37,7 @@ If your map is blank/gray, or if you see a `RefererNotAllowedMapError` in the br
 1.  **Go to Google Cloud Console:** Open the API Credentials page: [https://console.cloud.google.com/google/maps-apis/credentials](https://console.cloud.google.com/google/maps-apis/credentials)
 2.  **Select your Project:** Make sure your project (`profinder-90fe7`) is selected at the top of the page.
 3.  **Click on your API Key:** Find the key you are using for this app and click its name to edit it.
-4.  **Find "Application restrictions":** Scroll down to this section. Make sure **"Websites"** is selected.
+4.  **Select "Websites":** Under "Application restrictions", click the radio button for **"Websites"**.
 5.  **Click "ADD":** Under "Website restrictions", click the **"ADD"** button to add the following entries one by one. **It is critical that you copy these exactly, including the `https://` and the `*` characters.**
 
     *   **For the Deployed Site (Most Important):**
