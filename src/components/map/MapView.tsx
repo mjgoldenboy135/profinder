@@ -40,7 +40,7 @@ const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnline
 
   useEffect(() => {
     if (map) {
-        // Trigger a resize event to ensure the map fits its container, especially on first load.
+        // Trigger a resize event to ensure the map fits its container, especially on first load or refresh.
         // The timeout gives the browser a moment to finalize layout calculations.
         setTimeout(() => {
             google.maps.event.trigger(map, 'resize');
@@ -56,8 +56,11 @@ const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnline
             } else if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
                 map.panTo({ lat: targetUser.location.lat, lng: targetUser.location.lng });
                 map.setZoom(FOCUSED_ZOOM);
+            } else {
+                // If no target user, we can gently pan to the map's current center to ensure it's correct.
+                map.panTo(map.getCenter()!);
             }
-        }, 100); // 100ms delay
+        }, 100); // 100ms delay can be adjusted if needed
     }
   }, [map, targetUserId, targetLatParam, targetLngParam, allOnlineUsers]);
 
@@ -306,4 +309,3 @@ export default function MapView() {
     </Card>
   );
 }
-
