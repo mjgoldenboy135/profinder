@@ -18,11 +18,19 @@ import { useAuthContext } from '@/contexts/AuthContext'; // Import useAuthContex
 
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || "";
+const ALL_PROFESSIONS_FILTER_VALUE = "__ANY_PROFESSION__";
+const DEFAULT_ZOOM = 12;
+const FOCUSED_ZOOM = 15;
+const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 
 // Add console logs for debugging on the deployed site
 if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available on client:', !!API_KEY);
-  console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_ID available on client:', !!MAP_ID);
+  // Do not log the raw ID unless necessary for deep debugging.
+  // Instead, confirm it's being evaluated.
+  const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || "";
+  console.log(`[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env: ${rawMapId.substring(0,10)}...`);
+  console.log(`[MapView] Evaluated MAP_ID for <Map> component: ${MAP_ID.substring(0,10)}...`);
 }
 
 const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnlineUsers }: {
