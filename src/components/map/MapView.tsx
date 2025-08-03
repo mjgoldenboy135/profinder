@@ -81,7 +81,7 @@ export default function MapView() {
 
   const targetUserId = searchParams.get('userId');
   const targetLatParam = searchParams.get('lat');
-  const targetLngParam = searchParams.get('lng');
+  const targetLngParam = search_params.get('lng');
 
   useEffect(() => {
     if (!API_KEY) {
