@@ -16,8 +16,17 @@ import { Label } from "@/components/ui/label";
 import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/contexts/AuthContext'; // Import useAuthContext
 
+// --- Fallback API key logic added ---
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || "";
+const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || null;
+
+if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+  console.warn("[MapView] No NEXT_PUBLIC_GOOGLE_MAPS_API_KEY found. Using fallback key (works only on localhost)");
+}
+// --- End fallback API key logic ---
+
+
+
 const ALL_PROFESSIONS_FILTER_VALUE = "__ANY_PROFESSION__";
 const DEFAULT_ZOOM = 12;
 const FOCUSED_ZOOM = 15;
