@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/contexts/AuthContext'; // Import useAuthContext
 
 // --- Fallback API key logic added ---
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "AIzaSyAzuJJuiTlI2QpSZ3bo5xc_OOBuVLRYw1Y";
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || null;
 
 if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
