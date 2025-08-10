@@ -5,7 +5,7 @@ Profinder is a professional social networking platform designed to help you conn
 ## Key Features
 
 - **User Discovery:** Browse a list of professionals, filter by profession, location, and online status.
-- **Interactive Map View:** See who's online and nearby on a real-time map, with privacy controls.
+- **Interactive Map View:** See who's online and nearby on a real-time map, with privacy controls..
 - **Public Profiles:** View detailed user profiles including their profession, experience, bio, and contact information (if shared)..
 - **Real-time Messaging:** Start one-on-one conversations with other users with in-app chat.
 - **Favorites System:** Keep a list of your favorite professionals for easy access.
