@@ -37,9 +37,14 @@ if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available on client:', !!API_KEY);
   // Do not log the raw ID unless necessary for deep debugging.
   // Instead, confirm it's being evaluated.
-  const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || "";
-  console.log(`[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env: ${rawMapId.substring(0,10)}...`);
-  console.log(`[MapView] Evaluated MAP_ID for <Map> component: ${MAP_ID.substring(0,10)}...`);
+  // const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || "";
+  // console.log(`[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env: ${rawMapId.substring(0,10)}...`);
+  // console.log(`[MapView] Evaluated MAP_ID for <Map> component: ${MAP_ID.substring(0,10)}...`);
+  const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
+  const formattedRawMapId = rawMapId ? `${rawMapId.substring(0,10)}...` : "<missing>";
+  const formattedMapId = MAP_ID ? `${MAP_ID.substring(0,10)}...` : "<missing>";
+  console.log(`[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env: ${formattedRawMapId}`);
+  console.log(`[MapView] Evaluated MAP_ID for <Map> component: ${formattedMapId}`);
 }
 
 const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnlineUsers }: {
