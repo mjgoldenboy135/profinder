@@ -5,7 +5,7 @@ import { APIProvider, Map, AdvancedMarker, useMap, MapCameraChangedEvent } from 
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, type Unsubscribe } from "firebase/firestore";
 import { MapPin as MapPinIcon, Loader2, AlertTriangle } from "lucide-react";
@@ -37,47 +37,63 @@ if (typeof window !== 'undefined') {
   console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available on client:', !!API_KEY);
   // Do not log the raw ID unless necessary for deep debugging.
   // Instead, confirm it's being evaluated.
-  const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || "";
-  console.log(`[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env: ${rawMapId.substring(0,10)}...`);
-  console.log(`[MapView] Evaluated MAP_ID for <Map> component: ${MAP_ID.substring(0,10)}...`);
+  const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
+  const formattedRawMapId = rawMapId ? `${rawMapId.substring(0,10)}...` : "<missing>";
+  const formattedMapId = MAP_ID ? `${MAP_ID.substring(0,10)}...` : "<missing>";
+  console.log(`[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env: ${formattedRawMapId}`);
+  console.log(`[MapView] Evaluated MAP_ID for <Map> component: ${formattedMapId}`);
 }
 
-const MapController = ({ targetUserId, targetLatParam, targetLngParam, allOnlineUsers }: {
+const MapController = ({
+  targetUserId,
+  targetLatParam,
+  targetLngParam,
+  allOnlineUsers,
+}: {
   targetUserId: string | null;
   targetLatParam: string | null;
   targetLngParam: string | null;
   allOnlineUsers: User[];
 }) => {
   const map = useMap();
+  const hasCenteredRef = useRef(false);
+
+  // Allow the map to recenter if the query params change
+  useEffect(() => {
+    hasCenteredRef.current = false;
+  }, [targetUserId, targetLatParam, targetLngParam]);
 
   useEffect(() => {
-    if (map) {
-        // Trigger a resize event to ensure the map fits its container, especially on first load or refresh.
-        // The timeout gives the browser a moment to finalize layout calculations.
-        setTimeout(() => {
-            google.maps.event.trigger(map, 'resize');
-        
-            const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
-            if (targetLatParam && targetLngParam) {
-                const lat = parseFloat(targetLatParam);
-                const lng = parseFloat(targetLngParam);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    map.panTo({ lat, lng });
-                    map.setZoom(FOCUSED_ZOOM);
-                }
-            } else if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
-                map.panTo({ lat: targetUser.location.lat, lng: targetUser.location.lng });
-                map.setZoom(FOCUSED_ZOOM);
-            } else {
-                // If no target user, we can gently pan to the map's current center to ensure it's correct.
-                map.panTo(map.getCenter()!);
-            }
-        }, 100); // 100ms delay can be adjusted if needed
-    }
+    if (!map || hasCenteredRef.current) return;
+
+    setTimeout(() => {
+      google.maps.event.trigger(map, 'resize');
+
+      const targetUser = allOnlineUsers.find(u => u.id === targetUserId);
+      if (targetLatParam && targetLngParam) {
+        const lat = parseFloat(targetLatParam);
+        const lng = parseFloat(targetLngParam);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          map.panTo({ lat, lng });
+          map.setZoom(FOCUSED_ZOOM);
+          hasCenteredRef.current = true;
+        }
+      } else if (targetUser?.location?.lat != null && targetUser?.location?.lng != null) {
+        map.panTo({ lat: targetUser.location.lat, lng: targetUser.location.lng });
+        map.setZoom(FOCUSED_ZOOM);
+        hasCenteredRef.current = true;
+      } else if (!targetUserId) {
+        // If no specific target, gently pan to the current center once on load
+        map.panTo(map.getCenter()!);
+        hasCenteredRef.current = true;
+      }
+      // If a target user is specified but not yet loaded, this effect
+      // will run again when allOnlineUsers updates.
+    }, 100); // 100ms delay can be adjusted if needed
   }, [map, targetUserId, targetLatParam, targetLngParam, allOnlineUsers]);
 
   return null;
-}
+};
 
 export default function MapView() {
   const [allOnlineUsers, setAllOnlineUsers] = useState<User[]>([]);
