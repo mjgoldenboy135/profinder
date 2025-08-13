@@ -1,7 +1,7 @@
 
 "use client";
 
-import { APIProvider, Map, AdvancedMarker, useMap, MapCameraChangedEvent } from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useMap } from '@vis.gl/react-google-maps';
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,33 +15,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/contexts/AuthContext'; // Import useAuthContext
+import { GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_ID } from '@/lib/config';
 
-// --- Fallback API key logic added ---
-const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
-const MAP_ID = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID || null;
+const API_KEY = GOOGLE_MAPS_API_KEY;
+const MAP_ID = GOOGLE_MAPS_ID;
 
-if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
-  console.warn("[MapView] No NEXT_PUBLIC_GOOGLE_MAPS_API_KEY found. Using fallback key (works only on localhost)");
+if (!API_KEY) {
+  console.warn("[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing. Map functionality will be disabled.");
 }
-// --- End fallback API key logic ---
-
-
-
 const ALL_PROFESSIONS_FILTER_VALUE = "__ANY_PROFESSION__";
 const DEFAULT_ZOOM = 12;
 const FOCUSED_ZOOM = 15;
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 
-// Add console logs for debugging on the deployed site
+// Log the trimmed Map ID for debugging in the browser
 if (typeof window !== 'undefined') {
-  console.log('[MapView] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY available on client:', !!API_KEY);
-  // Do not log the raw ID unless necessary for deep debugging.
-  // Instead, confirm it's being evaluated.
-  const rawMapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_ID;
-  const formattedRawMapId = rawMapId ? `${rawMapId.substring(0,10)}...` : "<missing>";
-  const formattedMapId = MAP_ID ? `${MAP_ID.substring(0,10)}...` : "<missing>";
-  console.log(`[MapView] Raw NEXT_PUBLIC_GOOGLE_MAPS_ID from env: ${formattedRawMapId}`);
-  console.log(`[MapView] Evaluated MAP_ID for <Map> component: ${formattedMapId}`);
+  console.log('[MapView] mapId:', JSON.stringify(MAP_ID));
 }
 
 const MapController = ({
@@ -276,7 +265,7 @@ export default function MapView() {
               <Map
                 defaultCenter={initialCenter}
                 defaultZoom={initialZoom}
-                mapId={MAP_ID || undefined}
+                mapId={MAP_ID}
                 gestureHandling="auto"
                 className="h-full w-full"
                 mapTypeControl={false}
