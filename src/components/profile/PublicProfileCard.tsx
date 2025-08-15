@@ -6,12 +6,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Linkedin, Mail, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2 } from "lucide-react";
-import Link from "next/link";
-import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { addFavoriteUser, removeFavoriteUser } from "@/services/userService";
 import { useToast } from "@/hooks/use-toast";
+import { findOrCreateChat } from "@/services/chatService";
 
 interface PublicProfileCardProps {
   user: User; // The user whose profile is being viewed
@@ -20,9 +20,11 @@ interface PublicProfileCardProps {
 export default function PublicProfileCard({ user }: PublicProfileCardProps) {
   const { currentUser, currentUserProfile, loading: authLoading, refreshUserProfile } = useAuthContext();
   const { toast } = useToast();
-  
+  const router = useRouter();
+
   const [isFavorited, setIsFavorited] = useState(false);
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
+  const [isStartingChat, setIsStartingChat] = useState(false);
 
   const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("") : "PN";
 
@@ -71,6 +73,23 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
   };
   
   const showFavoriteButton = currentUser && currentUser.uid !== user.id;
+
+  const handleStartChat = async () => {
+    if (!currentUser) {
+      router.push('/login');
+      return;
+    }
+    setIsStartingChat(true);
+    try {
+      const chatId = await findOrCreateChat(currentUser.uid, user.id);
+      router.push(`/messages/${chatId}`);
+    } catch (error) {
+      console.error('Error initiating chat:', error);
+      toast({ title: 'Error', description: 'Could not start chat.', variant: 'destructive' });
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
 
 
   return (
@@ -156,10 +175,13 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           </Button>
         )}
         {currentUser && currentUser.uid !== user.id && (
-          <Button asChild>
-            <Link href={`/messages?chatWith=${user.id}`}>
-              <MessageSquare className="mr-2 h-5 w-5" /> Message
-            </Link>
+          <Button onClick={handleStartChat} disabled={isStartingChat}>
+            {isStartingChat ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <MessageSquare className="mr-2 h-5 w-5" />
+            )}
+            Message
           </Button>
         )}
         {showFavoriteButton && !authLoading && (

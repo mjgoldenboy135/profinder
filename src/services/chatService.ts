@@ -13,6 +13,7 @@ import {
   writeBatch,
   arrayUnion,
   deleteDoc, // Import deleteDoc
+  onSnapshot,
   type Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -105,6 +106,37 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     }
     throw error;
   }
+}
+
+/**
+ * Subscribes to chats for a given user in real time.
+ * @param userId The ID of the user whose chats to subscribe to.
+ * @param callback Function to execute with the updated array of chats.
+ * @returns A function that unsubscribes from the listener.
+ */
+export function subscribeToUserChats(
+  userId: string,
+  callback: (chats: Chat[]) => void
+): () => void {
+  if (!userId) {
+    console.error('subscribeToUserChats called with no userId');
+    return () => {};
+  }
+
+  const chatsRef = collection(db, CHATS_COLLECTION);
+  const q = query(
+    chatsRef,
+    where('participantIds', 'array-contains', userId),
+    orderBy('updatedAt', 'desc')
+  );
+
+  return onSnapshot(q, snapshot => {
+    const chats: Chat[] = [];
+    snapshot.forEach(doc => {
+      chats.push({ id: doc.id, ...doc.data() } as Chat);
+    });
+    callback(chats);
+  });
 }
 
 /**
