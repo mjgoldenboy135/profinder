@@ -12,8 +12,7 @@ import { MessageCircle, Search, Loader2, Trash2, AlertTriangle } from "lucide-re
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { getUserChats, findOrCreateChat, deleteChat } from "@/services/chatService";
-import { getUserProfile } from "@/services/userService"; 
+import { subscribeToUserChats, findOrCreateChat, deleteChat } from "@/services/chatService";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +24,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import type { Timestamp } from "firebase/firestore";
 
 export default function MessagesView() {
   const router = useRouter();
@@ -57,47 +55,31 @@ export default function MessagesView() {
   };
 
   useEffect(() => {
-    // This effect runs once when the user logs in to fetch initial chats.
-    // It will not re-run on path changes within the messages page.
-    const fetchInitialChats = async () => {
-      if (authLoading || !currentUser) {
-        setIsLoading(true);
-        return;
-      }
+    if (authLoading || !currentUser) {
       setIsLoading(true);
+      return;
+    }
+    setIsLoading(true);
 
-      try {
-        const rawUserChats = await getUserChats(currentUser.uid);
+    const unsubscribe = subscribeToUserChats(currentUser.uid, rawUserChats => {
+      const uniqueChatsMap = new Map<string, Chat>();
+      rawUserChats.forEach(chat => {
+        const otherParticipantId = chat.participantIds.find(id => id !== currentUser.uid);
+        if (otherParticipantId) {
+          const existingChatForParticipant = uniqueChatsMap.get(otherParticipantId);
+          const currentChatTimestamp = getComparableTimestamp(chat.updatedAt);
 
-        // De-duplicate chats client-side to handle any data inconsistencies
-        const uniqueChatsMap = new Map<string, Chat>();
-        rawUserChats.forEach(chat => {
-          const otherParticipantId = chat.participantIds.find(id => id !== currentUser.uid);
-          if (otherParticipantId) {
-            const existingChatForParticipant = uniqueChatsMap.get(otherParticipantId);
-            const currentChatTimestamp = getComparableTimestamp(chat.updatedAt);
-
-            if (!existingChatForParticipant || currentChatTimestamp > getComparableTimestamp(existingChatForParticipant.updatedAt)) {
-              uniqueChatsMap.set(otherParticipantId, chat);
-            }
+          if (!existingChatForParticipant || currentChatTimestamp > getComparableTimestamp(existingChatForParticipant.updatedAt)) {
+            uniqueChatsMap.set(otherParticipantId, chat);
           }
-        });
-        const deDupedUserChats = Array.from(uniqueChatsMap.values());
-        setChats(deDupedUserChats);
-      } catch (error) {
-        console.error("[MessagesPage] Error fetching initial chats:", error);
-        toast({
-          title: "Error Loading Chats",
-          description: (error as Error).message || "Could not load your conversations.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchInitialChats();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+        }
+      });
+      const deDupedUserChats = Array.from(uniqueChatsMap.values());
+      setChats(deDupedUserChats);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, [currentUser, authLoading]);
 
 
@@ -128,11 +110,6 @@ export default function MessagesView() {
           setIsLoading(true);
           try {
             const newChatId = await findOrCreateChat(currentUser.uid, chatWithId);
-            // After creating, refetch the single new chat to add to the list
-            const newChatDetails = await getChatDetails(newChatId);
-            if (newChatDetails) {
-              setChats(prev => [...prev, newChatDetails]);
-            }
             router.replace(`/messages/${newChatId}`);
           } catch(err) {
             toast({ title: "Error", description: "Could not create new chat.", variant: "destructive" });
@@ -195,8 +172,8 @@ export default function MessagesView() {
     // Ensure otherParticipant and fullName exist before calling toLowerCase
     return otherParticipant?.fullName?.toLowerCase().includes(searchTerm.toLowerCase());
   }).sort((a, b) => {
-    const timeA = getComparableTimestamp(a.lastMessageTimestamp);
-    const timeB = getComparableTimestamp(b.lastMessageTimestamp);
+    const timeA = getComparableTimestamp(a.updatedAt);
+    const timeB = getComparableTimestamp(b.updatedAt);
     return timeB - timeA;
   });
 
