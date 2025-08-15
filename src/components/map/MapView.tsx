@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { User } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -17,7 +17,6 @@ import L from "leaflet";
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 const DEFAULT_ZOOM = 12;
 const FOCUSED_ZOOM = 15;
-const ALL_PROFESSIONS_FILTER_VALUE = "__ANY_PROFESSION__";
 
 const createAvatarIcon = (src: string, fallback: string) =>
   L.divIcon({
@@ -78,7 +77,7 @@ export default function MapView() {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [selectedProfession, setSelectedProfession] = useState<string>(ALL_PROFESSIONS_FILTER_VALUE);
+  const [selectedProfession, setSelectedProfession] = useState<string>("");
   const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
   const { currentUser } = useAuthContext();
 
@@ -117,7 +116,9 @@ export default function MapView() {
     const currentMapViewerId = currentUser?.uid;
     return allOnlineUsers.filter((user) => {
       const professionMatch =
-        selectedProfession === ALL_PROFESSIONS_FILTER_VALUE || user.profession === selectedProfession;
+        selectedProfession.trim() === "" ||
+        (user.profession &&
+          user.profession.toLowerCase().includes(selectedProfession.toLowerCase()));
       if (!professionMatch) return false;
 
       const visibility = user.locationVisibility || "public";
@@ -173,23 +174,23 @@ export default function MapView() {
             </CardDescription>
           </div>
           {availableProfessions.length > 0 || allOnlineUsers.length > 0 ? (
-            <div className="w-full sm:w-auto sm:min-w-[200px]">
+            <div className="w-full sm:w-auto sm:min-w-[200px] relative z-[1000]">
               <Label htmlFor="profession-filter" className="sr-only">
-                Filter by Profession
+                Search by Profession
               </Label>
-              <Select value={selectedProfession} onValueChange={setSelectedProfession}>
-                <SelectTrigger id="profession-filter" className="w-full">
-                  <SelectValue placeholder="All Professions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_PROFESSIONS_FILTER_VALUE}>All Professions</SelectItem>
-                  {availableProfessions.map((prof) => (
-                    <SelectItem key={prof} value={prof}>
-                      {prof}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="profession-filter"
+                type="search"
+                placeholder="Search profession"
+                value={selectedProfession}
+                onChange={(e) => setSelectedProfession(e.target.value)}
+                list="profession-suggestions"
+              />
+              <datalist id="profession-suggestions">
+                {availableProfessions.map((prof) => (
+                  <option key={prof} value={prof} />
+                ))}
+              </datalist>
             </div>
           ) : null}
         </div>
