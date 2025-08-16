@@ -14,6 +14,7 @@ import { collection, onSnapshot, query, where, type Unsubscribe } from "firebase
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 
+const MAPTILER_API_KEY = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 const DEFAULT_ZOOM = 12;
 const FOCUSED_ZOOM = 15;
@@ -217,7 +218,10 @@ export default function MapView() {
               className="h-full w-full"
               scrollWheelZoom
             >
-              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
+              <TileLayer
+                url={`https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}&language=en`}
+                attribution="&copy; <a href='https://www.maptiler.com/copyright/'>MapTiler</a> &copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
+              />
 
               {visibleUsers.map((user) => {
                 if (!user.location || user.location.lat == null || user.location.lng == null) return null;
