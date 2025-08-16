@@ -11,24 +11,32 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, onSnapshot, query, where, type Unsubscribe } from "firebase/firestore";
 
-import { MapContainer, TileLayer, Marker, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
 
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 const DEFAULT_ZOOM = 12;
 const FOCUSED_ZOOM = 15;
 
-const createAvatarIcon = (src: string, fallback: string) =>
-  L.divIcon({
+const createAvatarIcon = (src: string, fallback: string, profession?: string) => {
+  const safeProfession = profession
+    ? profession
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+    : "";
+  return L.divIcon({
     html: `
       <div style="display:flex;flex-direction:column;align-items:center;text-align:center;">
         <img src="${src}" alt="${fallback}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--primary, #3b82f6);box-shadow:0 0 4px rgba(0,0,0,0.3);" />
+        ${safeProfession ? `<span style="margin-top:4px;background:white;padding:2px 4px;border-radius:4px;font-size:12px;line-height:1;">${safeProfession}</span>` : ""}
       </div>
     `,
     className: "", // clear default styles
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
+    iconSize: [80, 60],
+    iconAnchor: [40, 60],
   });
+};
 
 const MapController = ({
   targetUserId,
@@ -222,7 +230,7 @@ export default function MapView() {
                   : "U";
                 const avatarSrc =
                   user.profilePictureUrl || `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
-                const icon = createAvatarIcon(avatarSrc, fallbackName);
+                const icon = createAvatarIcon(avatarSrc, fallbackName, user.profession);
                 return (
                   <Marker
                     key={user.id}
@@ -231,7 +239,9 @@ export default function MapView() {
                     eventHandlers={{
                       click: () => router.push(`/users/${user.id}`),
                     }}
-                  />
+                  >
+                    {user.profession && <Tooltip>{user.profession}</Tooltip>}
+                  </Marker>
                 );
               })}
 
