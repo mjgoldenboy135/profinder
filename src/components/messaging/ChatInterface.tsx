@@ -21,6 +21,7 @@ interface ChatInterfaceProps {
   chat: Chat;
   initialMessages: Message[];
   currentUserId: string;
+  clearedAt?: number;
 }
 
 const processMessageTimestamps = (msg: Message): Message => {
@@ -58,8 +59,12 @@ const getValidImageSrc = (rawUrl: string | undefined | null, placeholder: string
 };
 
 
-export default function ChatInterface({ chat, initialMessages, currentUserId }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages.map(processMessageTimestamps).sort((a,b) => (a.timestamp as number) - (b.timestamp as number)));
+export default function ChatInterface({ chat, initialMessages, currentUserId, clearedAt }: ChatInterfaceProps) {
+  const [messages, setMessages] = useState<Message[]>(
+    initialMessages
+      .map(processMessageTimestamps)
+      .sort((a, b) => (a.timestamp as number) - (b.timestamp as number))
+  );
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -79,8 +84,21 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        const newMessages = snapshot.docs.map(doc => ({ id: doc.id, chatId: chat.id, ...doc.data() } as Message));
-        setMessages(newMessages.map(processMessageTimestamps).sort((a,b) => (a.timestamp as number) - (b.timestamp as number)));
+        const newMessages = snapshot.docs.map(
+          doc => ({ id: doc.id, chatId: chat.id, ...doc.data() } as Message)
+        );
+        const filtered = clearedAt
+          ? newMessages.filter(msg => {
+              const ts = msg.timestamp as any;
+              const msgMillis = ts && typeof ts.toMillis === 'function' ? ts.toMillis() : (typeof ts === 'number' ? ts : 0);
+              return msgMillis > clearedAt;
+            })
+          : newMessages;
+        setMessages(
+          filtered
+            .map(processMessageTimestamps)
+            .sort((a, b) => (a.timestamp as number) - (b.timestamp as number))
+        );
       },
       (error) => {
         console.error("Error listening to messages:", error);
@@ -88,7 +106,7 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
       }
     );
     return () => unsubscribe();
-  }, [chat.id, toast]);
+  }, [chat.id, toast, clearedAt]);
 
 
   const handleSendMessage = async (e: React.FormEvent) => {

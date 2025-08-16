@@ -37,6 +37,7 @@ export default function IndividualChatPage({ params }: IndividualChatPageProps) 
 
   const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [clearedAt, setClearedAt] = useState<number | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,8 +71,20 @@ export default function IndividualChatPage({ params }: IndividualChatPageProps) 
           }
           setChat(serializableChat as Chat);
 
-          const fetchedMessages = await getChatMessages(chatId);
-          setMessages(fetchedMessages.map(processMessageTimestamps).sort((a,b) => (a.timestamp as number) - (b.timestamp as number)));
+          const { messages: fetchedMessages, clearedAt: clearedAtTs } = await getChatMessages(chatId, currentUser.uid);
+          setMessages(
+            fetchedMessages
+              .map(processMessageTimestamps)
+              .sort((a, b) => (a.timestamp as number) - (b.timestamp as number))
+          );
+          if (clearedAtTs) {
+            const millis = typeof (clearedAtTs as any).toMillis === 'function'
+              ? (clearedAtTs as Timestamp).toMillis()
+              : (clearedAtTs as unknown as number);
+            setClearedAt(millis);
+          } else {
+            setClearedAt(null);
+          }
         } else {
           setError("Chat not found or you do not have access.");
           setChat(null);
@@ -130,7 +143,12 @@ export default function IndividualChatPage({ params }: IndividualChatPageProps) 
 
   return (
     <div className="py-0 md:py-8 h-full">
-      <ChatInterface chat={chat} initialMessages={messages} currentUserId={currentUser.uid} />
+      <ChatInterface
+        chat={chat}
+        initialMessages={messages}
+        currentUserId={currentUser.uid}
+        clearedAt={clearedAt ?? undefined}
+      />
     </div>
   );
 }
