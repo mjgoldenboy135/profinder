@@ -137,7 +137,8 @@ export default function MessagesView() {
     if (!chatToDeleteId) return;
     setIsDeletingChat(true);
     try {
-      await deleteChat(chatToDeleteId);
+      if (!currentUser) return;
+      await deleteChat(chatToDeleteId, currentUser.uid);
       setChats(prevChats => prevChats.filter(chat => chat.id !== chatToDeleteId));
       toast({
         title: "Chat Deleted",

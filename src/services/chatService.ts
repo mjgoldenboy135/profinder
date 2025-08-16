@@ -8,13 +8,13 @@ import {
   doc,
   getDoc,
   addDoc,
-  updateDoc,
   serverTimestamp,
   writeBatch,
-  arrayUnion,
-  deleteDoc, // Import deleteDoc
   onSnapshot,
+  setDoc,
   type Timestamp,
+  type DocumentData,
+  type QuerySnapshot,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Chat, Message, ChatParticipantData, User } from '@/lib/types';
@@ -54,8 +54,30 @@ export async function getUserChats(userId: string): Promise<Chat[]> {
     querySnapshot.forEach((doc) => {
       chats.push({ id: doc.id, ...doc.data() } as Chat);
     });
-    console.log(`[chatService] Found ${chats.length} chats for userId: ${userId}`);
-    return chats;
+
+    // Fetch user-specific chat settings and filter out hidden chats
+    const settingsSnapshot = await getDocs(
+      collection(db, 'users', userId, 'chatSettings')
+    );
+    const settingsMap = new Map<string, { hidden?: boolean; clearedAt?: Timestamp }>();
+    settingsSnapshot.forEach((settingDoc) => {
+      settingsMap.set(settingDoc.id, settingDoc.data() as { hidden?: boolean; clearedAt?: Timestamp });
+    });
+
+    const visibleChats = chats.filter((chat) => {
+      const setting = settingsMap.get(chat.id);
+      if (setting?.hidden) {
+        const cleared = setting.clearedAt;
+        const clearedMillis = cleared && typeof (cleared as any).toMillis === 'function' ? (cleared as Timestamp).toMillis() : (typeof cleared === 'number' ? cleared : 0);
+        const last = chat.lastMessageTimestamp as any;
+        const lastMillis = last && typeof last.toMillis === 'function' ? last.toMillis() : (typeof last === 'number' ? last : 0);
+        return lastMillis > clearedMillis;
+      }
+      return true;
+    });
+
+    console.log(`[chatService] Found ${visibleChats.length} visible chats for userId: ${userId}`);
+    return visibleChats;
   } catch (error) {
     console.error("[chatService] Error fetching user chats for userId:", userId, error);
     if (error instanceof Error && 'code' in error) {
@@ -130,13 +152,49 @@ export function subscribeToUserChats(
     orderBy('updatedAt', 'desc')
   );
 
-  return onSnapshot(q, snapshot => {
+  const settingsRef = collection(db, 'users', userId, 'chatSettings');
+
+  let settingsMap = new Map<string, { hidden?: boolean; clearedAt?: Timestamp }>();
+  let latestChatSnapshot: QuerySnapshot<DocumentData> | null = null;
+
+  const computeAndEmit = () => {
+    if (!latestChatSnapshot) return;
     const chats: Chat[] = [];
-    snapshot.forEach(doc => {
-      chats.push({ id: doc.id, ...doc.data() } as Chat);
+    latestChatSnapshot.forEach((docSnap) => {
+      const chat = { id: docSnap.id, ...docSnap.data() } as Chat;
+      const setting = settingsMap.get(chat.id);
+      if (setting?.hidden) {
+        const cleared = setting.clearedAt;
+        const clearedMillis = cleared && typeof (cleared as any).toMillis === 'function' ? (cleared as Timestamp).toMillis() : (typeof cleared === 'number' ? cleared : 0);
+        const last = chat.lastMessageTimestamp as any;
+        const lastMillis = last && typeof last.toMillis === 'function' ? last.toMillis() : (typeof last === 'number' ? last : 0);
+        if (lastMillis > clearedMillis) {
+          chats.push(chat);
+        }
+      } else {
+        chats.push(chat);
+      }
     });
     callback(chats);
+  };
+
+  const unsubscribeChats = onSnapshot(q, (snapshot) => {
+    latestChatSnapshot = snapshot;
+    computeAndEmit();
   });
+
+  const unsubscribeSettings = onSnapshot(settingsRef, (snapshot) => {
+    settingsMap.clear();
+    snapshot.forEach((docSnap) => {
+      settingsMap.set(docSnap.id, docSnap.data() as { hidden?: boolean; clearedAt?: Timestamp });
+    });
+    computeAndEmit();
+  });
+
+  return () => {
+    unsubscribeChats();
+    unsubscribeSettings();
+  };
 }
 
 /**
@@ -156,19 +214,43 @@ export async function getChatDetails(chatId: string): Promise<Chat | null> {
 }
 
 /**
- * Fetches messages for a specific chat, ordered by timestamp.
+ * Fetches messages for a specific chat, ordered by timestamp, with optional filtering
+ * based on the user's clearedAt setting.
  * @param chatId The ID of the chat whose messages to fetch.
- * @returns A promise that resolves with an array of Message objects.
+ * @param userId Optional user ID to filter messages after clearedAt.
+ * @returns A promise that resolves with the messages and the user's clearedAt timestamp.
  */
-export async function getChatMessages(chatId: string): Promise<Message[]> {
+export async function getChatMessages(
+  chatId: string,
+  userId?: string
+): Promise<{ messages: Message[]; clearedAt?: Timestamp }> {
   const messagesRef = collection(db, CHATS_COLLECTION, chatId, MESSAGES_SUBCOLLECTION);
   const q = query(messagesRef, orderBy('timestamp', 'asc'));
   const querySnapshot = await getDocs(q);
-  const messages: Message[] = [];
+  let messages: Message[] = [];
   querySnapshot.forEach((doc) => {
     messages.push({ id: doc.id, chatId, ...doc.data() } as Message);
   });
-  return messages;
+
+  let clearedAt: Timestamp | undefined;
+  if (userId) {
+    const settingsRef = doc(db, 'users', userId, 'chatSettings', chatId);
+    const settingsSnap = await getDoc(settingsRef);
+    if (settingsSnap.exists()) {
+      const data = settingsSnap.data() as { clearedAt?: Timestamp };
+      if (data.clearedAt) {
+        clearedAt = data.clearedAt;
+        const clearedMillis = typeof (clearedAt as any).toMillis === 'function' ? (clearedAt as Timestamp).toMillis() : (clearedAt as unknown as number);
+        messages = messages.filter((msg) => {
+          const ts = msg.timestamp as any;
+          const msgMillis = ts && typeof ts.toMillis === 'function' ? ts.toMillis() : (typeof ts === 'number' ? ts : 0);
+          return msgMillis > clearedMillis;
+        });
+      }
+    }
+  }
+
+  return { messages, clearedAt };
 }
 
 /**
@@ -295,40 +377,20 @@ export async function findOrCreateChat(
 }
 
 /**
- * Deletes a chat and all its associated messages.
- * @param chatId The ID of the chat to delete.
+ * Hides a chat for a specific user by updating their chat settings.
+ * @param chatId The ID of the chat to hide.
+ * @param userId The ID of the user performing the action.
  */
-export async function deleteChat(chatId: string): Promise<void> {
-  if (!chatId) {
-    console.error("deleteChat called with no chatId");
-    throw new Error("Chat ID is required to delete a chat.");
+export async function deleteChat(chatId: string, userId: string): Promise<void> {
+  if (!chatId || !userId) {
+    console.error("deleteChat called with missing parameters", { chatId, userId });
+    throw new Error("Chat ID and user ID are required to delete a chat.");
   }
-  console.log(`[chatService] Attempting to delete chat with ID: ${chatId}`);
 
-  const batch = writeBatch(db);
-
-  // 1. Delete all messages in the subcollection
-  const messagesRef = collection(db, CHATS_COLLECTION, chatId, MESSAGES_SUBCOLLECTION);
-  try {
-    const messagesSnapshot = await getDocs(messagesRef);
-    if (!messagesSnapshot.empty) {
-      console.log(`[chatService] Found ${messagesSnapshot.docs.length} messages to delete for chat ${chatId}.`);
-      messagesSnapshot.forEach(msgDoc => {
-        batch.delete(msgDoc.ref);
-      });
-    } else {
-      console.log(`[chatService] No messages found in subcollection for chat ${chatId}.`);
-    }
-
-    // 2. Delete the main chat document
-    const chatRef = doc(db, CHATS_COLLECTION, chatId);
-    batch.delete(chatRef);
-
-    // 3. Commit the batch
-    await batch.commit();
-    console.log(`[chatService] Successfully deleted chat ${chatId} and its messages.`);
-  } catch (error) {
-    console.error(`[chatService] Error deleting chat ${chatId}:`, error);
-    throw new Error(`Failed to delete chat: ${(error as Error).message || 'Unknown error'}`);
-  }
+  const settingsRef = doc(db, 'users', userId, 'chatSettings', chatId);
+  await setDoc(
+    settingsRef,
+    { hidden: true, clearedAt: serverTimestamp() },
+    { merge: true }
+  );
 }
