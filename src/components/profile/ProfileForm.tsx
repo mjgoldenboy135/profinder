@@ -29,6 +29,7 @@ import { auth } from "@/lib/firebase";
 import { updateProfile as updateAuthProfile } from "firebase/auth";
 import { getUserProfile, updateUserProfile, uploadProfilePicture } from "@/services/userService";
 import type { User } from "@/lib/types";
+import { COMMON_PROFESSIONS } from "@/lib/professions";
 
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -616,7 +617,20 @@ export default function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Profession</FormLabel>
-                  <FormControl><Input placeholder="e.g., Software Engineer, Marketing Manager" {...field} value={field.value ?? ''} maxLength={100} /></FormControl>
+                  <FormControl>
+                    <Input
+                      list="profession-options"
+                      placeholder="e.g., Software Engineer, Marketing Manager"
+                      {...field}
+                      value={field.value ?? ""}
+                      maxLength={100}
+                    />
+                  </FormControl>
+                  <datalist id="profession-options">
+                    {COMMON_PROFESSIONS.map((prof) => (
+                      <option key={prof} value={prof} />
+                    ))}
+                  </datalist>
                   <FormDescription>Max 100 characters.</FormDescription>
                   <FormMessage />
                 </FormItem>
