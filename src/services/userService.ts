@@ -1,5 +1,5 @@
 
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import type { User } from '@/lib/types';
@@ -62,17 +62,17 @@ export async function uploadProfilePicture(userId: string, file: File): Promise<
  */
 export async function createUserProfile(userId: string, data: Partial<Omit<User, 'id'>>): Promise<void> {
   const userRef = doc(db, USERS_COLLECTION, userId);
-  const profileData: Partial<User> & { 
-    id: string; 
-    createdAt: any; 
-    updatedAt: any; 
+  const profileData: Partial<Omit<User, 'id'>> & {
+    id: string;
+    createdAt: any;
+    updatedAt: any;
     favoriteUserIds: string[];
-    locationVisibility: 'public' | 'favorites' | 'none'; // Add type
+    locationVisibility: 'public' | 'favorites' | 'none';
   } = {
     ...data,
     id: userId,
-    favoriteUserIds: [], 
-    locationVisibility: 'public', // Default for new users
+    favoriteUserIds: [],
+    locationVisibility: 'public',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
@@ -126,7 +126,7 @@ export async function getOnlineUsersWithLocation(): Promise<User[]> {
   querySnapshot.forEach((doc) => {
     const userData = doc.data() as User;
     if (userData.location && userData.location.lat != null && userData.location.lng != null) {
-      onlineUsers.push({ id: doc.id, ...userData });
+      onlineUsers.push({ ...userData, id: doc.id });
     }
   });
   return onlineUsers;
@@ -177,5 +177,15 @@ export async function getFavoriteUsers(userId: string): Promise<User[]> {
   
   // Filter out any null results (e.g., if a favorited user's profile was deleted)
   return favoriteUsersRaw.filter(user => user !== null) as User[];
+}
+
+/**
+ * Deletes a user profile from Firestore.
+ * @param userId The Firebase Auth user ID whose profile should be removed.
+ */
+export async function deleteUserProfile(userId: string): Promise<void> {
+  if (!userId) throw new Error("userId is required to delete profile.");
+  const userRef = doc(db, USERS_COLLECTION, userId);
+  await deleteDoc(userRef);
 }
 
