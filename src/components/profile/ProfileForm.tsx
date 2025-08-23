@@ -22,12 +22,24 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Eye, Globe, Heart, Loader2, MapPin, UploadCloud, Users } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { auth } from "@/lib/firebase";
-import { updateProfile as updateAuthProfile } from "firebase/auth";
-import { getUserProfile, updateUserProfile, uploadProfilePicture } from "@/services/userService";
+import { updateProfile as updateAuthProfile, deleteUser, signOut } from "firebase/auth";
+import { getUserProfile, updateUserProfile, uploadProfilePicture, deleteUserProfile } from "@/services/userService";
+import { useRouter } from "next/navigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { User } from "@/lib/types";
 import { COMMON_PROFESSIONS } from "@/lib/professions";
 
@@ -127,6 +139,7 @@ async function resizeImage(file: File, maxWidth: number, maxHeight: number): Pro
 
 export default function ProfileForm() {
   const { toast } = useToast();
+  const router = useRouter();
   const { currentUser: authUser, loading: authLoading, refreshUserProfile } = useAuthContext();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
@@ -134,6 +147,8 @@ export default function ProfileForm() {
   const [isResizingImage, setIsResizingImage] = useState(false);
   const locationWatchId = useRef<number | null>(null);
   const [isLocationPermissionDenied, setIsLocationPermissionDenied] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -376,7 +391,7 @@ export default function ProfileForm() {
     }
   };
 
-  async function onSubmit(values: ProfileFormValues) {
+async function onSubmit(values: ProfileFormValues) {
     if (!authUser || !auth) {
       toast({ title: "Error", description: "You must be logged in to update your profile.", variant: "destructive" });
       return;
@@ -503,8 +518,33 @@ export default function ProfileForm() {
         if(isUploadingPicture) setIsUploadingPicture(false);
         if(isResizingImage) setIsResizingImage(false); // Should already be false by now
         console.log("[ProfileForm onSubmit] Reached main finally block. isSubmitting (RHF):", form.formState.isSubmitting, "isUploadingPicture:", isUploadingPicture, "isResizingImage:", isResizingImage);
-    }
   }
+}
+
+const handleDeleteProfile = async () => {
+  if (!authUser) return;
+  setIsDeletingProfile(true);
+  try {
+    await deleteUserProfile(authUser.uid);
+    await deleteUser(authUser);
+    await signOut(auth);
+    toast({
+      title: "Profile Deleted",
+      description: "Your account has been permanently removed.",
+    });
+    router.push('/login');
+  } catch (error) {
+    console.error("Error deleting profile:", error);
+    toast({
+      title: "Deletion Failed",
+      description: "Could not delete profile. Please try again.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsDeletingProfile(false);
+    setIsDeleteDialogOpen(false);
+  }
+};
 
   if (authLoading || isFetchingProfile) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Loading profile...</p></div>;
@@ -819,6 +859,34 @@ export default function ProfileForm() {
             </Button>
           </form>
         </Form>
+        <div className="mt-6">
+          <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button type="button" variant="destructive" className="w-full sm:w-auto">Delete Profile</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center">
+                  <AlertTriangle className="mr-2 h-5 w-5 text-destructive" /> Confirm Deletion
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete your profile. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={isDeletingProfile}>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeleteProfile}
+                  disabled={isDeletingProfile}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeletingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isDeletingProfile ? "Deleting..." : "Delete"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </CardContent>
     </Card>
   );
