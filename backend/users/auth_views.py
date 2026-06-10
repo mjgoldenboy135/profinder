@@ -59,7 +59,17 @@ class SetOnlineView(APIView):
         try:
             profile = request.user.profile
             profile.is_online = is_online
-            profile.save(update_fields=['is_online'])
+            update_fields = ['is_online']
+            if 'lat' in request.data:
+                profile.lat = request.data['lat']
+                update_fields.append('lat')
+            if 'lng' in request.data:
+                profile.lng = request.data['lng']
+                update_fields.append('lng')
+            if 'address' in request.data:
+                profile.address = request.data['address']
+                update_fields.append('address')
+            profile.save(update_fields=update_fields)
         except UserProfile.DoesNotExist:
             pass
         return Response({'is_online': is_online})
