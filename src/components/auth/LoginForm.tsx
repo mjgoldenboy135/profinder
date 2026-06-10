@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,11 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { auth, googleProvider } from "@/lib/firebase";
-import { signInWithEmailAndPassword, signInWithPopup } from "firebase/auth";
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
-import { createUserProfile, getUserProfile } from "@/services/userService";
+import { apiFetch, setTokens } from "@/lib/api";
+import { useAuthContext } from "@/contexts/AuthContext";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -34,97 +30,35 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginForm() {
   const { toast } = useToast();
   const router = useRouter();
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const { refreshUserProfile } = useAuthContext();
+
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: "",
-      password: "",
-    },
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(values: LoginFormValues) {
-    form.clearErrors(); 
+    form.clearErrors();
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      const user = userCredential.user;
-
-      if (!user.emailVerified) {
-        toast({
-          title: "Email Not Verified",
-          description: "Please verify your email address to continue.",
-        });
-        router.push("/verify-email");
+      const res = await apiFetch('/auth/login/', {
+        method: 'POST',
+        body: JSON.stringify({ email: values.email, password: values.password }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        form.setError("password", { type: "manual", message: err.detail || "Invalid email or password." });
+        toast({ title: "Login Failed", description: err.detail || "Invalid email or password.", variant: "destructive" });
         return;
       }
-      
-      toast({
-        title: "Login Successful!",
-        description: "Welcome back to Proximity Network.",
-      });
-      router.push("/map"); 
-    } catch (error: any) {
-      console.error("Login error:", error);
-      let errorMessage = "Invalid email or password. Please try again.";
-      if (error.code === "auth/user-not-found" || error.code === "auth/wrong-password" || error.code === "auth/invalid-credential") {
-        form.setError("email", { type: "manual", message: " " }); 
-        form.setError("password", { type: "manual", message: " " }); 
-      } else {
-         errorMessage = "An unexpected error occurred. Please try again.";
-      }
-      toast({
-        title: "Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    }
-  }
-
-  async function handleGoogleLogin() {
-    setIsGoogleLoading(true);
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const user = result.user;
-
-      const userProfile = await getUserProfile(user.uid);
-      if (!userProfile) {
-        await createUserProfile(user.uid, {
-          fullName: user.displayName || "Google User",
-          email: user.email || "", 
-          profilePictureUrl: user.photoURL || "",
-          isOnline: false, 
-          showContact: false, 
-          locationVisibility: 'public',
-        });
-      }
-
-      toast({
-        title: "Login Successful!",
-        description: `Welcome back, ${user.displayName || "User"}!`,
-      });
+      const data = await res.json();
+      setTokens(data.access, data.refresh);
+      await refreshUserProfile();
+      toast({ title: "Login Successful!", description: "Welcome back to Proximity Network." });
       router.push("/map");
-
-    } catch (error: any) {
-      console.error("Google sign-in popup error:", error);
-      let errorMessage = "Could not sign in with Google. Please try again.";
-      if (error.code === 'auth/popup-closed-by-user') {
-        errorMessage = 'Sign-in window was closed. Please try again.';
-      } else if (error.code === 'auth/cancelled-popup-request') {
-        // This can happen if the popup is closed quickly or another is opened.
-        // It's often better to say nothing here.
-        setIsGoogleLoading(false);
-        return;
-      }
-      toast({
-        title: "Google Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsGoogleLoading(false);
+    } catch {
+      toast({ title: "Login Failed", description: "An unexpected error occurred.", variant: "destructive" });
     }
   }
-
 
   return (
     <Card className="w-full max-w-md shadow-xl">
@@ -162,11 +96,8 @@ export default function LoginForm() {
               )}
             />
             <div className="flex items-center justify-between">
-              <div /> 
-              <Link
-                href="/forgot-password"
-                className="text-sm font-medium text-primary hover:underline"
-              >
+              <div />
+              <Link href="/forgot-password" className="text-sm font-medium text-primary hover:underline">
                 Forgot password?
               </Link>
             </div>
@@ -175,28 +106,6 @@ export default function LoginForm() {
             </Button>
           </form>
         </Form>
-
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
-        </div>
-
-        <Button 
-          variant="outline" 
-          className="w-full" 
-          onClick={handleGoogleLogin} 
-          disabled={form.formState.isSubmitting || isGoogleLoading}
-        >
-          {isGoogleLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Sign in with Google
-        </Button>
-
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <Link href="/signup" className="font-medium text-primary hover:underline">

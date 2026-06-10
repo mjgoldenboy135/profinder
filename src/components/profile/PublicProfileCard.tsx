@@ -1,7 +1,6 @@
-
 "use client";
 
-import type { User } from "@/lib/types";
+import type { UserProfile } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -9,16 +8,16 @@ import { Linkedin, Mail, MessageSquare, Star as StarIcon, Briefcase, GraduationC
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
-import { addFavoriteUser, removeFavoriteUser } from "@/services/userService";
+import { addFavoriteUser, removeFavoriteUser, getFavoriteUsers } from "@/services/userService";
 import { useToast } from "@/hooks/use-toast";
 import { findOrCreateChat } from "@/services/chatService";
 
 interface PublicProfileCardProps {
-  user: User; // The user whose profile is being viewed
+  user: UserProfile;
 }
 
 export default function PublicProfileCard({ user }: PublicProfileCardProps) {
-  const { currentUser, currentUserProfile, loading: authLoading, refreshUserProfile } = useAuthContext();
+  const { currentUser, loading: authLoading, refreshUserProfile } = useAuthContext();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -26,85 +25,72 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
   const [isUpdatingFavorite, setIsUpdatingFavorite] = useState(false);
   const [isStartingChat, setIsStartingChat] = useState(false);
 
-  const fallbackName = user.fullName ? user.fullName.split(" ").map(n => n[0]).join("") : "PN";
+  const fallbackName = user.full_name ? user.full_name.split(" ").map(n => n[0]).join("") : "PN";
 
   useEffect(() => {
-    if (currentUserProfile && currentUserProfile.favoriteUserIds) {
-      setIsFavorited(currentUserProfile.favoriteUserIds.includes(user.id));
-    } else {
-      setIsFavorited(false);
-    }
-  }, [currentUserProfile, user.id]);
+    if (!currentUser || currentUser.id === user.id) return;
+    getFavoriteUsers().then(favs => {
+      setIsFavorited(favs.some(f => f.id === user.id));
+    }).catch(() => {});
+  }, [currentUser, user.id]);
 
   const handleToggleFavorite = async () => {
-    if (!currentUser || !currentUserProfile) {
+    if (!currentUser) {
       toast({ title: "Authentication Error", description: "You must be logged in to manage favorites.", variant: "destructive" });
       return;
     }
-    if (currentUser.uid === user.id) {
-        toast({ title: "Action Not Allowed", description: "You cannot favorite your own profile.", variant: "destructive"});
-        return;
+    if (currentUser.id === user.id) {
+      toast({ title: "Action Not Allowed", description: "You cannot favorite your own profile.", variant: "destructive" });
+      return;
     }
-
     setIsUpdatingFavorite(true);
-    const newFavoriteState = !isFavorited; // Determine new state
-    
-    // Optimistic UI update for the local state, which drives the button's appearance
-    setIsFavorited(newFavoriteState); 
-
+    const newFavoriteState = !isFavorited;
+    setIsFavorited(newFavoriteState);
     try {
-      if (newFavoriteState) { // User wants to add
-        await addFavoriteUser(currentUser.uid, user.id);
-        toast({ title: "Added to Favorites", description: `${user.fullName} has been added to your favorites.` });
-      } else { // User wants to remove
-        await removeFavoriteUser(currentUser.uid, user.id);
-        toast({ title: "Removed from Favorites", description: `${user.fullName} has been removed from your favorites.` });
+      if (newFavoriteState) {
+        await addFavoriteUser(user.id);
+        toast({ title: "Added to Favorites", description: `${user.full_name} has been added to your favorites.` });
+      } else {
+        await removeFavoriteUser(user.id);
+        toast({ title: "Removed from Favorites", description: `${user.full_name} has been removed from your favorites.` });
       }
-      if (refreshUserProfile) await refreshUserProfile(); // Refresh to confirm from source and update context
-    } catch (error) {
-      console.error("Error updating favorite status:", error);
-      toast({ title: "Error", description: "Could not update favorite status. Please try again.", variant: "destructive" });
-      // Revert optimistic update on error by re-fetching or setting state back
-      // For simplicity, refreshUserProfile should eventually correct it, or we can explicitly revert:
-      setIsFavorited(!newFavoriteState); 
+      await refreshUserProfile();
+    } catch {
+      toast({ title: "Error", description: "Could not update favorite status.", variant: "destructive" });
+      setIsFavorited(!newFavoriteState);
     } finally {
       setIsUpdatingFavorite(false);
     }
   };
-  
-  const showFavoriteButton = currentUser && currentUser.uid !== user.id;
+
+  const showFavoriteButton = currentUser && currentUser.id !== user.id;
 
   const handleStartChat = async () => {
-    if (!currentUser) {
-      router.push('/login');
-      return;
-    }
+    if (!currentUser) { router.push('/login'); return; }
     setIsStartingChat(true);
     try {
-      const chatId = await findOrCreateChat(currentUser.uid, user.id);
-      router.push(`/messages/${chatId}`);
-    } catch (error) {
-      console.error('Error initiating chat:', error);
+      const chat = await findOrCreateChat(user.id);
+      router.push(`/messages/${chat.id}`);
+    } catch {
       toast({ title: 'Error', description: 'Could not start chat.', variant: 'destructive' });
     } finally {
       setIsStartingChat(false);
     }
   };
 
-
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl">
       <CardHeader className="items-center text-center">
         <Avatar className="w-32 h-32 mb-4 border-4 border-primary shadow-md">
-          <AvatarImage src={user.profilePictureUrl || `https://placehold.co/128x128.png?text=${fallbackName}`} alt={user.fullName} />
+          <AvatarImage src={user.profile_picture_url || `https://placehold.co/128x128.png?text=${fallbackName}`} alt={user.full_name} />
           <AvatarFallback className="text-4xl">{fallbackName}</AvatarFallback>
         </Avatar>
-        <CardTitle className="text-3xl font-headline">{user.fullName}</CardTitle>
+        <CardTitle className="text-3xl font-headline">{user.full_name}</CardTitle>
         <CardDescription className="text-lg text-accent-foreground">{user.profession || "Profession not specified"}</CardDescription>
-        {user.location?.address && (
+        {user.address && (
           <div className="flex items-center text-muted-foreground mt-1">
             <MapPin className="h-4 w-4 mr-1" />
-            <span>{user.location.address}</span>
+            <span>{user.address}</span>
           </div>
         )}
       </CardHeader>
@@ -115,14 +101,12 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
             <p className="text-foreground/90 whitespace-pre-wrap">{user.bio}</p>
           </div>
         )}
-        
-        {user.professionalDetails && (
+        {user.professional_details && (
           <div>
             <h3 className="text-lg font-semibold mb-2 font-headline">Professional Details</h3>
-            <p className="text-foreground/90 whitespace-pre-wrap">{user.professionalDetails}</p>
+            <p className="text-foreground/90 whitespace-pre-wrap">{user.professional_details}</p>
           </div>
         )}
-        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {user.education && (
             <div className="flex items-start">
@@ -133,60 +117,48 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
               </div>
             </div>
           )}
-          {user.yearsOfExperience !== undefined && (
-             <div className="flex items-start">
+          {user.years_of_experience !== undefined && user.years_of_experience !== null && (
+            <div className="flex items-start">
               <Briefcase className="h-6 w-6 mr-3 mt-1 text-primary flex-shrink-0" />
               <div>
                 <h4 className="font-semibold">Experience</h4>
-                <p className="text-foreground/80">{user.yearsOfExperience} {user.yearsOfExperience === 1 ? "year" : "years"}</p>
+                <p className="text-foreground/80">{user.years_of_experience} {user.years_of_experience === 1 ? "year" : "years"}</p>
               </div>
             </div>
           )}
         </div>
-
-        {user.showContact && user.email && (
+        {user.show_contact && user.email && (
           <div>
             <h3 className="text-lg font-semibold mb-2 font-headline">Contact Information</h3>
-            <div className="space-y-2">
-              {user.email && (
-                <div className="flex items-center">
-                  <Mail className="h-5 w-5 mr-2 text-primary" />
-                  <a href={`mailto:${user.email}`} className="text-foreground/80 hover:text-primary transition-colors">{user.email}</a>
-                </div>
-              )}
+            <div className="flex items-center">
+              <Mail className="h-5 w-5 mr-2 text-primary" />
+              <a href={`mailto:${user.email}`} className="text-foreground/80 hover:text-primary transition-colors">{user.email}</a>
             </div>
           </div>
         )}
-
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-6 border-t">
-        {user.linkedinProfileUrl && (
+        {user.linkedin_profile_url && (
           <Button variant="outline" asChild>
-            <a href={user.linkedinProfileUrl} target="_blank" rel="noopener noreferrer">
+            <a href={user.linkedin_profile_url} target="_blank" rel="noopener noreferrer">
               <Linkedin className="mr-2 h-5 w-5 text-primary" /> LinkedIn
             </a>
           </Button>
         )}
-        {user.showContact && user.email && (
-           <Button variant="outline" asChild>
-            <a href={`mailto:${user.email}`}>
-              <Mail className="mr-2 h-5 w-5 text-primary" /> Email
-            </a>
+        {user.show_contact && user.email && (
+          <Button variant="outline" asChild>
+            <a href={`mailto:${user.email}`}><Mail className="mr-2 h-5 w-5 text-primary" /> Email</a>
           </Button>
         )}
-        {currentUser && currentUser.uid !== user.id && (
+        {currentUser && currentUser.id !== user.id && (
           <Button onClick={handleStartChat} disabled={isStartingChat}>
-            {isStartingChat ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <MessageSquare className="mr-2 h-5 w-5" />
-            )}
+            {isStartingChat ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <MessageSquare className="mr-2 h-5 w-5" />}
             Message
           </Button>
         )}
         {showFavoriteButton && !authLoading && (
-          <Button 
-            variant={isFavorited ? "outline" : "default"} 
+          <Button
+            variant={isFavorited ? "outline" : "default"}
             onClick={handleToggleFavorite}
             disabled={isUpdatingFavorite || authLoading}
             className="w-full sm:w-auto"
@@ -194,7 +166,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
             {isUpdatingFavorite ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             ) : (
-              <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current text-yellow-400 dark:text-yellow-300' : 'text-muted-foreground'}`} />
+              <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current text-yellow-400' : 'text-muted-foreground'}`} />
             )}
             {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
           </Button>
@@ -203,4 +175,3 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
     </Card>
   );
 }
-    

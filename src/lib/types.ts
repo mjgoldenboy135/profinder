@@ -1,62 +1,57 @@
-
-export interface User {
-  id: string; // Firebase Auth UID
-  fullName: string;
+export interface UserProfile {
+  id: number;
   email: string;
-  profilePictureUrl?: string;
-  education?: string;
+  full_name: string;
   profession?: string;
-  professionalDetails?: string; // Or experience details
-  yearsOfExperience?: number;
-  linkedinProfileUrl?: string;
-  phoneNumber?: string; // Store if needed, but control visibility
-  location?: {
-    lat: number | null; // Changed from number
-    lng: number | null; // Changed from number
-    address?: string; // For display, e.g. "San Francisco, CA"
-  };
-  isOnline?: boolean;
-  profilePrivacySettings?: { // Kept for potential future use
-    showContact?: 'all' | 'connections' | 'none'; // if 'all', email might be shown
-    showLocation?: 'all' | 'connections' | 'none';
-  };
-  showContact?: boolean; // Simpler boolean for current implementation for email
+  education?: string;
+  professional_details?: string;
+  years_of_experience?: number | null;
+  linkedin_profile_url?: string;
+  phone_number?: string;
   bio?: string;
   interests?: string[];
-  favoriteUserIds?: string[]; // Added for favorites feature
-  locationVisibility?: 'public' | 'favorites' | 'none'; // New field for location privacy
-  createdAt?: any; // Firestore serverTimestamp
-  updatedAt?: any; // Firestore serverTimestamp
+  profile_picture_url?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  address?: string;
+  is_online?: boolean;
+  location_visibility?: 'public' | 'favorites' | 'none';
+  show_contact?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Message {
-  id: string;
-  chatId: string; // Keep if messages are in a top-level collection, optional if subcollection
-  senderId: string;
-  receiverId: string; // Can be useful for notifications or specific logic
+  id: number;
+  chat_id: number;
+  sender_id: number;
+  receiver_id: number;
   text: string;
-  timestamp: any; // Firestore serverTimestamp or Date
   status?: 'sent' | 'delivered' | 'read';
+  created_at: string;
 }
 
-export interface ChatParticipantData {
-  id: string;
-  fullName: string;
-  profilePictureUrl?: string;
+export interface ChatParticipant {
+  id: number;
+  email: string;
+  full_name: string;
+  profile_picture_url?: string | null;
+  profession?: string;
 }
 
 export interface Chat {
-  id:string;
-  participantIds: string[];
-  participantsData?: ChatParticipantData[]; // Denormalized data for quick display
-  lastMessageText?: string;
-  lastMessageSenderId?: string;
-  lastMessageTimestamp?: any; // Firestore serverTimestamp or Date
-  createdAt: any; // Firestore serverTimestamp or Date
-  updatedAt: any; // Firestore serverTimestamp or Date
+  id: number;
+  participants_data: ChatParticipant[];
+  other_participant?: ChatParticipant | null;
+  last_message_text?: string;
+  last_message_sender_id?: number | null;
+  last_message_at?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-// Placeholder for profile data, useful for forms
-// This might not be directly used if ProfileFormValues is derived from Zod schema based on User type
-export type ProfileFormData = Omit<User, 'id' | 'createdAt' | 'updatedAt' | 'profilePrivacySettings'>;
-
+export interface AuthTokens {
+  access: string;
+  refresh: string;
+  user: UserProfile;
+}
