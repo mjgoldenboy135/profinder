@@ -1,191 +1,63 @@
+import { apiFetch } from '@/lib/api';
+import { UserProfile } from '@/lib/types';
 
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, query, where, getDocs, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
-import type { User } from '@/lib/types';
-
-// Explicitly check if db is initialized.
-if (!db) {
-  console.error("Firestore database instance (db) is not initialized. This likely indicates a problem with your Firebase configuration (e.g., missing or incorrect environment variables in .env.local) or an issue during Firebase app initialization in src/lib/firebase.ts. Please verify your Firebase setup and .env.local file, then restart your development server.");
-  throw new Error("Firestore is not initialized. Check your Firebase configuration and console logs for more details.");
-}
-if (!storage) {
-  console.error("Firebase Storage instance (storage) is not initialized. This likely indicates a problem with your Firebase configuration or initialization in src/lib/firebase.ts.");
-  throw new Error("Firebase Storage is not initialized. Check your Firebase configuration.");
+export async function getUserProfile(userId: number): Promise<UserProfile | null> {
+  const res = await apiFetch(`/users/${userId}/`);
+  if (!res.ok) return null;
+  return res.json();
 }
 
-
-const USERS_COLLECTION = 'users';
-
-/**
- * Uploads a profile picture to Firebase Storage.
- * @param userId The user's ID, used to create a folder path.
- * @param file The image file to upload.
- * @returns A promise that resolves with the public download URL of the uploaded image.
- */
-export async function uploadProfilePicture(userId: string, file: File): Promise<string> {
-  const filePath = `profilePictures/${userId}/${file.name}`;
-  const fileRef = storageRef(storage, filePath);
-  console.log(`[userService.uploadProfilePicture] Attempting to upload to path: ${filePath} for file: ${file.name}, size: ${file.size}`);
-
-  try {
-    console.log(`[userService.uploadProfilePicture] Calling uploadBytes for ${file.name}...`);
-    const uploadResult = await uploadBytes(fileRef, file);
-    console.log(`[userService.uploadProfilePicture] uploadBytes successful for ${file.name}. Metadata:`, uploadResult.metadata);
-
-    console.log(`[userService.uploadProfilePicture] Calling getDownloadURL for ${file.name}...`);
-    const downloadURL = await getDownloadURL(fileRef);
-    console.log(`[userService.uploadProfilePicture] Successfully got download URL: ${downloadURL}`);
-    return downloadURL;
-  } catch (error: any) {
-    if (error.code === 'storage/retry-limit-exceeded') {
-      // Log as info because this specific error is common for network issues and handled by the UI.
-      // This may prevent the Next.js error overlay for this specific, handled case.
-      console.info(`[userService.uploadProfilePicture] Encountered Firebase Storage error '${error.code}'. This will be handled by the calling form. Message: ${error.message}`);
-    } else {
-      // Log other, potentially more critical, storage errors with more detail.
-      console.error(`[userService.uploadProfilePicture] Unexpected error during upload/getURL for ${filePath}:`, error);
-      if (error.code) console.error(`[userService.uploadProfilePicture] Error Code: ${error.code}`);
-      if (error.message) console.error(`[userService.uploadProfilePicture] Error Message: ${error.message}`);
-      if (error.serverResponse) console.error(`[userService.uploadProfilePicture] Server Response: ${error.serverResponse}`);
-      console.error("[userService.uploadProfilePicture] Full error object:", error);
-    }
-    throw error; // Re-throw the error so it can be caught by the caller (ProfileForm)
-  }
-}
-
-/**
- * Creates a user profile document in Firestore.
- * Typically called after a new user signs up with Firebase Auth.
- * @param userId The Firebase Auth user ID.
- * @param data Initial profile data (e.g., fullName, email).
- */
-export async function createUserProfile(userId: string, data: Partial<Omit<User, 'id'>>): Promise<void> {
-  const userRef = doc(db, USERS_COLLECTION, userId);
-  const profileData: Partial<Omit<User, 'id'>> & {
-    id: string;
-    createdAt: any;
-    updatedAt: any;
-    favoriteUserIds: string[];
-    locationVisibility: 'public' | 'favorites' | 'none';
-  } = {
-    ...data,
-    id: userId,
-    favoriteUserIds: [],
-    locationVisibility: 'public',
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
-  await setDoc(userRef, profileData);
-}
-
-/**
- * Fetches a user profile from Firestore.
- * @param userId The Firebase Auth user ID.
- * @returns The user's profile data or null if not found.
- */
-export async function getUserProfile(userId: string): Promise<User | null> {
-  const userRef = doc(db, USERS_COLLECTION, userId);
-  const docSnap = await getDoc(userRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as User;
-  } else {
-    return null;
-  }
-}
-
-/**
- * Updates or creates a user profile in Firestore.
- * If the document doesn't exist, it will be created.
- * If it exists, it will be merged with the new data.
- * @param userId The Firebase Auth user ID.
- * @param data The profile data to update or create.
- */
-export async function updateUserProfile(userId: string, data: Partial<User>): Promise<void> {
-  const userRef = doc(db, USERS_COLLECTION, userId);
-  await setDoc(userRef, {
-    ...data,
-    updatedAt: serverTimestamp(),
-  }, { merge: true });
-}
-
-/**
- * Fetches users who are online and have location data.
- * @returns A promise that resolves with an array of User objects.
- */
-export async function getOnlineUsersWithLocation(): Promise<User[]> {
-  const usersRef = collection(db, USERS_COLLECTION);
-  const q = query(
-    usersRef,
-    where("isOnline", "==", true)
-    // locationVisibility filtering will be done client-side in MapView
-  );
-
-  const querySnapshot = await getDocs(q);
-  const onlineUsers: User[] = [];
-  querySnapshot.forEach((doc) => {
-    const userData = doc.data() as User;
-    if (userData.location && userData.location.lat != null && userData.location.lng != null) {
-      onlineUsers.push({ ...userData, id: doc.id });
-    }
+export async function updateUserProfile(userId: number, data: Partial<UserProfile>): Promise<UserProfile> {
+  const res = await apiFetch('/users/me/', {
+    method: 'PUT',
+    body: JSON.stringify(data),
   });
-  return onlineUsers;
+  if (!res.ok) throw new Error('Failed to update profile');
+  return res.json();
 }
 
-/**
- * Adds a user to the current user's list of favorites.
- * @param currentUserId The ID of the user whose favorites list will be updated.
- * @param targetUserId The ID of the user to add to favorites.
- */
-export async function addFavoriteUser(currentUserId: string, targetUserId: string): Promise<void> {
-  if (!currentUserId || !targetUserId) throw new Error("Both currentUserId and targetUserId are required.");
-  const userRef = doc(db, USERS_COLLECTION, currentUserId);
-  await updateDoc(userRef, {
-    favoriteUserIds: arrayUnion(targetUserId),
-    updatedAt: serverTimestamp(),
+export async function uploadProfilePicture(userId: number, file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('picture', file);
+  const res = await apiFetch('/users/me/picture/', {
+    method: 'POST',
+    body: formData,
   });
+  if (!res.ok) throw new Error('Failed to upload picture');
+  const data = await res.json();
+  return data.profile_picture_url;
 }
 
-/**
- * Removes a user from the current user's list of favorites.
- * @param currentUserId The ID of the user whose favorites list will be updated.
- * @param targetUserId The ID of the user to remove from favorites.
- */
-export async function removeFavoriteUser(currentUserId: string, targetUserId: string): Promise<void> {
-  if (!currentUserId || !targetUserId) throw new Error("Both currentUserId and targetUserId are required.");
-  const userRef = doc(db, USERS_COLLECTION, currentUserId);
-  await updateDoc(userRef, {
-    favoriteUserIds: arrayRemove(targetUserId),
-    updatedAt: serverTimestamp(),
-  });
+export async function getOnlineUsersWithLocation(): Promise<UserProfile[]> {
+  const res = await apiFetch('/users/?online=true&has_location=true');
+  if (!res.ok) return [];
+  return res.json();
 }
 
-/**
- * Fetches the full profile data for all users favorited by the current user.
- * @param userId The ID of the user whose favorites to fetch.
- * @returns A promise that resolves with an array of User objects (the favorited users).
- */
-export async function getFavoriteUsers(userId: string): Promise<User[]> {
-  if (!userId) return [];
-  const currentUserProfile = await getUserProfile(userId);
-  if (!currentUserProfile || !currentUserProfile.favoriteUserIds || currentUserProfile.favoriteUserIds.length === 0) {
-    return [];
-  }
-
-  const favoriteUserPromises = currentUserProfile.favoriteUserIds.map(favId => getUserProfile(favId));
-  const favoriteUsersRaw = await Promise.all(favoriteUserPromises);
-  
-  // Filter out any null results (e.g., if a favorited user's profile was deleted)
-  return favoriteUsersRaw.filter(user => user !== null) as User[];
+export async function getAllUsers(params?: {
+  search?: string;
+  profession?: string;
+  online?: boolean;
+}): Promise<UserProfile[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.profession) query.set('profession', params.profession);
+  if (params?.online) query.set('online', 'true');
+  const res = await apiFetch(`/users/?${query.toString()}`);
+  if (!res.ok) return [];
+  return res.json();
 }
 
-/**
- * Deletes a user profile from Firestore.
- * @param userId The Firebase Auth user ID whose profile should be removed.
- */
-export async function deleteUserProfile(userId: string): Promise<void> {
-  if (!userId) throw new Error("userId is required to delete profile.");
-  const userRef = doc(db, USERS_COLLECTION, userId);
-  await deleteDoc(userRef);
+export async function getFavoriteUsers(): Promise<UserProfile[]> {
+  const res = await apiFetch('/users/me/favorites/');
+  if (!res.ok) return [];
+  return res.json();
 }
 
+export async function addFavoriteUser(targetUserId: number): Promise<void> {
+  await apiFetch(`/users/me/favorites/${targetUserId}/`, { method: 'POST' });
+}
+
+export async function removeFavoriteUser(targetUserId: number): Promise<void> {
+  await apiFetch(`/users/me/favorites/${targetUserId}/`, { method: 'DELETE' });
+}
