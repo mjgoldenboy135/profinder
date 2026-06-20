@@ -1,4 +1,20 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+// Resolve the REST API base URL at build time.
+// - NEXT_PUBLIC_API_URL: full override, e.g. https://api.example.com/api
+// - NEXT_PUBLIC_API_HOST: just the host (e.g. injected by Render's fromService),
+//   turned into https://<host>/api
+// - otherwise fall back to local development.
+function resolveApiBase(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (url) return url.replace(/\/+$/, '');
+  const host = process.env.NEXT_PUBLIC_API_HOST;
+  if (host) {
+    const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+    return `https://${cleanHost}/api`;
+  }
+  return 'http://localhost:8000/api';
+}
+
+const API_BASE = resolveApiBase();
 
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;

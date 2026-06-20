@@ -1,11 +1,18 @@
-# Render Blueprint for the Profinder Django backend.
-# Deploy by creating a new "Blueprint" instance on https://render.com and
-# pointing it at this repository. Render reads this file from the repo root.
+# Render Blueprint for Profinder (Django backend + Next.js frontend).
 #
-# It provisions:
-#   * a managed PostgreSQL database
-#   * a Python web service running the Django ASGI app via Daphne
-#     (Daphne is required because chat uses Django Channels WebSockets).
+# Deploy: on https://render.com choose "New +" -> "Blueprint", connect this
+# repository and select the branch. Render reads this file from the repo root
+# and provisions everything below in one go. No manual environment variables
+# are required — the frontend is wired to the backend automatically.
+#
+# It creates:
+#   * profinder-db        - managed PostgreSQL database
+#   * profinder-backend   - Django API + chat WebSocket (Daphne ASGI server)
+#   * profinder-frontend  - the Next.js app
+#
+# Render assigns each web service a URL like https://<name>-<hash>.onrender.com.
+# Because the hash is not predictable, the frontend reads the backend's host
+# via `fromService` (NEXT_PUBLIC_API_HOST) instead of a hard-coded URL.
 
 databases:
   - name: profinder-db
@@ -14,15 +21,17 @@ databases:
     user: profinder
 
 services:
+  # ---------------------------------------------------------------------------
+  # Django backend (REST API + chat WebSocket). Daphne serves both HTTP and
+  # WebSocket traffic from a single process so the in-memory channel layer can
+  # relay chat messages between the REST view and the WebSocket consumer.
+  # ---------------------------------------------------------------------------
   - type: web
     name: profinder-backend
     runtime: python
     plan: free
     rootDir: backend
     buildCommand: "./build.sh"
-    # Daphne serves both HTTP and WebSocket traffic. Single process so the
-    # in-memory channel layer can broadcast chat messages between the REST
-    # view and the WebSocket consumer (see note below about scaling).
     startCommand: "daphne -b 0.0.0.0 -p $PORT profinder.asgi:application"
     healthCheckPath: /api/health/
     envVars:
@@ -32,20 +41,43 @@ services:
         generateValue: true
       - key: DEBUG
         value: "False"
-      # Render injects RENDER_EXTERNAL_HOSTNAME automatically; settings.py
-      # appends it to ALLOWED_HOSTS. The wildcard covers it explicitly too.
+      # Render injects RENDER_EXTERNAL_HOSTNAME; settings.py also appends it.
       - key: ALLOWED_HOSTS
         value: ".onrender.com,localhost,127.0.0.1"
       - key: DATABASE_URL
         fromDatabase:
           name: profinder-db
           property: connectionString
-      # Set these to your deployed frontend origin(s) once known, e.g.
-      # "https://profinder.vercel.app". Used for CORS (REST) and the
-      # WebSocket origin check. Comma-separated.
-      - key: CORS_ALLOWED_ORIGINS
-        value: "http://localhost:9002,http://localhost:3000"
-      # Extra origins allowed to open the chat WebSocket. Falls back to
-      # CORS_ALLOWED_ORIGINS when empty; set to your frontend origin in prod.
+      # Allow any *.onrender.com origin (covers the frontend below) to call the
+      # REST API. Tighten to an explicit origin if you add a custom domain.
+      - key: CORS_ALLOWED_ORIGIN_REGEXES
+        value: "^https://.*\\.onrender\\.com$"
+      # The chat WebSocket is authenticated with a JWT passed in the query
+      # string (tokens live in localStorage, not cookies, so there is no
+      # cross-site hijacking risk); allow any origin to open it.
       - key: WS_ALLOWED_ORIGINS
-        value: ""
+        value: "*"
+
+  # ---------------------------------------------------------------------------
+  # Next.js frontend. NEXT_PUBLIC_API_HOST is wired to the backend's host at
+  # build time, so the browser talks to the real backend URL automatically.
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: profinder-frontend
+    runtime: node
+    plan: free
+    rootDir: .
+    buildCommand: "npm install --include=dev && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      # Injected from the backend service, e.g. profinder-backend-xxxx.onrender.com.
+      # src/lib/api.ts turns this into https://<host>/api (and wss://<host> for chat).
+      - key: NEXT_PUBLIC_API_HOST
+        fromService:
+          type: web
+          name: profinder-backend
+          property: host
+      - key: NEXT_PUBLIC_MAPTILER_API_KEY
+        value: "JV8uSkC9GWBrOW5wttXV"
