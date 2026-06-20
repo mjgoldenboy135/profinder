@@ -16,6 +16,10 @@ function resolveApiBaseEnv(): string | null {
 
 const API_BASE_ENV = resolveApiBaseEnv();
 
+// Server-safe concrete API base: prefer build-time env, otherwise default
+// to localhost so server-side code has a defined value during prerender.
+const API_BASE = API_BASE_ENV ?? 'http://localhost:8000/api';
+
 export function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('access_token');
@@ -93,8 +97,8 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
     }
   }
 
-  // Fallback to localhost API if nothing found (useful for local dev)
-  if (!apiBase) apiBase = 'http://localhost:8000/api';
+  // Fallback to server-safe API base if nothing found (useful for local dev)
+  if (!apiBase) apiBase = API_BASE;
 
   let token = getAccessToken();
   const headers: Record<string, string> = {
