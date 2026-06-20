@@ -1,0 +1,51 @@
+# Render Blueprint for the Profinder Django backend.
+# Deploy by creating a new "Blueprint" instance on https://render.com and
+# pointing it at this repository. Render reads this file from the repo root.
+#
+# It provisions:
+#   * a managed PostgreSQL database
+#   * a Python web service running the Django ASGI app via Daphne
+#     (Daphne is required because chat uses Django Channels WebSockets).
+
+databases:
+  - name: profinder-db
+    plan: free
+    databaseName: profinder
+    user: profinder
+
+services:
+  - type: web
+    name: profinder-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: "./build.sh"
+    # Daphne serves both HTTP and WebSocket traffic. Single process so the
+    # in-memory channel layer can broadcast chat messages between the REST
+    # view and the WebSocket consumer (see note below about scaling).
+    startCommand: "daphne -b 0.0.0.0 -p $PORT profinder.asgi:application"
+    healthCheckPath: /api/health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      # Render injects RENDER_EXTERNAL_HOSTNAME automatically; settings.py
+      # appends it to ALLOWED_HOSTS. The wildcard covers it explicitly too.
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: profinder-db
+          property: connectionString
+      # Set these to your deployed frontend origin(s) once known, e.g.
+      # "https://profinder.vercel.app". Used for CORS (REST) and the
+      # WebSocket origin check. Comma-separated.
+      - key: CORS_ALLOWED_ORIGINS
+        value: "http://localhost:9002,http://localhost:3000"
+      # Extra origins allowed to open the chat WebSocket. Falls back to
+      # CORS_ALLOWED_ORIGINS when empty; set to your frontend origin in prod.
+      - key: WS_ALLOWED_ORIGINS
+        value: ""
