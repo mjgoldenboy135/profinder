@@ -56,4 +56,7 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 }
 
 export const API_BASE_URL = API_BASE;
-export const WS_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/^http/, 'ws');
+// Derive the WebSocket origin from the API URL: switch http(s)->ws(s) and drop
+// the trailing "/api" path so it becomes e.g. ws://host:8000 (chat routing
+// lives at /ws/chat/<id>/ on the host root, not under /api).
+export const WS_BASE_URL = API_BASE.replace(/^http/, 'ws').replace(/\/api\/?$/, '');
