@@ -110,10 +110,16 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
 }
 
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
     default='http://localhost:3000,http://localhost:9002'
 ).split(',')
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.onrender\.com$',
+    r'^https://.*\.web\.app$',
+    r'^https://.*\.firebaseapp\.com$',
+]
 CORS_ALLOW_CREDENTIALS = True
 
 CHANNEL_LAYERS = {
