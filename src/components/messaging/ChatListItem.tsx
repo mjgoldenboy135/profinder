@@ -92,7 +92,7 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
       <Button
         variant="ghost"
         size="icon"
-        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
         onClick={handleDeleteClick}
         aria-label="Delete chat"
       >

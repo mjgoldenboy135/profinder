@@ -18,23 +18,43 @@ const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 const DEFAULT_ZOOM = 12;
 const FOCUSED_ZOOM = 15;
 
-const createAvatarIcon = (src: string, fallback: string, profession?: string) => {
+const PROFESSION_COLORS = [
+  '#e74c3c', '#e67e22', '#f39c12', '#27ae60', '#16a085',
+  '#2980b9', '#8e44ad', '#c0392b', '#d35400', '#1abc9c',
+  '#3498db', '#9b59b6', '#2c3e50', '#e91e63', '#ff5722',
+];
+
+function getProfessionColor(profession?: string): string {
+  if (!profession) return '#64748b';
+  let hash = 0;
+  for (let i = 0; i < profession.length; i++) {
+    hash = profession.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return PROFESSION_COLORS[Math.abs(hash) % PROFESSION_COLORS.length];
+}
+
+const createAvatarIcon = (fullName: string, profession?: string, profilePicUrl?: string) => {
+  const color = getProfessionColor(profession);
+  const firstLetter = (fullName?.[0] || '?').toUpperCase();
   const safeProfession = profession
-    ? profession
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
+    ? profession.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     : "";
+
+  const circleStyle = `width:42px;height:42px;border-radius:50%;border:3px solid ${color};box-shadow:0 2px 8px rgba(0,0,0,0.3);`;
+  const avatarHtml = profilePicUrl
+    ? `<img src="${profilePicUrl}" style="${circleStyle}object-fit:cover;" onerror="this.outerHTML='<div style=&quot;${circleStyle}background:${color};display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;&quot;>${firstLetter}</div>'" />`
+    : `<div style="${circleStyle}background:${color};display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;">${firstLetter}</div>`;
+
   return L.divIcon({
     html: `
       <div style="display:flex;flex-direction:column;align-items:center;text-align:center;">
-        <img src="${src}" alt="${fallback}" style="width:40px;height:40px;border-radius:50%;border:2px solid var(--primary, #3b82f6);box-shadow:0 0 4px rgba(0,0,0,0.3);" />
-        ${safeProfession ? `<span style="margin-top:4px;background:white;padding:2px 4px;border-radius:4px;font-size:12px;line-height:1;">${safeProfession}</span>` : ""}
+        ${avatarHtml}
+        ${safeProfession ? `<span style="margin-top:4px;background:${color};color:white;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600;white-space:nowrap;max-width:90px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,0.25);">${safeProfession}</span>` : ""}
       </div>
     `,
     className: "",
-    iconSize: [80, 60],
-    iconAnchor: [40, 60],
+    iconSize: [90, 68],
+    iconAnchor: [45, 68],
   });
 };
 
@@ -216,16 +236,11 @@ export default function MapView() {
 
               {visibleUsers.map((user) => {
                 if (user.lat == null || user.lng == null) return null;
-                const fallbackName = user.full_name
-                  ? user.full_name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()
-                  : "U";
-                const avatarSrc =
-                  user.profile_picture_url || `https://placehold.co/40x40.png?text=${encodeURIComponent(fallbackName)}`;
-                const icon = createAvatarIcon(avatarSrc, fallbackName, user.profession);
+                const icon = createAvatarIcon(
+                  user.full_name || '',
+                  user.profession,
+                  user.profile_picture_url || undefined
+                );
                 return (
                   <Marker
                     key={user.id}
