@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: profinder-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: "./build.sh"
+    startCommand: "daphne -b 0.0.0.0 -p $PORT profinder.asgi:application"
+    healthCheckPath: /api/health/
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: profinder-db
+          property: connectionString
+      - key: CORS_ALLOW_ALL_ORIGINS
+        value: "False"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+
+  - type: web
+    name: profinder
+    runtime: node
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        # Set this to your backend URL: https://profinder-backend-XXXX.onrender.com/api
+        value: "https://profinder-backend-cqct.onrender.com/api"
+      - key: NEXT_PUBLIC_MAPTILER_API_KEY
+        value: "JV8uSkC9GWBrOW5wttXV"
+
+databases:
+  - name: profinder-db
+    databaseName: profinder
+    user: profinder
+    plan: free
