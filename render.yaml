@@ -6,9 +6,9 @@
 # are required — the frontend is wired to the backend automatically.
 #
 # It creates:
-#   * profinder-db        - managed PostgreSQL database
-#   * profinder-backend   - Django API + chat WebSocket (Daphne ASGI server)
-#   * profinder-frontend  - the Next.js app
+#   * profinder-db      - managed PostgreSQL database
+#   * profinder-backend - Django API + chat WebSocket (Daphne ASGI server)
+#   * profinder        - the Next.js app
 
 databases:
   - name: profinder-db
@@ -42,10 +42,9 @@ services:
         value: "^https://.*\\.onrender\\.com$"
 
   - type: web
-    name: profinder-frontend
+    name: profinder
     runtime: node
     plan: free
-    rootDir: .
     buildCommand: "npm install --include=dev && npm run build"
     startCommand: "npm start"
     envVars:
