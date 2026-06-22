@@ -7,7 +7,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 DEBUG = config('DEBUG', default=True, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',') if h.strip()]
+
+# Render provides the external hostname at runtime.
+RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 INSTALLED_APPS = [
     'daphne',
@@ -85,7 +90,14 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = config('MEDIA_ROOT', default=str(BASE_DIR / 'media'))
@@ -110,17 +122,25 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
 }
 
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
-CORS_ALLOWED_ORIGINS = config(
-    'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:3000,http://localhost:9002'
-).split(',')
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r'^https://.*\.onrender\.com$',
-    r'^https://.*\.web\.app$',
-    r'^https://.*\.firebaseapp\.com$',
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:3000,http://localhost:9002'
+    ).split(',') if o.strip()
 ]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r.strip() for r in config('CORS_ALLOWED_ORIGIN_REGEXES', default='').split(',') if r.strip()
+]
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in config('CSRF_TRUSTED_ORIGINS', default='').split(',') if o.strip()
+]
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 CHANNEL_LAYERS = {
     'default': {

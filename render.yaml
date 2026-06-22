@@ -1,43 +1,60 @@
+# Render Blueprint for Profinder (Django backend + Next.js frontend).
+#
+# Deploy: on https://render.com choose "New +" -> "Blueprint", connect this
+# repository and select the branch. Render reads this file from the repo root
+# and provisions everything below in one go. No manual environment variables
+# are required — the frontend is wired to the backend automatically.
+#
+# It creates:
+#   * profinder-db        - managed PostgreSQL database
+#   * profinder-backend   - Django API + chat WebSocket (Daphne ASGI server)
+#   * profinder-frontend  - the Next.js app
+
+databases:
+  - name: profinder-db
+    plan: free
+    databaseName: profinder
+    user: profinder
+
 services:
   - type: web
     name: profinder-backend
     runtime: python
+    plan: free
     rootDir: backend
     buildCommand: "./build.sh"
     startCommand: "daphne -b 0.0.0.0 -p $PORT profinder.asgi:application"
     healthCheckPath: /api/health/
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
         value: "False"
       - key: ALLOWED_HOSTS
-        value: ".onrender.com,localhost"
+        value: ".onrender.com,localhost,127.0.0.1"
       - key: DATABASE_URL
         fromDatabase:
           name: profinder-db
           property: connectionString
-      - key: CORS_ALLOW_ALL_ORIGINS
-        value: "False"
-      - key: PYTHON_VERSION
-        value: "3.11.0"
+      - key: CORS_ALLOWED_ORIGIN_REGEXES
+        value: "^https://.*\\.onrender\\.com$"
 
   - type: web
-    name: profinder
+    name: profinder-frontend
     runtime: node
-    buildCommand: "npm install && npm run build"
+    plan: free
+    rootDir: .
+    buildCommand: "npm install --include=dev && npm run build"
     startCommand: "npm start"
     envVars:
       - key: NODE_VERSION
         value: "20"
-      - key: NEXT_PUBLIC_API_URL
-        # Set this to your backend URL: https://profinder-backend-XXXX.onrender.com/api
-        value: "https://profinder-backend-cqct.onrender.com/api"
+      - key: NEXT_PUBLIC_API_HOST
+        fromService:
+          type: web
+          name: profinder-backend
+          property: host
       - key: NEXT_PUBLIC_MAPTILER_API_KEY
         value: "JV8uSkC9GWBrOW5wttXV"
-
-databases:
-  - name: profinder-db
-    databaseName: profinder
-    user: profinder
-    plan: free

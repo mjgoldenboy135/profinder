@@ -24,7 +24,7 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
   const uniqueProfessions = useMemo(() => {
     if (!users || users.length === 0) return [];
     // Filter out undefined/null professions and then get unique values
-    return Array.from(new Set(users.map(u => u.profession).filter(Boolean as (value: string | undefined) => value is string)));
+    return Array.from(new Set(users.map(u => u.profession).filter((p): p is string => Boolean(p))));
   }, [users]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
