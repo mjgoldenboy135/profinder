@@ -9,7 +9,11 @@ function resolveApiBaseEnv(): string | null {
   const host = process.env.NEXT_PUBLIC_API_HOST;
   if (host) {
     const cleanHost = host.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-    return `https://${cleanHost}/api`;
+    // Render's fromService gives an internal hostname with no dots (e.g.
+    // "profinder-backend-4xns"). Append .onrender.com so the browser can
+    // resolve it as the public external URL.
+    const fullHost = cleanHost.includes('.') ? cleanHost : `${cleanHost}.onrender.com`;
+    return `https://${fullHost}/api`;
   }
   return null;
 }
