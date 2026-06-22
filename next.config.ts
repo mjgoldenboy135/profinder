@@ -34,6 +34,12 @@ const nextConfig: NextConfig = {
         port: '',
         pathname: '/media/**',
       },
+      {
+        protocol: 'http',
+        hostname: '*.onrender.com',
+        port: '',
+        pathname: '/media/**',
+      },
     ],
   },
   experimental: {

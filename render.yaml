@@ -40,6 +40,8 @@ services:
           property: connectionString
       - key: CORS_ALLOWED_ORIGIN_REGEXES
         value: "^https://.*\\.onrender\\.com$"
+      - key: WS_ALLOWED_ORIGINS
+        value: "*"
 
   - type: web
     name: profinder
