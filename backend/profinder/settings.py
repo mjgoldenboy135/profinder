@@ -144,6 +144,28 @@ if RENDER_EXTERNAL_HOSTNAME:
 # Behind Render's proxy, trust the forwarded protocol header.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
+# Public URL of the frontend, used to build password-reset links. Accepts a
+# bare hostname (e.g. from Render's fromService) and adds https:// if needed.
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:9002')
+if FRONTEND_URL and not FRONTEND_URL.startswith(('http://', 'https://')):
+    FRONTEND_URL = 'https://' + FRONTEND_URL
+
+# Email. Defaults to the console backend (prints emails to logs) so password
+# reset works in dev; set EMAIL_HOST in production to send real emails.
+EMAIL_HOST = config('EMAIL_HOST', default='')
+if EMAIL_HOST:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+else:
+    EMAIL_BACKEND = config(
+        'EMAIL_BACKEND',
+        default='django.core.mail.backends.console.EmailBackend',
+    )
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Profinder <noreply@profinder.app>')
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',

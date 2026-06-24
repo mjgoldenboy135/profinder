@@ -29,6 +29,10 @@ class UserProfile(models.Model):
     bio = models.TextField(blank=True, default='')
     interests = models.JSONField(default=list, blank=True)
     profile_picture = models.ImageField(upload_to='profile_pictures/', null=True, blank=True)
+    # Processed avatar stored in the DB so it survives redeploys on hosts with
+    # ephemeral disks (e.g. Render free tier) and is served via a public view.
+    profile_picture_data = models.BinaryField(null=True, blank=True, editable=False)
+    profile_picture_content_type = models.CharField(max_length=50, blank=True, default='')
     lat = models.FloatField(null=True, blank=True)
     lng = models.FloatField(null=True, blank=True)
     address = models.CharField(max_length=500, blank=True, default='')
@@ -45,3 +49,18 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.full_name} ({self.user.email})"
+
+    def get_picture_url(self, request=None):
+        """Absolute URL for the avatar, or None. Includes a cache-busting
+        version so the browser refetches after the picture changes."""
+        if self.profile_picture_data:
+            version = int(self.updated_at.timestamp()) if self.updated_at else 0
+            path = f'/api/users/{self.user_id}/picture/?v={version}'
+            return request.build_absolute_uri(path) if request else path
+        if self.profile_picture:
+            try:
+                url = self.profile_picture.url
+                return request.build_absolute_uri(url) if request else url
+            except Exception:
+                return None
+        return None

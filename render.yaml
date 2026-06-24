@@ -57,6 +57,12 @@ services:
       # cross-site hijacking risk); allow any origin to open it.
       - key: WS_ALLOWED_ORIGINS
         value: "*"
+      # Used to build password-reset links pointing at the frontend.
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: profinder-frontend
+          property: host
 
   # ---------------------------------------------------------------------------
   # Next.js frontend. NEXT_PUBLIC_API_HOST is wired to the backend's host at

@@ -43,8 +43,8 @@ import { COMMON_PROFESSIONS } from "@/lib/professions";
 
 const MAX_FILE_SIZE_MB = 5;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-const RESIZE_MAX_WIDTH = 300;
-const RESIZE_MAX_HEIGHT = 300;
+const RESIZE_MAX_WIDTH = 800;
+const RESIZE_MAX_HEIGHT = 800;
 
 const profileSchema = z.object({
   full_name: z.string().min(2, "Full name must be at least 2 characters."),

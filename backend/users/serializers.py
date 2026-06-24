@@ -43,12 +43,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_profile_picture_url(self, obj):
-        if obj.profile_picture:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_picture.url)
-            return obj.profile_picture.url
-        return None
+        return obj.get_picture_url(self.context.get('request'))
 
 
 class PublicUserProfileSerializer(serializers.ModelSerializer):
@@ -67,12 +62,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_profile_picture_url(self, obj):
-        if obj.profile_picture:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_picture.url)
-            return obj.profile_picture.url
-        return None
+        return obj.get_picture_url(self.context.get('request'))
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
