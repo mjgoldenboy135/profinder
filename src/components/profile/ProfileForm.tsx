@@ -24,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { updateUserProfile, uploadProfilePicture } from "@/services/userService";
+import { updateUserProfile, uploadProfilePicture, removeProfilePicture } from "@/services/userService";
 import { apiFetch } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
@@ -381,6 +381,14 @@ export default function ProfileForm() {
           setIsUploadingPicture(false);
         }
       } else if (previewImage === null) {
+        // User cleared their picture: persist the removal on the backend.
+        if (currentUserProfile?.profile_picture_url) {
+          try {
+            await removeProfilePicture();
+          } catch (removeError) {
+            console.warn("Failed to remove profile picture:", removeError);
+          }
+        }
         newPicUrl = "";
       }
 

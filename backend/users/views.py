@@ -68,13 +68,24 @@ class MeView(APIView):
         return Response(serializer.data)
 
 
-@api_view(['POST'])
+@api_view(['POST', 'DELETE'])
 @parser_classes([MultiPartParser, FormParser])
 def upload_profile_picture(request):
     try:
         profile = request.user.profile
     except UserProfile.DoesNotExist:
         return Response({'detail': 'Profile not found.'}, status=404)
+
+    if request.method == 'DELETE':
+        profile.profile_picture_data = None
+        profile.profile_picture_content_type = ''
+        profile.profile_picture = None
+        profile.save(update_fields=[
+            'profile_picture_data', 'profile_picture_content_type',
+            'profile_picture', 'updated_at',
+        ])
+        return Response({'profile_picture_url': None})
+
     if 'picture' not in request.FILES:
         return Response({'detail': 'No picture provided.'}, status=400)
     try:
