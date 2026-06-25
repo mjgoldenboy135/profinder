@@ -56,7 +56,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'full_name', 'profession', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
-            'bio', 'interests', 'profile_picture_url',
+            'phone_number', 'bio', 'interests', 'profile_picture_url',
             'lat', 'lng', 'address', 'is_online',
             'location_visibility', 'show_contact',
         ]
@@ -71,7 +71,8 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
             data['lat'] = None
             data['lng'] = None
             data['address'] = ''
-        # Hide contact info if not allowed
+        # Hide contact info (email + phone) unless the user opted in.
         if not instance.show_contact:
             data.pop('phone_number', None)
+            data.pop('email', None)
         return data
