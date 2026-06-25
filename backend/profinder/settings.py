@@ -132,7 +132,6 @@ CORS_ALLOWED_ORIGINS = [
         default='http://localhost:3000,http://localhost:9002'
     ).split(',') if o.strip()
 ]
-# Allow overriding with a regex (e.g. preview deployments) and credentials.
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r.strip() for r in config('CORS_ALLOWED_ORIGIN_REGEXES', default='').split(',') if r.strip()
 ]
@@ -145,7 +144,6 @@ CSRF_TRUSTED_ORIGINS = [
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
 
-# Behind Render's proxy, trust the forwarded protocol header.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Public URL of the frontend, used to build password-reset links. Accepts a

@@ -6,13 +6,9 @@
 # are required — the frontend is wired to the backend automatically.
 #
 # It creates:
-#   * profinder-db        - managed PostgreSQL database
-#   * profinder-backend   - Django API + chat WebSocket (Daphne ASGI server)
-#   * profinder-frontend  - the Next.js app
-#
-# Render assigns each web service a URL like https://<name>-<hash>.onrender.com.
-# Because the hash is not predictable, the frontend reads the backend's host
-# via `fromService` (NEXT_PUBLIC_API_HOST) instead of a hard-coded URL.
+#   * profinder-db      - managed PostgreSQL database
+#   * profinder-backend - Django API + chat WebSocket (Daphne ASGI server)
+#   * profinder        - the Next.js app
 
 databases:
   - name: profinder-db
@@ -21,11 +17,6 @@ databases:
     user: profinder
 
 services:
-  # ---------------------------------------------------------------------------
-  # Django backend (REST API + chat WebSocket). Daphne serves both HTTP and
-  # WebSocket traffic from a single process so the in-memory channel layer can
-  # relay chat messages between the REST view and the WebSocket consumer.
-  # ---------------------------------------------------------------------------
   - type: web
     name: profinder-backend
     runtime: python
@@ -41,27 +32,21 @@ services:
         generateValue: true
       - key: DEBUG
         value: "False"
-      # Render injects RENDER_EXTERNAL_HOSTNAME; settings.py also appends it.
       - key: ALLOWED_HOSTS
         value: ".onrender.com,localhost,127.0.0.1"
       - key: DATABASE_URL
         fromDatabase:
           name: profinder-db
           property: connectionString
-      # Allow any *.onrender.com origin (covers the frontend below) to call the
-      # REST API. Tighten to an explicit origin if you add a custom domain.
       - key: CORS_ALLOWED_ORIGIN_REGEXES
         value: "^https://.*\\.onrender\\.com$"
-      # The chat WebSocket is authenticated with a JWT passed in the query
-      # string (tokens live in localStorage, not cookies, so there is no
-      # cross-site hijacking risk); allow any origin to open it.
       - key: WS_ALLOWED_ORIGINS
         value: "*"
       # Used to build password-reset links pointing at the frontend.
       - key: FRONTEND_URL
         fromService:
           type: web
-          name: profinder-frontend
+          name: profinder
           property: host
       # --- Email for password-reset delivery (optional) -----------------------
       # Leave commented and the backend prints reset links to the logs (console
@@ -91,22 +76,15 @@ services:
       - key: GOOGLE_CLIENT_ID
         value: "862818079124-1dnadc132ul3j1arelarbjm7g13rag56.apps.googleusercontent.com"
 
-  # ---------------------------------------------------------------------------
-  # Next.js frontend. NEXT_PUBLIC_API_HOST is wired to the backend's host at
-  # build time, so the browser talks to the real backend URL automatically.
-  # ---------------------------------------------------------------------------
   - type: web
-    name: profinder-frontend
+    name: profinder
     runtime: node
     plan: free
-    rootDir: .
     buildCommand: "npm install --include=dev && npm run build"
     startCommand: "npm start"
     envVars:
       - key: NODE_VERSION
         value: "20"
-      # Injected from the backend service, e.g. profinder-backend-xxxx.onrender.com.
-      # src/lib/api.ts turns this into https://<host>/api (and wss://<host> for chat).
       - key: NEXT_PUBLIC_API_HOST
         fromService:
           type: web
