@@ -28,6 +28,11 @@ export async function uploadProfilePicture(userId: number, file: File): Promise<
   return data.profile_picture_url;
 }
 
+export async function removeProfilePicture(): Promise<void> {
+  const res = await apiFetch('/users/me/picture/', { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to remove picture');
+}
+
 export async function getOnlineUsersWithLocation(): Promise<UserProfile[]> {
   const res = await apiFetch('/users/?online=true&has_location=true');
   if (!res.ok) return [];

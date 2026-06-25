@@ -43,12 +43,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
 
     def get_profile_picture_url(self, obj):
-        if obj.profile_picture:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_picture.url)
-            return obj.profile_picture.url
-        return None
+        return obj.get_picture_url(self.context.get('request'))
 
 
 class PublicUserProfileSerializer(serializers.ModelSerializer):
@@ -61,18 +56,13 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'full_name', 'profession', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
-            'bio', 'interests', 'profile_picture_url',
+            'phone_number', 'bio', 'interests', 'profile_picture_url',
             'lat', 'lng', 'address', 'is_online',
             'location_visibility', 'show_contact',
         ]
 
     def get_profile_picture_url(self, obj):
-        if obj.profile_picture:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_picture.url)
-            return obj.profile_picture.url
-        return None
+        return obj.get_picture_url(self.context.get('request'))
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -81,7 +71,8 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
             data['lat'] = None
             data['lng'] = None
             data['address'] = ''
-        # Hide contact info if not allowed
+        # Hide contact info (email + phone) unless the user opted in.
         if not instance.show_contact:
             data.pop('phone_number', None)
+            data.pop('email', None)
         return data

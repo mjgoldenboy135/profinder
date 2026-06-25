@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { apiFetch, setTokens } from "@/lib/api";
 import { useAuthContext } from "@/contexts/AuthContext";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
@@ -139,6 +140,7 @@ export default function SignUpForm() {
             </Button>
           </form>
         </Form>
+        <GoogleSignInButton redirectTo="/profile" />
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link href="/login" className="font-medium text-primary hover:underline">Log in</Link>

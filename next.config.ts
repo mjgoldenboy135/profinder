@@ -20,19 +20,19 @@ const nextConfig: NextConfig = {
         protocol: 'http',
         hostname: 'localhost',
         port: '8000',
-        pathname: '/media/**',
+        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: '*.railway.app',
         port: '',
-        pathname: '/media/**',
+        pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: '*.onrender.com',
         port: '',
-        pathname: '/media/**',
+        pathname: '/**',
       },
       {
         protocol: 'http',

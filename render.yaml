@@ -42,6 +42,39 @@ services:
         value: "^https://.*\\.onrender\\.com$"
       - key: WS_ALLOWED_ORIGINS
         value: "*"
+      # Used to build password-reset links pointing at the frontend.
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: profinder
+          property: host
+      # --- Email for password-reset delivery (optional) -----------------------
+      # Leave commented and the backend prints reset links to the logs (console
+      # backend) — fine for testing. To send real reset emails, uncomment and
+      # fill in your SMTP provider. `sync: false` keeps secrets out of the repo:
+      # Render will prompt you for the value in the dashboard on first deploy.
+      #
+      # Gmail:    EMAIL_HOST=smtp.gmail.com  PORT=587  USER=you@gmail.com
+      #           PASSWORD=<16-char App Password> (Google Account > App passwords)
+      # SendGrid: EMAIL_HOST=smtp.sendgrid.net PORT=587 USER=apikey
+      #           PASSWORD=<your SendGrid API key>
+      #
+      # - key: EMAIL_HOST
+      #   value: "smtp.gmail.com"
+      # - key: EMAIL_PORT
+      #   value: "587"
+      # - key: EMAIL_USE_TLS
+      #   value: "True"
+      # - key: EMAIL_HOST_USER
+      #   sync: false
+      # - key: EMAIL_HOST_PASSWORD
+      #   sync: false
+      # - key: DEFAULT_FROM_EMAIL
+      #   value: "Profinder <no-reply@yourdomain.com>"
+      # ------------------------------------------------------------------------
+      # Google Sign-In. Must match NEXT_PUBLIC_GOOGLE_CLIENT_ID on the frontend.
+      - key: GOOGLE_CLIENT_ID
+        value: "862818079124-1dnadc132ul3j1arelarbjm7g13rag56.apps.googleusercontent.com"
 
   - type: web
     name: profinder
@@ -59,3 +92,8 @@ services:
           property: host
       - key: NEXT_PUBLIC_MAPTILER_API_KEY
         value: "JV8uSkC9GWBrOW5wttXV"
+      # Google Sign-In Client ID (public). Remember to add your frontend URL
+      # (https://<frontend>.onrender.com) to the OAuth client's "Authorized
+      # JavaScript origins" in the Google Cloud Console.
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        value: "862818079124-1dnadc132ul3j1arelarbjm7g13rag56.apps.googleusercontent.com"

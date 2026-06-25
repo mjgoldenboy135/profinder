@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Linkedin, Mail, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check } from "lucide-react";
+import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -210,13 +210,21 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
             </div>
           )}
         </div>
-        {user.show_contact && user.email && (
+        {user.show_contact && (user.email || user.phone_number) && (
           <div>
             <h3 className="text-lg font-semibold mb-2 font-headline">Contact Information</h3>
-            <div className="flex items-center">
-              <Mail className="h-5 w-5 mr-2 text-primary" />
-              <a href={`mailto:${user.email}`} className="text-foreground/80 hover:text-primary transition-colors">{user.email}</a>
-            </div>
+            {user.email && (
+              <div className="flex items-center">
+                <Mail className="h-5 w-5 mr-2 text-primary" />
+                <a href={`mailto:${user.email}`} className="text-foreground/80 hover:text-primary transition-colors">{user.email}</a>
+              </div>
+            )}
+            {user.phone_number && (
+              <div className="flex items-center mt-2">
+                <Phone className="h-5 w-5 mr-2 text-primary" />
+                <a href={`tel:${user.phone_number}`} className="text-foreground/80 hover:text-primary transition-colors">{user.phone_number}</a>
+              </div>
+            )}
           </div>
         )}
       </CardContent>

@@ -23,15 +23,9 @@ class ParticipantSerializer(serializers.ModelSerializer):
 
     def get_profile_picture_url(self, obj):
         try:
-            pic = obj.profile.profile_picture
-            if pic:
-                request = self.context.get('request')
-                if request:
-                    return request.build_absolute_uri(pic.url)
-                return pic.url
+            return obj.profile.get_picture_url(self.context.get('request'))
         except Exception:
-            pass
-        return None
+            return None
 
     def get_profession(self, obj):
         try:

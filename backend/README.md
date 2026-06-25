@@ -33,6 +33,10 @@ Copy `.env.example` to `.env` and fill in:
 - `GET /api/health/` - Health check (used by Render)
 - `POST /api/auth/register/` - Register new user
 - `POST /api/auth/login/` - Login, returns JWT tokens
+- `POST /api/auth/google/` - Sign in/up with a Google ID token (set `GOOGLE_CLIENT_ID`)
+- `POST /api/auth/change-password/` - Change password (authenticated)
+- `POST /api/auth/password-reset/` - Request a password-reset email
+- `POST /api/auth/password-reset-confirm/` - Set a new password from a reset link
 - `POST /api/auth/token/refresh/` - Refresh access token
 - `POST /api/auth/online/` - Set online status
 - `GET/PUT /api/users/me/` - Own profile (PUT updates lat/lng for the map)

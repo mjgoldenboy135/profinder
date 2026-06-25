@@ -1,3 +1,5 @@
+import io
+
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes, parser_classes
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -5,10 +7,33 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
 from django.db.models import Q
+from django.http import HttpResponse, Http404
+from django.views.decorators.cache import cache_control
+from PIL import Image, ImageOps, UnidentifiedImageError
 from .models import UserProfile
 from .serializers import RegisterSerializer, UserProfileSerializer, PublicUserProfileSerializer
 
 User = get_user_model()
+
+AVATAR_SIZE = 400  # square avatars, AVATAR_SIZE x AVATAR_SIZE
+
+
+def process_avatar(uploaded_file):
+    """Auto-orient, center-crop to a square, and resize to a fixed dimension.
+    Returns JPEG bytes. Raises ValueError if the file isn't a valid image."""
+    try:
+        img = Image.open(uploaded_file)
+        img.load()
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise ValueError('Invalid or unsupported image file.')
+    img = ImageOps.exif_transpose(img)  # respect camera orientation
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+    # ImageOps.fit center-crops to the target aspect ratio then resizes.
+    img = ImageOps.fit(img, (AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS)
+    buffer = io.BytesIO()
+    img.save(buffer, format='JPEG', quality=85, optimize=True)
+    return buffer.getvalue()
 
 
 class RegisterView(generics.CreateAPIView):
@@ -43,19 +68,52 @@ class MeView(APIView):
         return Response(serializer.data)
 
 
-@api_view(['POST'])
+@api_view(['POST', 'DELETE'])
 @parser_classes([MultiPartParser, FormParser])
 def upload_profile_picture(request):
     try:
         profile = request.user.profile
     except UserProfile.DoesNotExist:
         return Response({'detail': 'Profile not found.'}, status=404)
+
+    if request.method == 'DELETE':
+        profile.profile_picture_data = None
+        profile.profile_picture_content_type = ''
+        profile.profile_picture = None
+        profile.save(update_fields=[
+            'profile_picture_data', 'profile_picture_content_type',
+            'profile_picture', 'updated_at',
+        ])
+        return Response({'profile_picture_url': None})
+
     if 'picture' not in request.FILES:
         return Response({'detail': 'No picture provided.'}, status=400)
-    profile.profile_picture = request.FILES['picture']
-    profile.save()
-    serializer = UserProfileSerializer(profile, context={'request': request})
-    return Response({'profile_picture_url': serializer.data['profile_picture_url']})
+    try:
+        data = process_avatar(request.FILES['picture'])
+    except ValueError as exc:
+        return Response({'detail': str(exc)}, status=400)
+    profile.profile_picture_data = data
+    profile.profile_picture_content_type = 'image/jpeg'
+    # Clear any legacy file-based picture so the DB copy is authoritative.
+    profile.profile_picture = None
+    profile.save(update_fields=[
+        'profile_picture_data', 'profile_picture_content_type',
+        'profile_picture', 'updated_at',
+    ])
+    return Response({'profile_picture_url': profile.get_picture_url(request)})
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+@cache_control(public=True, max_age=3600)
+def serve_profile_picture(request, pk):
+    """Public endpoint that serves an avatar so plain <img> tags (which can't
+    send an Authorization header) can load it."""
+    profile = generics.get_object_or_404(UserProfile, user__id=pk)
+    if not profile.profile_picture_data:
+        raise Http404('No picture.')
+    content_type = profile.profile_picture_content_type or 'image/jpeg'
+    return HttpResponse(bytes(profile.profile_picture_data), content_type=content_type)
 
 
 class UserListView(generics.ListAPIView):
