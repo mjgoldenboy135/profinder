@@ -122,6 +122,10 @@ SIMPLE_JWT = {
     'UPDATE_LAST_LOGIN': True,
 }
 
+# Google Sign-In. Leave empty to disable; set to your OAuth 2.0 Web Client ID
+# to enable "Sign in with Google" (the same value the frontend uses).
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+
 CORS_ALLOWED_ORIGINS = [
     o.strip() for o in config(
         'CORS_ALLOWED_ORIGINS',

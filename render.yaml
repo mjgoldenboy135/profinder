@@ -87,6 +87,11 @@ services:
       # - key: DEFAULT_FROM_EMAIL
       #   value: "Profinder <no-reply@yourdomain.com>"
       # ------------------------------------------------------------------------
+      # --- Google Sign-In (optional) ------------------------------------------
+      # Must match NEXT_PUBLIC_GOOGLE_CLIENT_ID on the frontend service below.
+      # - key: GOOGLE_CLIENT_ID
+      #   value: "YOUR_CLIENT_ID.apps.googleusercontent.com"
+      # ------------------------------------------------------------------------
 
   # ---------------------------------------------------------------------------
   # Next.js frontend. NEXT_PUBLIC_API_HOST is wired to the backend's host at
@@ -111,3 +116,12 @@ services:
           property: host
       - key: NEXT_PUBLIC_MAPTILER_API_KEY
         value: "JV8uSkC9GWBrOW5wttXV"
+      # --- Google Sign-In (optional) ------------------------------------------
+      # To enable "Sign in with Google", uncomment here AND on the backend
+      # service above, and set both to your OAuth 2.0 Web Client ID (create one
+      # at https://console.cloud.google.com/apis/credentials). Add your frontend
+      # URL (https://<frontend>.onrender.com) to the client's "Authorized
+      # JavaScript origins". Until set, the Google button stays hidden.
+      # - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+      #   value: "YOUR_CLIENT_ID.apps.googleusercontent.com"
+      # ------------------------------------------------------------------------

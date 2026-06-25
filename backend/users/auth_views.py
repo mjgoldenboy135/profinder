@@ -60,6 +60,61 @@ class RegisterView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 
+class GoogleLoginView(APIView):
+    """Sign in (or sign up) with a Google ID token from Google Identity
+    Services. Returns the same JWT payload as the email/password login."""
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        if not settings.GOOGLE_CLIENT_ID:
+            return Response({'detail': 'Google login is not configured.'},
+                            status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        credential = request.data.get('credential') or request.data.get('id_token')
+        if not credential:
+            return Response({'detail': 'Missing Google credential.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Imported lazily so the rest of the app runs without google-auth.
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+        try:
+            idinfo = google_id_token.verify_oauth2_token(
+                credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+            )
+        except ValueError:
+            return Response({'detail': 'Invalid or expired Google credential.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({'detail': 'Could not verify Google credential.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        email = (idinfo.get('email') or '').strip()
+        if not email or not idinfo.get('email_verified', False):
+            return Response({'detail': 'Google account email is missing or unverified.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        name = idinfo.get('name') or email.split('@')[0]
+
+        user = User.objects.filter(email__iexact=email).first()
+        if user is None:
+            user = User(email=email, username=email)
+            user.set_unusable_password()  # Google-only account, no local password
+            user.save()
+            UserProfile.objects.create(user=user, full_name=name)
+        else:
+            UserProfile.objects.get_or_create(user=user, defaults={'full_name': name})
+
+        refresh = RefreshToken.for_user(user)
+        try:
+            profile_data = UserProfileSerializer(user.profile, context={'request': request}).data
+        except UserProfile.DoesNotExist:
+            profile_data = None
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'user': profile_data,
+        })
+
+
 class SetOnlineView(APIView):
     def post(self, request):
         is_online = request.data.get('is_online', True)

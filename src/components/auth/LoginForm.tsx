@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { apiFetch, setTokens } from "@/lib/api";
 import { useAuthContext } from "@/contexts/AuthContext";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -106,6 +107,7 @@ export default function LoginForm() {
             </Button>
           </form>
         </Form>
+        <GoogleSignInButton redirectTo="/map" />
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <Link href="/signup" className="font-medium text-primary hover:underline">
