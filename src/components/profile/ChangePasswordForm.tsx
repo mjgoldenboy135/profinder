@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -34,6 +35,7 @@ type FormValues = z.infer<typeof schema>;
 
 export default function ChangePasswordForm() {
   const { toast } = useToast();
+  const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -46,6 +48,7 @@ export default function ChangePasswordForm() {
       await changePassword(values.oldPassword, values.newPassword);
       toast({ title: "Password Changed", description: "Your password has been updated." });
       form.reset();
+      router.push("/profile");
     } catch (err: any) {
       toast({
         title: "Could Not Change Password",
@@ -58,7 +61,7 @@ export default function ChangePasswordForm() {
   }
 
   return (
-    <Card className="w-full max-w-3xl mx-auto shadow-xl mt-8">
+    <Card className="w-full max-w-3xl mx-auto shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl font-headline flex items-center">
           <KeyRound className="mr-2 h-5 w-5 text-primary" /> Change Password

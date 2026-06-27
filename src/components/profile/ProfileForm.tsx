@@ -21,7 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { updateUserProfile, uploadProfilePicture, removeProfilePicture } from "@/services/userService";
@@ -770,7 +771,10 @@ export default function ProfileForm() {
             </Button>
           </form>
         </Form>
-        <div className="mt-6">
+        <div className="mt-6 flex flex-col sm:flex-row gap-3">
+          <Button type="button" variant="outline" className="w-full sm:w-auto" asChild>
+            <Link href="/change-password"><KeyRound className="mr-2 h-4 w-4" /> Change Password</Link>
+          </Button>
           <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button type="button" variant="destructive" className="w-full sm:w-auto">Delete Profile</Button>
