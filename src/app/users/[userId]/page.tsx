@@ -1,42 +1,37 @@
+"use client";
 
+import { useEffect, useState, use } from "react";
 import PublicProfileCard from "@/components/profile/PublicProfileCard";
-import type { User } from "@/lib/types";
+import type { UserProfile } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Terminal } from "lucide-react";
+import { Terminal, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { getUserProfile } from "@/services/userService"; // Import the Firestore service
-import { Timestamp } from 'firebase/firestore'; // Import Timestamp
+import { getUserProfile } from "@/services/userService";
 
 interface UserProfilePageProps {
-  params: {
-    userId: string;
-  };
+  params: Promise<{ userId: string }>;
 }
 
-export default async function UserProfilePage({ params }: UserProfilePageProps) {
-  let user: User | null = null;
-  try {
-    user = await getUserProfile(params.userId);
+export default function UserProfilePage({ params }: UserProfilePageProps) {
+  const { userId } = use(params);
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-    if (user) {
-      // Create a mutable copy for serialization
-      const serializableUser = { ...user };
+  useEffect(() => {
+    getUserProfile(Number(userId))
+      .then(setUser)
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
+  }, [userId]);
 
-      // Convert Firestore Timestamps to numbers (milliseconds)
-      if (serializableUser.createdAt && serializableUser.createdAt instanceof Timestamp) {
-        serializableUser.createdAt = serializableUser.createdAt.toMillis() as any;
-      }
-      if (serializableUser.updatedAt && serializableUser.updatedAt instanceof Timestamp) {
-        serializableUser.updatedAt = serializableUser.updatedAt.toMillis() as any;
-      }
-      user = serializableUser; // Use the serialized version
-    }
-  } catch (error) {
-    console.error("Error processing user profile in UserProfilePage:", error);
-    // User will remain null, leading to the "User Not Found" display
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+      </div>
+    );
   }
-
 
   if (!user) {
     return (
@@ -44,13 +39,10 @@ export default async function UserProfilePage({ params }: UserProfilePageProps) 
         <Alert variant="destructive" className="max-w-md">
           <Terminal className="h-4 w-4" />
           <AlertTitle>User Not Found</AlertTitle>
-          <AlertDescription>
-            The profile you are looking for does not exist or could not be loaded.
-            This might be due to an incorrect ID or an issue fetching the data.
-          </AlertDescription>
+          <AlertDescription>The profile you are looking for does not exist or could not be loaded.</AlertDescription>
         </Alert>
         <Button variant="link" asChild className="mt-4">
-            <Link href="/users">Back to User List</Link>
+          <Link href="/users">Back to User List</Link>
         </Button>
       </div>
     );

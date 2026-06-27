@@ -1,152 +1,120 @@
-
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { setTokens } from "@/lib/api";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { auth } from "@/lib/firebase";
-import { sendEmailVerification, signOut } from "firebase/auth";
+import { verifyEmail, resendVerification } from "@/services/authService";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Loader2, MailCheck, MailWarning, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, MailCheck, MailWarning } from "lucide-react";
-import Link from "next/link";
 
-export default function VerifyEmailPage() {
-  const { currentUser, loading: authLoading, refreshUserProfile } = useAuthContext();
+type Status = "idle" | "verifying" | "success" | "error";
+
+function VerifyEmailInner() {
   const router = useRouter();
+  const params = useSearchParams();
+  const { refreshUserProfile } = useAuthContext();
   const { toast } = useToast();
-  const [isSending, setIsSending] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
 
-  // Redirect logic
+  const uid = params.get("uid");
+  const token = params.get("token");
+  const email = params.get("email") || "";
+
+  const [status, setStatus] = useState<Status>(uid && token ? "verifying" : "idle");
+  const [resending, setResending] = useState(false);
+  const ran = useRef(false);
+
   useEffect(() => {
-    if (!authLoading) {
-      if (!currentUser) {
-        // If no user is logged in, they shouldn't be here
-        router.replace("/login");
-      } else if (currentUser.emailVerified) {
-        // If user is already verified, send them to the map
-        router.replace("/map");
+    if (!uid || !token || ran.current) return;
+    ran.current = true;
+    (async () => {
+      try {
+        const data = await verifyEmail(uid, token);
+        setTokens(data.access, data.refresh);
+        await refreshUserProfile();
+        setStatus("success");
+        toast({ title: "Email Verified", description: "Your account is now active." });
+        setTimeout(() => router.push("/map"), 1200);
+      } catch {
+        setStatus("error");
       }
-    }
-  }, [currentUser, authLoading, router]);
+    })();
+  }, [uid, token, refreshUserProfile, router, toast]);
 
-  const handleResendVerification = async () => {
-    if (!currentUser) return;
-    setIsSending(true);
+  const handleResend = async () => {
+    if (!email) {
+      toast({ title: "Email needed", description: "Please log in to resend your verification link.", variant: "destructive" });
+      return;
+    }
+    setResending(true);
     try {
-      await sendEmailVerification(currentUser);
-      toast({
-        title: "Verification Email Sent",
-        description: `A new verification link has been sent to ${currentUser.email}.`,
-      });
-    } catch (error: any) {
-      console.error("Error resending verification email:", error);
-      toast({
-        title: "Error",
-        description: error.code === 'auth/too-many-requests' 
-          ? "You've requested this too many times. Please wait a few minutes before trying again."
-          : "Failed to send verification email. Please try again.",
-        variant: "destructive",
-      });
+      await resendVerification(email);
+      toast({ title: "Verification Sent", description: "If your account still needs verifying, a new link is on its way." });
+    } catch {
+      toast({ title: "Error", description: "Could not resend right now. Please try again later.", variant: "destructive" });
     } finally {
-      setIsSending(false);
+      setResending(false);
     }
   };
 
-  const handleCheckVerification = async () => {
-    if (!currentUser) return;
-    setIsChecking(true);
-    try {
-      // Reload the user object from Firebase to get the latest state
-      await currentUser.reload();
-      
-      // The onAuthStateChanged listener in AuthContext will handle the update,
-      // but we can force a check here and redirect immediately if verified.
-      // We also need to refresh our app's specific profile data.
-      await refreshUserProfile();
-      
-      if (auth.currentUser?.emailVerified) {
-        toast({
-          title: "Email Verified!",
-          description: "Thank you for verifying your email. Redirecting...",
-        });
-        router.push("/map");
-      } else {
-        toast({
-          title: "Email Not Verified",
-          description: "Please check your inbox (and spam folder) for the verification link.",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("Error checking verification status:", error);
-      toast({
-        title: "Error",
-        description: "Could not check verification status. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsChecking(false);
-    }
-  };
+  let icon = <MailWarning className="h-12 w-12 text-primary" />;
+  let title = "Verify Your Email";
+  let description = email
+    ? `We sent a verification link to ${email}. Click it to activate your account.`
+    : "Please check your inbox for a verification link to activate your account.";
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      router.push('/login');
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast({ title: "Logout Failed", variant: "destructive" });
-    }
-  };
-  
-  if (authLoading || !currentUser || currentUser.emailVerified) {
-    // Show a loading state while we wait for auth state or redirect
-    return (
-      <div className="flex flex-col items-center justify-center py-12 min-h-[calc(100vh-10rem)]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Checking authentication status...</p>
-      </div>
-    );
+  if (status === "verifying") {
+    icon = <Loader2 className="h-12 w-12 text-primary animate-spin" />;
+    title = "Verifying…";
+    description = "Confirming your email address, one moment.";
+  } else if (status === "success") {
+    icon = <MailCheck className="h-12 w-12 text-green-600" />;
+    title = "Email Verified";
+    description = "Your account is active. Redirecting you in…";
+  } else if (status === "error") {
+    icon = <XCircle className="h-12 w-12 text-destructive" />;
+    title = "Verification Failed";
+    description = "This verification link is invalid or has expired. Request a new one below.";
   }
 
   return (
     <div className="flex flex-col items-center justify-center py-12">
       <Card className="w-full max-w-lg shadow-xl">
         <CardHeader className="text-center">
-          <div className="mx-auto bg-primary/10 rounded-full p-3 w-fit">
-            <MailWarning className="h-12 w-12 text-primary" />
-          </div>
-          <CardTitle className="text-3xl font-headline mt-4">Verify Your Email</CardTitle>
-          <CardDescription>
-            A verification link has been sent to your email address:
-            <br />
-            <strong className="text-primary">{currentUser.email}</strong>
-            <br />
-            Please click the link to activate your account.
-          </CardDescription>
+          <div className="mx-auto bg-primary/10 rounded-full p-3 w-fit">{icon}</div>
+          <CardTitle className="text-3xl font-headline mt-4">{title}</CardTitle>
+          <CardDescription>{description}</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-           <Button onClick={handleCheckVerification} className="w-full" size="lg" disabled={isChecking}>
-            {isChecking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MailCheck className="mr-2 h-4 w-4" />}
-            {isChecking ? "Checking..." : "I have verified my email"}
-          </Button>
-          <p className="text-center text-sm text-muted-foreground">
-            Can't find the email? Check your spam folder.
-          </p>
+        <CardContent className="space-y-3">
+          {(status === "idle" || status === "error") && (
+            <Button className="w-full" onClick={handleResend} disabled={resending}>
+              {resending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {resending ? "Sending…" : "Resend Verification Email"}
+            </Button>
+          )}
+          {status === "success" && (
+            <Button asChild className="w-full">
+              <Link href="/map">Continue</Link>
+            </Button>
+          )}
         </CardContent>
-        <CardFooter className="flex flex-col sm:flex-row gap-2 justify-center border-t pt-6">
-          <Button variant="outline" onClick={handleResendVerification} disabled={isSending}>
-            {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Resend Email
-          </Button>
-          <Button variant="link" onClick={handleLogout}>
-             Log out
+        <CardFooter className="flex justify-center border-t pt-6">
+          <Button variant="link" asChild>
+            <Link href="/login">Back to Login</Link>
           </Button>
         </CardFooter>
       </Card>
     </div>
+  );
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <VerifyEmailInner />
+    </Suspense>
   );
 }

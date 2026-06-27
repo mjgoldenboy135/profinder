@@ -1,99 +1,88 @@
+'use client';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { UserProfile } from '@/lib/types';
+import { apiFetch, setTokens, clearTokens, getAccessToken } from '@/lib/api';
 
-"use client";
-
-import type { User as FirebaseUser } from 'firebase/auth';
-import { onAuthStateChanged, getRedirectResult, type UserCredential } from 'firebase/auth';
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { auth } from '@/lib/firebase'; // Your Firebase auth instance
-import type { User as AppUser } from '@/lib/types'; // Import your app's User type
-import { getUserProfile, createUserProfile } from '@/services/userService'; // Import userService
-import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react'; // Import Loader2
+export interface CurrentUser {
+  id: number;
+  uid: string; // string alias of id for backward compatibility
+  email: string;
+  emailVerified: boolean;
+}
 
 interface AuthContextType {
-  currentUser: FirebaseUser | null;
-  currentUserProfile: AppUser | null;
+  currentUser: CurrentUser | null;
+  currentUserProfile: UserProfile | null;
   loading: boolean;
   refreshUserProfile: () => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// A simple full-page loader component
-function FullPageLoader() {
-  return (
-    <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-[200]">
-      <div className="flex flex-col items-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Checking authentication...</p>
-      </div>
-    </div>
-  );
-}
-
-
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
-  const [currentUserProfile, setCurrentUserProfile] = useState<AppUser | null>(null);
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setCurrentUser(user);
-        try {
-          const profile = await getUserProfile(user.uid);
-          setCurrentUserProfile(profile);
-        } catch (error) {
-          console.error("[AuthContext] Error fetching user profile:", error);
-          setCurrentUserProfile(null);
-        }
+  const fetchProfile = async () => {
+    const token = getAccessToken();
+    if (!token) {
+      setCurrentUser(null);
+      setCurrentUserProfile(null);
+      setLoading(false);
+      return;
+    }
+    try {
+      const res = await apiFetch('/users/me/');
+      if (res.ok) {
+        const profile: UserProfile = await res.json();
+        setCurrentUserProfile(profile);
+        setCurrentUser({ id: profile.id, uid: String(profile.id), email: profile.email, emailVerified: true });
       } else {
+        clearTokens();
         setCurrentUser(null);
         setCurrentUserProfile(null);
       }
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const refreshUserProfile = async () => {
-    const firebaseAuthUser = auth.currentUser;
-    if (firebaseAuthUser) {
-      try {
-        const firestoreProfile = await getUserProfile(firebaseAuthUser.uid);
-        setCurrentUserProfile(firestoreProfile);
-        await firebaseAuthUser.reload();
-        setCurrentUser(auth.currentUser);
-      } catch (error) {
-        console.error("[AuthContext refreshUserProfile] Error refreshing user profile:", error);
-      }
-    } else {
-      setCurrentUserProfile(null);
+    } catch {
       setCurrentUser(null);
+      setCurrentUserProfile(null);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const value = {
-    currentUser,
-    currentUserProfile,
-    loading,
-    refreshUserProfile,
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const refreshUserProfile = async () => {
+    await fetchProfile();
   };
 
+  const logout = () => {
+    clearTokens();
+    setCurrentUser(null);
+    setCurrentUserProfile(null);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={value}>
-      {loading ? <FullPageLoader /> : children}
+    <AuthContext.Provider value={{ currentUser, currentUserProfile, loading, refreshUserProfile, logout }}>
+      {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuthContext = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
-  return context;
-};
+export function useAuthContext() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuthContext must be used within AuthProvider');
+  return ctx;
+}

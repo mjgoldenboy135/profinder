@@ -1,0 +1,99 @@
+# Render Blueprint for Profinder (Django backend + Next.js frontend).
+#
+# Deploy: on https://render.com choose "New +" -> "Blueprint", connect this
+# repository and select the branch. Render reads this file from the repo root
+# and provisions everything below in one go. No manual environment variables
+# are required — the frontend is wired to the backend automatically.
+#
+# It creates:
+#   * profinder-db      - managed PostgreSQL database
+#   * profinder-backend - Django API + chat WebSocket (Daphne ASGI server)
+#   * profinder        - the Next.js app
+
+databases:
+  - name: profinder-db
+    plan: free
+    databaseName: profinder
+    user: profinder
+
+services:
+  - type: web
+    name: profinder-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: "./build.sh"
+    startCommand: "daphne -b 0.0.0.0 -p $PORT profinder.asgi:application"
+    healthCheckPath: /api/health/
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: ".onrender.com,localhost,127.0.0.1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: profinder-db
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGIN_REGEXES
+        value: "^https://.*\\.onrender\\.com$"
+      - key: WS_ALLOWED_ORIGINS
+        value: "*"
+      # Used to build password-reset links pointing at the frontend.
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: profinder
+          property: host
+      # --- Email for password-reset delivery (optional) -----------------------
+      # Leave commented and the backend prints reset links to the logs (console
+      # backend) — fine for testing. To send real reset emails, uncomment and
+      # fill in your SMTP provider. `sync: false` keeps secrets out of the repo:
+      # Render will prompt you for the value in the dashboard on first deploy.
+      #
+      # Gmail:    EMAIL_HOST=smtp.gmail.com  PORT=587  USER=you@gmail.com
+      #           PASSWORD=<16-char App Password> (Google Account > App passwords)
+      # SendGrid: EMAIL_HOST=smtp.sendgrid.net PORT=587 USER=apikey
+      #           PASSWORD=<your SendGrid API key>
+      #
+      # - key: EMAIL_HOST
+      #   value: "smtp.gmail.com"
+      # - key: EMAIL_PORT
+      #   value: "587"
+      # - key: EMAIL_USE_TLS
+      #   value: "True"
+      # - key: EMAIL_HOST_USER
+      #   sync: false
+      # - key: EMAIL_HOST_PASSWORD
+      #   sync: false
+      # - key: DEFAULT_FROM_EMAIL
+      #   value: "Profinder <no-reply@yourdomain.com>"
+      # ------------------------------------------------------------------------
+      # Google Sign-In. Must match NEXT_PUBLIC_GOOGLE_CLIENT_ID on the frontend.
+      - key: GOOGLE_CLIENT_ID
+        value: "862818079124-1dnadc132ul3j1arelarbjm7g13rag56.apps.googleusercontent.com"
+
+  - type: web
+    name: profinder
+    runtime: node
+    plan: free
+    buildCommand: "npm install --include=dev && npm run build"
+    startCommand: "npm start"
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_HOST
+        fromService:
+          type: web
+          name: profinder-backend
+          property: host
+      - key: NEXT_PUBLIC_MAPTILER_API_KEY
+        value: "JV8uSkC9GWBrOW5wttXV"
+      # Google Sign-In Client ID (public). Remember to add your frontend URL
+      # (https://<frontend>.onrender.com) to the OAuth client's "Authorized
+      # JavaScript origins" in the Google Cloud Console.
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        value: "862818079124-1dnadc132ul3j1arelarbjm7g13rag56.apps.googleusercontent.com"

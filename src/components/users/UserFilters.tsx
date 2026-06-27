@@ -7,13 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Search, FilterX } from "lucide-react";
-import type { User } from "@/lib/types";
+import type { UserProfile } from "@/lib/types";
 import { useMemo } from "react";
 
 interface UserFiltersProps {
   onFilterChange: (filters: any) => void; // Replace 'any' with a proper filter type
   initialFilters: any; // Replace 'any'
-  users: User[]; // Add users prop to receive the list of users
+  users: UserProfile[];
 }
 
 const ANY_PROFESSION_VALUE = "__ANY_PROFESSION__";
@@ -24,7 +24,7 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
   const uniqueProfessions = useMemo(() => {
     if (!users || users.length === 0) return [];
     // Filter out undefined/null professions and then get unique values
-    return Array.from(new Set(users.map(u => u.profession).filter(Boolean as (value: string | undefined) => value is string)));
+    return Array.from(new Set(users.map(u => u.profession).filter((p): p is string => Boolean(p))));
   }, [users]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {

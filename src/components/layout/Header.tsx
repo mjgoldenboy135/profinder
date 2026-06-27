@@ -8,8 +8,6 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2 } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { auth } from '@/lib/firebase';
-import { signOut } from 'firebase/auth';
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from 'react';
 import {
@@ -35,7 +33,7 @@ const mainHeaderNavLinks = [
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, loading: authLoading } = useAuthContext();
+  const { currentUser, loading: authLoading, logout } = useAuthContext();
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -79,10 +77,10 @@ export default function Header() {
       }
 
       setCheckingMessages(true);
-      getUserChats(currentUser.uid)
+      getUserChats()
         .then(userChats => {
           const unread = userChats.some(chat =>
-            chat.lastMessageText && chat.lastMessageSenderId !== currentUser.uid
+            chat.last_message_text && chat.last_message_sender_id !== currentUser.id
           );
           setHasUnreadActivity(unread);
         })
@@ -99,23 +97,11 @@ export default function Header() {
   }, [isAuthenticatedAndVerified, currentUser, pathname]);
 
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
-      });
-      setIsSidebarOpen(false);
-      router.push('/login');
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast({
-        title: "Logout Failed",
-        description: "An error occurred while logging out. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleLogout = () => {
+    logout();
+    toast({ title: "Logged Out", description: "You have been successfully logged out." });
+    setIsSidebarOpen(false);
+    router.push('/login');
   };
 
   if (authLoading) {
