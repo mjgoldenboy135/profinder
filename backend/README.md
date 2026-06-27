@@ -34,6 +34,8 @@ Copy `.env.example` to `.env` and fill in:
 - `POST /api/auth/register/` - Register new user
 - `POST /api/auth/login/` - Login, returns JWT tokens
 - `POST /api/auth/google/` - Sign in/up with a Google ID token (set `GOOGLE_CLIENT_ID`)
+- `POST /api/auth/verify-email/` - Confirm an email-verification link (uid, token)
+- `POST /api/auth/resend-verification/` - Resend the verification email
 - `POST /api/auth/change-password/` - Change password (authenticated)
 - `POST /api/auth/password-reset/` - Request a password-reset email
 - `POST /api/auth/password-reset-confirm/` - Set a new password from a reset link

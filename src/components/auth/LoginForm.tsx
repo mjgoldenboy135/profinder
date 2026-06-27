@@ -47,6 +47,11 @@ export default function LoginForm() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
+        if (res.status === 403 && err.verification_required) {
+          toast({ title: "Email Not Verified", description: "Please verify your email to continue. We'll help you resend the link." });
+          router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
+          return;
+        }
         form.setError("password", { type: "manual", message: err.detail || "Invalid email or password." });
         toast({ title: "Login Failed", description: err.detail || "Invalid email or password.", variant: "destructive" });
         return;

@@ -32,3 +32,23 @@ export async function confirmPasswordReset(
   });
   if (!res.ok) throw new Error(await parseError(res, 'Could not reset password.'));
 }
+
+export async function verifyEmail(
+  uid: string,
+  token: string
+): Promise<{ access: string; refresh: string }> {
+  const res = await apiFetch('/auth/verify-email/', {
+    method: 'POST',
+    body: JSON.stringify({ uid, token }),
+  });
+  if (!res.ok) throw new Error(await parseError(res, 'Verification failed.'));
+  return res.json();
+}
+
+export async function resendVerification(email: string): Promise<void> {
+  const res = await apiFetch('/auth/resend-verification/', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+  if (!res.ok) throw new Error(await parseError(res, 'Could not resend verification email.'));
+}
