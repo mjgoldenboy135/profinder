@@ -16,6 +16,39 @@ from .serializers import RegisterSerializer, UserProfileSerializer
 User = get_user_model()
 
 
+def _profile_data(user, request):
+    try:
+        return UserProfileSerializer(user.profile, context={'request': request}).data
+    except UserProfile.DoesNotExist:
+        return None
+
+
+def _auth_response(user, request, http_status=status.HTTP_200_OK):
+    refresh = RefreshToken.for_user(user)
+    return Response({
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': _profile_data(user, request),
+    }, status=http_status)
+
+
+def send_verification_email(user, request):
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    link = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?uid={uid}&token={token}"
+    send_mail(
+        subject='Verify your Profinder email',
+        message=(
+            'Welcome to Profinder!\n\n'
+            f'Please confirm your email address to activate your account:\n{link}\n\n'
+            "If you didn't create this account, you can ignore this email."
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=True,
+    )
+
+
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -25,18 +58,13 @@ class LoginView(APIView):
         user = authenticate(request, username=email, password=password)
         if not user:
             return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
-        refresh = RefreshToken.for_user(user)
-        try:
-            profile = user.profile
-            serializer = UserProfileSerializer(profile, context={'request': request})
-            profile_data = serializer.data
-        except UserProfile.DoesNotExist:
-            profile_data = None
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': profile_data,
-        })
+        if settings.REQUIRE_EMAIL_VERIFICATION and not user.email_verified:
+            return Response(
+                {'detail': 'Please verify your email before logging in. Check your inbox for the verification link.',
+                 'verification_required': True, 'email': user.email},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return _auth_response(user, request)
 
 
 class RegisterView(APIView):
@@ -46,18 +74,57 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        refresh = RefreshToken.for_user(user)
+
+        if settings.REQUIRE_EMAIL_VERIFICATION:
+            user.email_verified = False
+            user.save(update_fields=['email_verified'])
+            send_verification_email(user, request)
+            return Response(
+                {'message': 'Account created. Check your email for a verification link to activate your account.',
+                 'verification_required': True, 'email': user.email},
+                status=status.HTTP_201_CREATED,
+            )
+
+        # Verification disabled (e.g. no email configured): log in immediately.
+        user.email_verified = True
+        user.save(update_fields=['email_verified'])
+        return _auth_response(user, request, http_status=status.HTTP_201_CREATED)
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        uid = request.data.get('uid', '')
+        token = request.data.get('token', '')
         try:
-            profile = user.profile
-            profile_serializer = UserProfileSerializer(profile, context={'request': request})
-            profile_data = profile_serializer.data
-        except UserProfile.DoesNotExist:
-            profile_data = None
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': profile_data,
-        }, status=status.HTTP_201_CREATED)
+            user = User.objects.get(pk=force_str(urlsafe_base64_decode(uid)))
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
+            return Response({'detail': 'Invalid or expired verification link.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if user.email_verified:
+            return _auth_response(user, request)
+        if not default_token_generator.check_token(user, token):
+            return Response({'detail': 'Invalid or expired verification link.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        user.email_verified = True
+        user.save(update_fields=['email_verified'])
+        return _auth_response(user, request)
+
+
+class ResendVerificationView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        email = request.data.get('email', '')
+        generic = Response({'message': 'If an unverified account exists, a verification email was sent.'})
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return generic
+        if not user.email_verified:
+            send_verification_email(user, request)
+        return generic
 
 
 class GoogleLoginView(APIView):
@@ -96,23 +163,18 @@ class GoogleLoginView(APIView):
 
         user = User.objects.filter(email__iexact=email).first()
         if user is None:
-            user = User(email=email, username=email)
+            user = User(email=email, username=email, email_verified=True)
             user.set_unusable_password()  # Google-only account, no local password
             user.save()
             UserProfile.objects.create(user=user, full_name=name)
         else:
+            # Google has verified the email, so trust it.
+            if not user.email_verified:
+                user.email_verified = True
+                user.save(update_fields=['email_verified'])
             UserProfile.objects.get_or_create(user=user, defaults={'full_name': name})
 
-        refresh = RefreshToken.for_user(user)
-        try:
-            profile_data = UserProfileSerializer(user.profile, context={'request': request}).data
-        except UserProfile.DoesNotExist:
-            profile_data = None
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': profile_data,
-        })
+        return _auth_response(user, request)
 
 
 class SetOnlineView(APIView):

@@ -60,6 +60,11 @@ export default function SignUpForm() {
         return;
       }
       const data = await res.json();
+      if (data.verification_required || !data.access) {
+        toast({ title: "Verify Your Email", description: "We sent a verification link to your email. Please check your inbox to activate your account." });
+        router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
+        return;
+      }
       setTokens(data.access, data.refresh);
       await refreshUserProfile();
       toast({ title: "Account Created!", description: "Welcome to Proximity Network." });

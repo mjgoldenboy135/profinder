@@ -3,12 +3,15 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .auth_views import (
     LoginView, RegisterView, SetOnlineView, GoogleLoginView,
     ChangePasswordView, PasswordResetRequestView, PasswordResetConfirmView,
+    VerifyEmailView, ResendVerificationView,
 )
 
 urlpatterns = [
     path('register/', RegisterView.as_view()),
     path('login/', LoginView.as_view()),
     path('google/', GoogleLoginView.as_view()),
+    path('verify-email/', VerifyEmailView.as_view()),
+    path('resend-verification/', ResendVerificationView.as_view()),
     path('token/refresh/', TokenRefreshView.as_view()),
     path('online/', SetOnlineView.as_view()),
     path('change-password/', ChangePasswordView.as_view()),

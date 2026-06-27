@@ -168,6 +168,13 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Profinder <noreply@profinder.app>')
 
+# Require users to verify their email before they can log in. Enabled by
+# default only when real email sending is configured (EMAIL_HOST set), so a
+# console-only setup doesn't lock everyone out. Override with the env var.
+REQUIRE_EMAIL_VERIFICATION = config(
+    'REQUIRE_EMAIL_VERIFICATION', default=bool(EMAIL_HOST), cast=bool
+)
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels.layers.InMemoryChannelLayer',
