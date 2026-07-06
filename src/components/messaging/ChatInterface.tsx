@@ -70,7 +70,15 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
 
     try {
       const sent = await sendMessage(chat.id, textToSend);
-      setMessages(prev => prev.map(m => m.id === tempId ? sent : m));
+      // Drop the optimistic temp message and add the real one — unless the
+      // WebSocket echo already added it (avoids a duplicate).
+      setMessages(prev => {
+        const withoutTemp = prev.filter(m => m.id !== tempId);
+        if (withoutTemp.some(m => m.id === sent.id)) return withoutTemp;
+        return [...withoutTemp, sent].sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      });
     } catch {
       toast({ title: "Send Error", description: "Could not send message.", variant: "destructive" });
       setMessages(prev => prev.filter(m => m.id !== tempId));

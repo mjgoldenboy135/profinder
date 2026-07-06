@@ -2,6 +2,10 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   /* config options here */
+  // react-leaflet re-initializes the map container under StrictMode's dev
+  // double-mount ("Map container is already initialized"). Production never
+  // double-mounts, so this only affects dev; disable it to keep the map stable.
+  reactStrictMode: false,
   typescript: {
     ignoreBuildErrors: true,
   },
