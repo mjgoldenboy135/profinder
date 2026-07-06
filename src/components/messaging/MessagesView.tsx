@@ -40,6 +40,9 @@ export default function MessagesView() {
   const [isDeletingChat, setIsDeletingChat] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Tracks the chatWith id we've already started opening, so the effect doesn't
+  // re-fire findOrCreateChat in a loop while the redirect settles.
+  const navChatWithRef = useRef<string | null>(null);
 
   const fetchChats = async () => {
     if (!currentUser) return;
@@ -74,24 +77,28 @@ export default function MessagesView() {
     setActiveChatId(chatIdFromPath);
 
     const handleNavigation = async () => {
-      if (!currentUser || isLoading) return;
+      if (!currentUser) return;
       const chatWithId = searchParams.get("chatWith");
-      if (!chatWithId) return;
+      if (!chatWithId) {
+        navChatWithRef.current = null;
+        return;
+      }
+      // Only handle a given chatWith target once (prevents a redirect loop).
+      if (navChatWithRef.current === chatWithId) return;
+      navChatWithRef.current = chatWithId;
 
       const existingChat = chats.find(c => c.participants_data?.some(p => String(p.id) === chatWithId));
       if (existingChat) {
-        if (String(existingChat.id) !== chatIdFromPath) router.replace(`/messages/${existingChat.id}`);
-      } else {
-        setIsLoading(true);
-        try {
-          const chat = await findOrCreateChat(Number(chatWithId));
-          router.replace(`/messages/${chat.id}`);
-        } catch {
-          toast({ title: "Error", description: "Could not create new chat.", variant: "destructive" });
-          router.replace('/messages');
-        } finally {
-          setIsLoading(false);
-        }
+        router.replace(`/messages/${existingChat.id}`);
+        return;
+      }
+      try {
+        const chat = await findOrCreateChat(Number(chatWithId));
+        router.replace(`/messages/${chat.id}`);
+      } catch {
+        navChatWithRef.current = null;
+        toast({ title: "Error", description: "Could not create new chat.", variant: "destructive" });
+        router.replace('/messages');
       }
     };
 
