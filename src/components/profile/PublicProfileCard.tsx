@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check } from "lucide-react";
+import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check, Navigation } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -229,6 +229,17 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
         )}
       </CardContent>
       <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-6 border-t flex-wrap">
+        {user.lat != null && user.lng != null && (
+          <Button variant="outline" asChild>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${user.lat},${user.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Navigation className="mr-2 h-5 w-5 text-primary" /> Directions
+            </a>
+          </Button>
+        )}
         {user.linkedin_profile_url && (
           <Button variant="outline" asChild>
             <a href={user.linkedin_profile_url} target="_blank" rel="noopener noreferrer">

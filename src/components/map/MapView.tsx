@@ -5,13 +5,26 @@ import type { UserProfile } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, Maximize, Minimize } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getOnlineUsersWithLocation } from "@/services/userService";
 
 import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
 import L from "leaflet";
+
+// Leaflet needs to recompute its size when the map container resizes (e.g.
+// entering/leaving fullscreen), otherwise tiles render in the wrong place.
+function ResizeHandler({ trigger }: { trigger: unknown }) {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 250);
+    return () => clearTimeout(t);
+  }, [trigger, map]);
+  return null;
+}
 
 const MAPTILER_API_KEY = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
@@ -106,11 +119,20 @@ export default function MapView() {
   const searchParams = useSearchParams();
   const [selectedProfession, setSelectedProfession] = useState<string>("");
   const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { currentUser } = useAuthContext();
 
   const targetUserId = searchParams.get("userId");
   const targetLatParam = searchParams.get("lat");
   const targetLngParam = searchParams.get("lng");
+
+  // Exit fullscreen with the Escape key.
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setIsFullscreen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isFullscreen]);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -222,7 +244,25 @@ export default function MapView() {
             <p className="text-muted-foreground">Loading map and live user data...</p>
           </div>
         ) : (
-          <div className="h-[600px] w-full rounded-md overflow-hidden border">
+          <div
+            className={cn(
+              "relative w-full overflow-hidden border",
+              isFullscreen
+                ? "fixed inset-0 z-[2000] h-screen w-screen rounded-none"
+                : "h-[600px] rounded-md"
+            )}
+          >
+            <Button
+              type="button"
+              size="icon"
+              variant="secondary"
+              onClick={() => setIsFullscreen((f) => !f)}
+              className="absolute top-2 right-2 z-[1001] shadow-md"
+              aria-label={isFullscreen ? "Exit fullscreen" : "View map fullscreen"}
+              title={isFullscreen ? "Exit fullscreen" : "View map fullscreen"}
+            >
+              {isFullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+            </Button>
             <MapContainer
               center={[initialCenter.lat, initialCenter.lng]}
               zoom={initialZoom}
@@ -233,6 +273,7 @@ export default function MapView() {
                 url={`https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}&language=en`}
                 attribution="&copy; <a href='https://www.maptiler.com/copyright/'>MapTiler</a> &copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
               />
+              <ResizeHandler trigger={isFullscreen} />
 
               {visibleUsers.map((user) => {
                 if (user.lat == null || user.lng == null) return null;
