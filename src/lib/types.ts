@@ -1,6 +1,7 @@
 export interface UserProfile {
   id: number;
   email: string;
+  email_verified?: boolean;
   full_name: string;
   profession?: string;
   education?: string;

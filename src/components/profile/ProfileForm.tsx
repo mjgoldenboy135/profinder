@@ -21,8 +21,9 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning } from "lucide-react";
 import Link from "next/link";
+import { sendVerificationEmail } from "@/services/authService";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { updateUserProfile, uploadProfilePicture, removeProfilePicture } from "@/services/userService";
@@ -143,6 +144,19 @@ export default function ProfileForm() {
   const [isLocationPermissionDenied, setIsLocationPermissionDenied] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingProfile, setIsDeletingProfile] = useState(false);
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
+
+  const handleSendVerification = async () => {
+    setIsSendingVerification(true);
+    try {
+      const message = await sendVerificationEmail();
+      toast({ title: "Verification Email Sent", description: message });
+    } catch (error: any) {
+      toast({ title: "Could Not Send Email", description: error.message || "Please try again later.", variant: "destructive" });
+    } finally {
+      setIsSendingVerification(false);
+    }
+  };
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -551,6 +565,33 @@ export default function ProfileForm() {
                 </FormItem>
               )}
             />
+
+            {currentUserProfile && (
+              currentUserProfile.email_verified ? (
+                <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+                  <BadgeCheck className="h-5 w-5 shrink-0" />
+                  <span>Your email is verified.</span>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-3">
+                  <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400 flex-1">
+                    <MailWarning className="h-5 w-5 shrink-0" />
+                    <span>Your email isn&apos;t verified yet. Verify it to secure your account.</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSendVerification}
+                    disabled={isSendingVerification}
+                    className="shrink-0"
+                  >
+                    {isSendingVerification && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isSendingVerification ? "Sending..." : "Send Verification Email"}
+                  </Button>
+                </div>
+              )
+            )}
             <FormField
               control={form.control}
               name="bio"
