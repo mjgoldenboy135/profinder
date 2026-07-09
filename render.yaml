@@ -48,29 +48,25 @@ services:
           type: web
           name: profinder
           property: host
-      # --- Email for password-reset delivery (optional) -----------------------
-      # Leave commented and the backend prints reset links to the logs (console
-      # backend) — fine for testing. To send real reset emails, uncomment and
-      # fill in your SMTP provider. `sync: false` keeps secrets out of the repo:
-      # Render will prompt you for the value in the dashboard on first deploy.
-      #
-      # Gmail:    EMAIL_HOST=smtp.gmail.com  PORT=587  USER=you@gmail.com
-      #           PASSWORD=<16-char App Password> (Google Account > App passwords)
-      # SendGrid: EMAIL_HOST=smtp.sendgrid.net PORT=587 USER=apikey
-      #           PASSWORD=<your SendGrid API key>
-      #
-      # - key: EMAIL_HOST
-      #   value: "smtp.gmail.com"
-      # - key: EMAIL_PORT
-      #   value: "587"
-      # - key: EMAIL_USE_TLS
-      #   value: "True"
-      # - key: EMAIL_HOST_USER
-      #   sync: false
-      # - key: EMAIL_HOST_PASSWORD
-      #   sync: false
-      # - key: DEFAULT_FROM_EMAIL
-      #   value: "Profinder <no-reply@yourdomain.com>"
+      # --- Email delivery (verification + password reset) via Gmail SMTP ------
+      # EMAIL_HOST_PASSWORD is `sync: false`: Render prompts for it in the
+      # dashboard, keeping the secret out of the repo. Use a Gmail App Password
+      # (Google Account > Security > 2-Step Verification > App passwords) — a
+      # normal Gmail password is rejected by Google's SMTP servers.
+      # Setting EMAIL_HOST also auto-enables REQUIRE_EMAIL_VERIFICATION for new
+      # signups; set REQUIRE_EMAIL_VERIFICATION=False to turn the gate off.
+      - key: EMAIL_HOST
+        value: "smtp.gmail.com"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "True"
+      - key: EMAIL_HOST_USER
+        value: "mj115135123@gmail.com"
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        value: "Profinder <mj115135123@gmail.com>"
       # ------------------------------------------------------------------------
       # Google Sign-In. Must match NEXT_PUBLIC_GOOGLE_CLIENT_ID on the frontend.
       - key: GOOGLE_CLIENT_ID
