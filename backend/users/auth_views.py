@@ -7,11 +7,11 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.contrib.auth.tokens import default_token_generator
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.mail import send_mail
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from .models import UserProfile
 from .serializers import RegisterSerializer, UserProfileSerializer
+from .emailing import send_email_async
 
 User = get_user_model()
 
@@ -36,16 +36,14 @@ def send_verification_email(user, request):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     token = default_token_generator.make_token(user)
     link = f"{settings.FRONTEND_URL.rstrip('/')}/verify-email?uid={uid}&token={token}"
-    send_mail(
+    send_email_async(
         subject='Verify your Profinder email',
         message=(
             'Welcome to Profinder!\n\n'
             f'Please confirm your email address to activate your account:\n{link}\n\n'
             "If you didn't create this account, you can ignore this email."
         ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
-        fail_silently=True,
     )
 
 
@@ -236,20 +234,15 @@ class PasswordResetRequestView(APIView):
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
         reset_link = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?uid={uid}&token={token}"
-        try:
-            send_mail(
-                subject='Reset your Profinder password',
-                message=(
-                    'We received a request to reset your Profinder password.\n\n'
-                    f'Reset it here: {reset_link}\n\n'
-                    "If you didn't request this, you can ignore this email."
-                ),
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=True,
-            )
-        except Exception:
-            pass
+        send_email_async(
+            subject='Reset your Profinder password',
+            message=(
+                'We received a request to reset your Profinder password.\n\n'
+                f'Reset it here: {reset_link}\n\n'
+                "If you didn't request this, you can ignore this email."
+            ),
+            recipient_list=[user.email],
+        )
         return generic
 
 
