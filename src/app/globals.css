@@ -5,73 +5,81 @@
 
 @layer base {
   :root {
-    --background: 210 40% 98%; /* Very Light Blue-Gray */
-    --foreground: 210 30% 20%; /* Dark Slate Blue */
-    --card: 0 0% 100%; /* White */
-    --card-foreground: 210 30% 20%; /* Dark Slate Blue */
-    --popover: 0 0% 100%; /* White */
-    --popover-foreground: 210 30% 20%; /* Dark Slate Blue */
-    --primary: 190 70% 40%;    /* Deep Teal */
-    --primary-foreground: 200 100% 95%; /* Very Light Cyan for text on primary */
-    --secondary: 210 30% 90%; /* Light Gray-Blue */
-    --secondary-foreground: 210 30% 30%; /* Darker Gray-Blue for text on secondary */
-    --muted: 210 30% 94%; /* Lighter Muted Blue-Gray */
-    --muted-foreground: 210 25% 55%; /* Medium Gray-Blue */
-    --accent: 30 90% 60%;     /* Soft Orange */
-    --accent-foreground: 20 30% 20%; /* Dark Brown for text on accent */
-    --destructive: 0 70% 50%; /* Destructive Red */
-    --destructive-foreground: 0 0% 98%; /* Light text for destructive */
-    --border: 210 20% 88%; /* Light border */
-    --input: 210 20% 92%; /* Light input background */
-    --ring: 190 70% 45%; /* Slightly brighter teal for rings */
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
+    --background: 240 40% 99%;
+    --foreground: 230 25% 18%;
+    --card: 0 0% 100%;
+    --card-foreground: 230 25% 18%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 230 25% 18%;
+    --primary: 243 75% 58%;          /* Vibrant Indigo */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 30% 96%;
+    --secondary-foreground: 243 40% 30%;
+    --muted: 240 24% 95%;
+    --muted-foreground: 235 16% 46%;
+    --accent: 243 70% 95%;           /* Soft indigo tint for hovers */
+    --accent-foreground: 243 75% 45%;
+    --destructive: 0 75% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 22% 87%;
+    --input: 240 26% 80%;            /* Clearly visible input border */
+    --ring: 243 75% 58%;
 
-    /* Sidebar specific colors */
-    --sidebar-background: 190 70% 30%; /* Darker Teal */
-    --sidebar-foreground: 190 20% 95%; /* Light text for sidebar */
-    --sidebar-primary: 30 90% 60%; /* Accent orange for active items */
-    --sidebar-primary-foreground: 20 30% 15%; /* Dark text on accent */
-    --sidebar-accent: 190 70% 38%; /* Lighter teal for hover */
-    --sidebar-accent-foreground: 190 20% 98%; /* White text on hover */
-    --sidebar-border: 190 70% 25%;
-    --sidebar-ring: 30 90% 60%;
+    /* Brand gradient stops (indigo -> violet -> pink) */
+    --grad-1: 243 75% 58%;
+    --grad-2: 268 82% 62%;
+    --grad-3: 330 85% 62%;
+
+    --chart-1: 243 75% 58%;
+    --chart-2: 268 82% 62%;
+    --chart-3: 330 85% 62%;
+    --chart-4: 190 80% 45%;
+    --chart-5: 38 92% 55%;
+    --radius: 0.75rem;
+
+    --sidebar-background: 243 55% 22%;
+    --sidebar-foreground: 240 30% 92%;
+    --sidebar-primary: 330 85% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 243 45% 32%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 243 45% 28%;
+    --sidebar-ring: 330 85% 62%;
   }
 
   .dark {
-    --background: 210 30% 12%; /* Dark Slate Blue */
-    --foreground: 210 25% 92%; /* Light Gray-Blue */
-    --card: 210 30% 16%; /* Slightly lighter dark blue-gray for cards */
-    --card-foreground: 210 25% 92%;
-    --popover: 210 30% 16%;
-    --popover-foreground: 210 25% 92%;
-    --primary: 190 65% 55%;    /* Brighter Teal for Dark Mode */
-    --primary-foreground: 210 30% 10%; /* Dark for text on primary */
-    --secondary: 210 25% 25%; /* Darker Gray-Blue */
-    --secondary-foreground: 210 25% 90%; /* Light text for secondary */
-    --muted: 210 25% 20%; /* Dark Muted Blue-Gray */
-    --muted-foreground: 210 20% 65%; /* Lighter Gray-Blue */
-    --accent: 30 85% 65%;     /* Brighter Soft Orange for Dark Mode */
-    --accent-foreground: 20 30% 15%; /* Very Dark Brown for text on accent */
-    --destructive: 0 60% 45%; /* Dark Destructive Red */
-    --destructive-foreground: 0 0% 98%;
-    --border: 210 20% 30%;
-    --input: 210 20% 28%;
-    --ring: 190 65% 60%; /* Brighter Teal for rings */
+    --background: 232 24% 11%;
+    --foreground: 225 25% 92%;
+    --card: 231 22% 15%;
+    --card-foreground: 225 25% 92%;
+    --popover: 231 22% 15%;
+    --popover-foreground: 225 25% 92%;
+    --primary: 243 80% 70%;
+    --primary-foreground: 232 40% 10%;
+    --secondary: 232 18% 22%;
+    --secondary-foreground: 225 25% 90%;
+    --muted: 232 16% 20%;
+    --muted-foreground: 230 15% 66%;
+    --accent: 243 40% 26%;
+    --accent-foreground: 243 75% 88%;
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 232 16% 27%;
+    --input: 232 16% 32%;
+    --ring: 243 80% 70%;
 
-    /* Sidebar specific colors for dark mode */
-    --sidebar-background: 190 60% 20%; 
-    --sidebar-foreground: 190 15% 88%; 
-    --sidebar-primary: 30 85% 65%; 
-    --sidebar-primary-foreground: 20 30% 10%; 
-    --sidebar-accent: 190 55% 30%;
-    --sidebar-accent-foreground: 190 15% 90%;
-    --sidebar-border: 190 60% 25%;
-    --sidebar-ring: 30 85% 65%;
+    --grad-1: 243 80% 66%;
+    --grad-2: 268 80% 68%;
+    --grad-3: 330 82% 66%;
+
+    --sidebar-background: 232 26% 14%;
+    --sidebar-foreground: 240 25% 88%;
+    --sidebar-primary: 330 82% 66%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 243 40% 30%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 232 20% 24%;
+    --sidebar-ring: 330 82% 66%;
   }
 }
 
@@ -81,6 +89,25 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* font-family removed to allow Inter from layout.tsx to take precedence */
+    background-image:
+      radial-gradient(45rem 45rem at 100% -8%, hsl(var(--grad-3) / 0.10), transparent 60%),
+      radial-gradient(40rem 40rem at -8% 4%, hsl(var(--grad-1) / 0.12), transparent 55%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .bg-gradient-primary {
+    background-image: linear-gradient(135deg, hsl(var(--grad-1)), hsl(var(--grad-2)));
+  }
+  .bg-gradient-brand {
+    background-image: linear-gradient(135deg, hsl(var(--grad-1)), hsl(var(--grad-2)) 50%, hsl(var(--grad-3)));
+  }
+  .text-gradient-brand {
+    background-image: linear-gradient(120deg, hsl(var(--grad-1)), hsl(var(--grad-2)) 45%, hsl(var(--grad-3)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 }
