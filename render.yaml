@@ -62,11 +62,11 @@ services:
       - key: EMAIL_USE_TLS
         value: "True"
       - key: EMAIL_HOST_USER
-        value: "mj115135123@gmail.com"
+        value: "mohsinjamal135@gmail.com"
       - key: EMAIL_HOST_PASSWORD
         sync: false
       - key: DEFAULT_FROM_EMAIL
-        value: "Profinder <mj115135123@gmail.com>"
+        value: "Profinder <mohsinjamal135@gmail.com>"
       # ------------------------------------------------------------------------
       # Google Sign-In. Must match NEXT_PUBLIC_GOOGLE_CLIENT_ID on the frontend.
       - key: GOOGLE_CLIENT_ID
