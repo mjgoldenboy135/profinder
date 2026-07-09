@@ -152,10 +152,16 @@ FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:9002')
 if FRONTEND_URL and not FRONTEND_URL.startswith(('http://', 'https://')):
     FRONTEND_URL = 'https://' + FRONTEND_URL
 
-# Email. Defaults to the console backend (prints emails to logs) so password
-# reset works in dev; set EMAIL_HOST in production to send real emails.
+# Email delivery. Priority:
+#   1. BREVO_API_KEY set -> Brevo HTTPS API (works on Render's free tier,
+#      which blocks all outbound SMTP ports 25/465/587).
+#   2. EMAIL_HOST set    -> classic SMTP (local dev or paid hosts).
+#   3. otherwise         -> console backend (emails printed to logs).
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
 EMAIL_HOST = config('EMAIL_HOST', default='')
-if EMAIL_HOST:
+if BREVO_API_KEY:
+    EMAIL_BACKEND = 'users.emailing.BrevoApiBackend'
+elif EMAIL_HOST:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 else:
     EMAIL_BACKEND = config(
@@ -166,13 +172,16 @@ EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+# Never let an email send block indefinitely (SMTP connects hang forever on
+# hosts that block the port).
+EMAIL_TIMEOUT = config('EMAIL_TIMEOUT', default=10, cast=int)
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Profinder <noreply@profinder.app>')
 
 # Require users to verify their email before they can log in. Enabled by
-# default only when real email sending is configured (EMAIL_HOST set), so a
-# console-only setup doesn't lock everyone out. Override with the env var.
+# default only when real email sending is configured, so a console-only setup
+# doesn't lock everyone out. Override with the env var.
 REQUIRE_EMAIL_VERIFICATION = config(
-    'REQUIRE_EMAIL_VERIFICATION', default=bool(EMAIL_HOST), cast=bool
+    'REQUIRE_EMAIL_VERIFICATION', default=bool(BREVO_API_KEY or EMAIL_HOST), cast=bool
 )
 
 CHANNEL_LAYERS = {
