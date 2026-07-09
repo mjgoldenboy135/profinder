@@ -15,6 +15,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
   SheetTrigger,
   SheetClose,
   SheetFooter,
@@ -137,6 +138,7 @@ export default function Header() {
                 <SheetTitle className="flex items-center gap-2">
                   <AppLogo key="logo-sheet-header" />
                 </SheetTitle>
+                <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
               </SheetHeader>
               <nav className="flex-grow p-4 space-y-2">
                 {!!currentUser && ( // Show if user object exists (verified or not)

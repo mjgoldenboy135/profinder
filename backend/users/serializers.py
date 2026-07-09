@@ -29,12 +29,13 @@ class RegisterSerializer(serializers.ModelSerializer):
 class UserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     id = serializers.IntegerField(source='user.id', read_only=True)
+    email_verified = serializers.BooleanField(source='user.email_verified', read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'email', 'full_name', 'profession', 'education',
+            'id', 'email', 'email_verified', 'full_name', 'profession', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
             'phone_number', 'bio', 'interests', 'profile_picture_url',
             'lat', 'lng', 'address', 'is_online',

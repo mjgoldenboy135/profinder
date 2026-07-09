@@ -8,6 +8,12 @@ import { useToast } from "@/hooks/use-toast";
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
+// Initialize Google Identity Services once per page load; keep a pointer to the
+// current credential handler so calling initialize() again isn't needed (which
+// would trigger GIS "initialize() called multiple times" warnings).
+let gsiInitialized = false;
+let currentHandler: ((response: { credential?: string }) => void) | null = null;
+
 interface Props {
   redirectTo?: string;
 }
@@ -20,42 +26,49 @@ export default function GoogleSignInButton({ redirectTo = "/map" }: Props) {
   const router = useRouter();
   const { toast } = useToast();
 
+  // Keep the latest handler available to the single GIS callback without
+  // re-initializing GIS on every render.
+  const handlerRef = useRef<(response: { credential?: string }) => void>();
+  handlerRef.current = async (response) => {
+    if (!response?.credential) return;
+    try {
+      const res = await apiFetch("/auth/google/", {
+        method: "POST",
+        body: JSON.stringify({ credential: response.credential }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || "Google sign-in failed.");
+      }
+      const data = await res.json();
+      setTokens(data.access, data.refresh);
+      await refreshUserProfile();
+      toast({ title: "Signed in with Google", description: "Welcome to Profinder!" });
+      router.push(redirectTo);
+    } catch (e: any) {
+      toast({
+        title: "Google Sign-In Failed",
+        description: e.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   useEffect(() => {
     if (!CLIENT_ID || !containerRef.current) return;
     let cancelled = false;
-
-    const handleCredential = async (response: { credential?: string }) => {
-      if (!response?.credential) return;
-      try {
-        const res = await apiFetch("/auth/google/", {
-          method: "POST",
-          body: JSON.stringify({ credential: response.credential }),
-        });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || "Google sign-in failed.");
-        }
-        const data = await res.json();
-        setTokens(data.access, data.refresh);
-        await refreshUserProfile();
-        toast({ title: "Signed in with Google", description: "Welcome to Profinder!" });
-        router.push(redirectTo);
-      } catch (e: any) {
-        toast({
-          title: "Google Sign-In Failed",
-          description: e.message || "Please try again.",
-          variant: "destructive",
-        });
-      }
-    };
+    currentHandler = (r) => handlerRef.current?.(r);
 
     const init = () => {
       const google = (window as any).google;
       if (cancelled || !google || !containerRef.current) return;
-      google.accounts.id.initialize({
-        client_id: CLIENT_ID,
-        callback: handleCredential,
-      });
+      if (!gsiInitialized) {
+        google.accounts.id.initialize({
+          client_id: CLIENT_ID,
+          callback: (r: { credential?: string }) => currentHandler?.(r),
+        });
+        gsiInitialized = true;
+      }
       containerRef.current.innerHTML = "";
       google.accounts.id.renderButton(containerRef.current, {
         theme: "outline",
@@ -83,7 +96,9 @@ export default function GoogleSignInButton({ redirectTo = "/map" }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [refreshUserProfile, router, toast, redirectTo]);
+    // Run once per mount; the handler stays current via handlerRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!CLIENT_ID) return null;
 

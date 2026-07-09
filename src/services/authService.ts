@@ -52,3 +52,11 @@ export async function resendVerification(email: string): Promise<void> {
   });
   if (!res.ok) throw new Error(await parseError(res, 'Could not resend verification email.'));
 }
+
+// Send a verification email to the currently logged-in user.
+export async function sendVerificationEmail(): Promise<string> {
+  const res = await apiFetch('/auth/send-verification/', { method: 'POST' });
+  if (!res.ok) throw new Error(await parseError(res, 'Could not send verification email.'));
+  const data = await res.json().catch(() => ({}));
+  return data.message || 'Verification email sent.';
+}

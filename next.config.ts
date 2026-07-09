@@ -46,6 +46,18 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async headers() {
+    // Allow the Google Identity Services popup to postMessage back to the app
+    // (otherwise Chrome logs "Cross-Origin-Opener-Policy would block ...").
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin-allow-popups" },
+        ],
+      },
+    ];
+  },
   experimental: {
     allowedDevOrigins: [
         'http://9000-firebase-studio-1749131851806.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev',

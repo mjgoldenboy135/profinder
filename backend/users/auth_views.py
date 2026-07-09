@@ -127,6 +127,18 @@ class ResendVerificationView(APIView):
         return generic
 
 
+class SendVerificationView(APIView):
+    """Logged-in user asks for a verification email to their own address."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.email_verified:
+            return Response({'message': 'Your email is already verified.', 'email_verified': True})
+        send_verification_email(user, request)
+        return Response({'message': f'Verification email sent to {user.email}. Check your inbox.'})
+
+
 class GoogleLoginView(APIView):
     """Sign in (or sign up) with a Google ID token from Google Identity
     Services. Returns the same JWT payload as the email/password login."""
