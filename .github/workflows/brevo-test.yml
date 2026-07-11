@@ -1,21 +1,16 @@
 name: Brevo email diagnostic
 on:
-  workflow_dispatch:
-    inputs:
-      to_email:
-        description: Recipient for the test email
-        required: true
-        default: mjgoldenboy135@gmail.com
-      sender_email:
-        description: Sender address (must be verified in Brevo)
-        required: true
-        default: mohsinjamal135@gmail.com
+  push:
+    branches: [brevo-email-test]
+  workflow_dispatch: {}
 
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     env:
       BREVO_KEY: ${{ secrets.BREVO_API_KEY }}
+      TO_EMAIL: mjgoldenboy135@gmail.com
+      SENDER_EMAIL: mohsinjamal135@gmail.com
     steps:
       - name: 0 - Check the secret is configured
         run: |
@@ -41,16 +36,14 @@ jobs:
 
       - name: 3 - Send test email (POST /v3/smtp/email)
         run: |
-          cat > /tmp/payload.json << 'EOF'
+          cat > /tmp/payload.json << EOF
           {
-            "sender": {"name": "Profinder", "email": "SENDER_PLACEHOLDER"},
-            "to": [{"email": "TO_PLACEHOLDER"}],
+            "sender": {"name": "Profinder", "email": "$SENDER_EMAIL"},
+            "to": [{"email": "$TO_EMAIL"}],
             "subject": "Profinder diagnostic test email",
             "textContent": "If you can read this, the Brevo API key and sender work. The problem is on the Render side (env var or deploy)."
           }
           EOF
-          sed -i "s/SENDER_PLACEHOLDER/${{ github.event.inputs.sender_email }}/" /tmp/payload.json
-          sed -i "s/TO_PLACEHOLDER/${{ github.event.inputs.to_email }}/" /tmp/payload.json
           code=$(curl -sS -o /tmp/send.json -w "%{http_code}" -X POST \
             -H "api-key: $BREVO_KEY" \
             -H "content-type: application/json" \
