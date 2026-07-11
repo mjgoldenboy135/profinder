@@ -1,0 +1,58 @@
+name: Brevo email diagnostic
+on:
+  workflow_dispatch:
+    inputs:
+      brevo_key:
+        description: Brevo API key (xkeysib-...)
+        required: true
+      to_email:
+        description: Recipient for the test email
+        required: true
+        default: mjgoldenboy135@gmail.com
+      sender_email:
+        description: Sender address (must be verified in Brevo)
+        required: true
+        default: mohsinjamal135@gmail.com
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mask the key in logs
+        run: echo "::add-mask::${{ github.event.inputs.brevo_key }}"
+
+      - name: 1 - Validate API key (GET /v3/account)
+        run: |
+          code=$(curl -sS -o /tmp/account.json -w "%{http_code}" \
+            -H "api-key: ${{ github.event.inputs.brevo_key }}" \
+            https://api.brevo.com/v3/account)
+          echo "ACCOUNT_HTTP=$code"
+          head -c 1500 /tmp/account.json; echo
+
+      - name: 2 - List senders (GET /v3/senders)
+        run: |
+          code=$(curl -sS -o /tmp/senders.json -w "%{http_code}" \
+            -H "api-key: ${{ github.event.inputs.brevo_key }}" \
+            https://api.brevo.com/v3/senders)
+          echo "SENDERS_HTTP=$code"
+          head -c 1500 /tmp/senders.json; echo
+
+      - name: 3 - Send test email (POST /v3/smtp/email)
+        run: |
+          cat > /tmp/payload.json << 'EOF'
+          {
+            "sender": {"name": "Profinder", "email": "SENDER_PLACEHOLDER"},
+            "to": [{"email": "TO_PLACEHOLDER"}],
+            "subject": "Profinder diagnostic test email",
+            "textContent": "If you can read this, the Brevo API key and sender work. The problem is on the Render side (env var or deploy)."
+          }
+          EOF
+          sed -i "s/SENDER_PLACEHOLDER/${{ github.event.inputs.sender_email }}/" /tmp/payload.json
+          sed -i "s/TO_PLACEHOLDER/${{ github.event.inputs.to_email }}/" /tmp/payload.json
+          code=$(curl -sS -o /tmp/send.json -w "%{http_code}" -X POST \
+            -H "api-key: ${{ github.event.inputs.brevo_key }}" \
+            -H "content-type: application/json" \
+            -d @/tmp/payload.json \
+            https://api.brevo.com/v3/smtp/email)
+          echo "SEND_HTTP=$code"
+          cat /tmp/send.json; echo
