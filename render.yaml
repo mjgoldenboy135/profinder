@@ -59,8 +59,9 @@ services:
       # links to the logs instead, so signups are never blocked.
       - key: BREVO_API_KEY
         sync: false
+      # Must be a VERIFIED sender in the Brevo account (Senders & Domains).
       - key: DEFAULT_FROM_EMAIL
-        value: "Profinder <mohsinjamal135@gmail.com>"
+        value: "Profinder <mjgoldenboy135@gmail.com>"
       # ------------------------------------------------------------------------
       # Google Sign-In. Must match NEXT_PUBLIC_GOOGLE_CLIENT_ID on the frontend.
       - key: GOOGLE_CLIENT_ID
