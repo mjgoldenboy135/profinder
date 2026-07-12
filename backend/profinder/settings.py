@@ -146,10 +146,13 @@ if RENDER_EXTERNAL_HOSTNAME:
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# Public URL of the frontend, used to build password-reset links. Accepts a
-# bare hostname (e.g. from Render's fromService) and adds https:// if needed.
+# Public URL of the frontend, used to build verification/password-reset links.
+# Render's fromService gives a bare internal hostname (e.g. "profinder-s2ln"
+# with no dots) — turn that into the public https://<host>.onrender.com URL.
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:9002')
 if FRONTEND_URL and not FRONTEND_URL.startswith(('http://', 'https://')):
+    if '.' not in FRONTEND_URL and ':' not in FRONTEND_URL:
+        FRONTEND_URL = f'{FRONTEND_URL}.onrender.com'
     FRONTEND_URL = 'https://' + FRONTEND_URL
 
 # Email delivery. Priority:
