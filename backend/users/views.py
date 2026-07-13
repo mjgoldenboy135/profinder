@@ -67,6 +67,17 @@ class MeView(APIView):
         serializer.save()
         return Response(serializer.data)
 
+    def delete(self, request):
+        """Permanently delete the logged-in user's own account."""
+        from chat.models import Chat
+
+        user = request.user
+        # Remove conversations the user was part of so no orphaned
+        # single-participant chats linger for the other person.
+        Chat.objects.filter(participants=user).delete()
+        user.delete()  # cascades to profile, messages, favorites
+        return Response({'message': 'Account deleted permanently.'})
+
 
 @api_view(['POST', 'DELETE'])
 @parser_classes([MultiPartParser, FormParser])

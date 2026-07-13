@@ -454,7 +454,11 @@ export default function ProfileForm() {
     if (!currentUser) return;
     setIsDeletingProfile(true);
     try {
-      await apiFetch(`/users/${currentUser.id}/`, { method: 'DELETE' });
+      const res = await apiFetch('/users/me/', { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Server rejected the deletion.');
+      }
       logout();
       toast({
         title: "Profile Deleted",
