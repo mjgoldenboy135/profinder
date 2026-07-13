@@ -15,6 +15,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,9 @@ const signUpSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string(),
+  acceptTerms: z.boolean().refine((v) => v === true, {
+    message: "Please read and accept the Terms & Conditions and Privacy Policy to continue.",
+  }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords do not match.",
   path: ["confirmPassword"],
@@ -41,7 +45,7 @@ export default function SignUpForm() {
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { fullName: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: { fullName: "", email: "", password: "", confirmPassword: "", acceptTerms: false },
   });
 
   async function onSubmit(values: SignUpFormValues) {
@@ -140,12 +144,46 @@ export default function SignUpForm() {
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="acceptTerms"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-start gap-3 rounded-lg border p-3">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        aria-label="Accept the Terms and Conditions and Privacy Policy"
+                        className="mt-0.5"
+                      />
+                    </FormControl>
+                    <p className="text-sm text-muted-foreground leading-snug">
+                      I have read and agree to the{" "}
+                      <Link href="/terms" target="_blank" className="font-medium text-primary hover:underline">
+                        Terms &amp; Conditions
+                      </Link>{" "}
+                      and the{" "}
+                      <Link href="/privacy" target="_blank" className="font-medium text-primary hover:underline">
+                        Privacy Policy
+                      </Link>.
+                    </p>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
               {form.formState.isSubmitting ? "Signing Up..." : "Sign Up"}
             </Button>
           </form>
         </Form>
         <GoogleSignInButton redirectTo="/profile" />
+        <p className="mt-3 text-center text-xs text-muted-foreground">
+          By continuing with Google you also agree to our{" "}
+          <Link href="/terms" target="_blank" className="text-primary hover:underline">Terms</Link> and{" "}
+          <Link href="/privacy" target="_blank" className="text-primary hover:underline">Privacy Policy</Link>.
+        </p>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link href="/login" className="font-medium text-primary hover:underline">Log in</Link>
