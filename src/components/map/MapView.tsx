@@ -26,6 +26,47 @@ function ResizeHandler({ trigger }: { trigger: unknown }) {
   return null;
 }
 
+const MAP_VIEW_STORAGE_KEY = "profinder_map_view";
+
+type SavedView = { lat: number; lng: number; zoom: number };
+
+export function loadSavedView(): SavedView | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(MAP_VIEW_STORAGE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw);
+    if (typeof v.lat === "number" && typeof v.lng === "number" && typeof v.zoom === "number") {
+      return v as SavedView;
+    }
+  } catch {}
+  return null;
+}
+
+// Remembers the user's pan/zoom so a page refresh brings the map back to
+// where they left it instead of the default view.
+function ViewPersistence() {
+  const map = useMap();
+  useEffect(() => {
+    const save = () => {
+      try {
+        const c = map.getCenter();
+        sessionStorage.setItem(
+          MAP_VIEW_STORAGE_KEY,
+          JSON.stringify({ lat: c.lat, lng: c.lng, zoom: map.getZoom() })
+        );
+      } catch {}
+    };
+    map.on("moveend", save);
+    map.on("zoomend", save);
+    return () => {
+      map.off("moveend", save);
+      map.off("zoomend", save);
+    };
+  }, [map]);
+  return null;
+}
+
 const MAPTILER_API_KEY = process.env.NEXT_PUBLIC_MAPTILER_API_KEY;
 const DEFAULT_CENTER = { lat: 37.7749, lng: -122.4194 }; // San Francisco
 const DEFAULT_ZOOM = 12;
@@ -135,14 +176,19 @@ export default function MapView() {
   }, [isFullscreen]);
 
   useEffect(() => {
+    let hasLoaded = false;
     const fetchUsers = async () => {
-      setIsLoading(true);
+      // Only show the loading screen on the very first fetch. Later polls must
+      // update markers silently — flipping isLoading unmounts the MapContainer
+      // and resets the user's pan/zoom to the default view.
+      if (!hasLoaded) setIsLoading(true);
       try {
         const users = await getOnlineUsersWithLocation();
         setAllOnlineUsers(users);
       } catch (error) {
         console.error("[MapView] Error fetching online users:", error);
       } finally {
+        hasLoaded = true;
         setIsLoading(false);
       }
     };
@@ -191,6 +237,9 @@ export default function MapView() {
     if (targetUser?.lat != null && targetUser?.lng != null) {
       return { lat: targetUser.lat, lng: targetUser.lng };
     }
+    // No explicit target: restore where the user last left the map.
+    const saved = loadSavedView();
+    if (saved) return { lat: saved.lat, lng: saved.lng };
     if (
       visibleUsers.length > 0 &&
       visibleUsers[0].lat != null &&
@@ -202,7 +251,10 @@ export default function MapView() {
   }, [targetLatParam, targetLngParam, targetUserId, allOnlineUsers, visibleUsers]);
 
   const initialZoom = useMemo(() => {
-    return targetLatParam && targetLngParam ? FOCUSED_ZOOM : DEFAULT_ZOOM;
+    if (targetLatParam && targetLngParam) return FOCUSED_ZOOM;
+    const saved = loadSavedView();
+    if (saved) return saved.zoom;
+    return DEFAULT_ZOOM;
   }, [targetLatParam, targetLngParam]);
 
   return (
@@ -268,12 +320,19 @@ export default function MapView() {
               zoom={initialZoom}
               className="h-full w-full"
               scrollWheelZoom
+              // Show a single world: no horizontal wrapping/copies when zoomed out.
+              minZoom={2}
+              maxBounds={[[-85, -180], [85, 180]]}
+              maxBoundsViscosity={1.0}
+              worldCopyJump={false}
             >
               <TileLayer
                 url={`https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}&language=en`}
                 attribution="&copy; <a href='https://www.maptiler.com/copyright/'>MapTiler</a> &copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
+                noWrap
               />
               <ResizeHandler trigger={isFullscreen} />
+              <ViewPersistence />
 
               {visibleUsers.map((user) => {
                 if (user.lat == null || user.lng == null) return null;
