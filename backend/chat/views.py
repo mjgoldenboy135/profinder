@@ -71,11 +71,21 @@ class MessageListView(APIView):
         serializer = MessageSerializer(messages, many=True, context={'request': request})
         return Response(serializer.data)
 
+    MAX_MESSAGE_LENGTH = 5000
+
     def post(self, request, pk):
         chat = generics.get_object_or_404(Chat, id=pk, participants=request.user)
-        text = request.data.get('text', '').strip()
+        text = request.data.get('text', '')
+        if not isinstance(text, str):
+            return Response({'detail': 'Message text must be a string.'}, status=400)
+        text = text.strip()
         if not text:
             return Response({'detail': 'Message text is required.'}, status=400)
+        if len(text) > self.MAX_MESSAGE_LENGTH:
+            return Response(
+                {'detail': f'Message is too long (max {self.MAX_MESSAGE_LENGTH} characters).'},
+                status=400,
+            )
         receiver = chat.participants.exclude(id=request.user.id).first()
         if not receiver:
             return Response({'detail': 'No receiver found.'}, status=400)

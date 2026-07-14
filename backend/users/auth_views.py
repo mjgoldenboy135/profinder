@@ -49,6 +49,7 @@ def send_verification_email(user, request):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'login'
 
     def post(self, request):
         email = request.data.get('email')
@@ -67,6 +68,7 @@ class LoginView(APIView):
 
 class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'register'
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -112,6 +114,7 @@ class VerifyEmailView(APIView):
 
 class ResendVerificationView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'email_verification'
 
     def post(self, request):
         email = request.data.get('email', '')
@@ -128,6 +131,7 @@ class ResendVerificationView(APIView):
 class SendVerificationView(APIView):
     """Logged-in user asks for a verification email to their own address."""
     permission_classes = [permissions.IsAuthenticated]
+    throttle_scope = 'email_verification'
 
     def post(self, request):
         user = request.user
@@ -141,6 +145,7 @@ class GoogleLoginView(APIView):
     """Sign in (or sign up) with a Google ID token from Google Identity
     Services. Returns the same JWT payload as the email/password login."""
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'google_login'
 
     def post(self, request):
         if not settings.GOOGLE_CLIENT_ID:
@@ -221,6 +226,7 @@ class ChangePasswordView(APIView):
 
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'password_reset'
 
     def post(self, request):
         email = request.data.get('email', '')
