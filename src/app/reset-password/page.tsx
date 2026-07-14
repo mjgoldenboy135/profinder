@@ -23,7 +23,7 @@ import { confirmPasswordReset } from "@/services/authService";
 
 const schema = z
   .object({
-    newPassword: z.string().min(6, "Password must be at least 6 characters."),
+    newPassword: z.string().min(8, "Password must be at least 8 characters."),
     confirmPassword: z.string(),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {

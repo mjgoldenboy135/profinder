@@ -87,16 +87,23 @@ function getProfessionColor(profession?: string): string {
   return PROFESSION_COLORS[Math.abs(hash) % PROFESSION_COLORS.length];
 }
 
+// Escape any user-supplied string before it goes into the marker's innerHTML,
+// so a name/profession like `"><img onerror=...>` can never inject markup.
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+   .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
 const createAvatarIcon = (fullName: string, profession?: string, profilePicUrl?: string) => {
   const color = getProfessionColor(profession);
-  const firstLetter = (fullName?.[0] || '?').toUpperCase();
-  const safeProfession = profession
-    ? profession.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    : "";
+  const firstLetter = esc((fullName?.[0] || '?').toUpperCase());
+  const safeProfession = profession ? esc(profession) : "";
+  // Only allow our own picture URLs; ignore anything that isn't a plain http(s) URL.
+  const safePicUrl =
+    profilePicUrl && /^https?:\/\//i.test(profilePicUrl) ? esc(profilePicUrl) : "";
 
   const circleStyle = `width:42px;height:42px;border-radius:50%;border:3px solid ${color};box-shadow:0 2px 8px rgba(0,0,0,0.3);`;
-  const avatarHtml = profilePicUrl
-    ? `<img src="${profilePicUrl}" style="${circleStyle}object-fit:cover;" onerror="this.outerHTML='<div style=&quot;${circleStyle}background:${color};display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;&quot;>${firstLetter}</div>'" />`
+  const avatarHtml = safePicUrl
+    ? `<img src="${safePicUrl}" style="${circleStyle}object-fit:cover;" onerror="this.outerHTML='<div style=&quot;${circleStyle}background:${color};display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;&quot;>${firstLetter}</div>'" />`
     : `<div style="${circleStyle}background:${color};display:flex;align-items:center;justify-content:center;color:white;font-size:20px;font-weight:700;">${firstLetter}</div>`;
 
   return L.divIcon({

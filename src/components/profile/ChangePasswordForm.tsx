@@ -23,7 +23,7 @@ import { changePassword } from "@/services/authService";
 const schema = z
   .object({
     oldPassword: z.string().min(1, "Enter your current password."),
-    newPassword: z.string().min(6, "New password must be at least 6 characters."),
+    newPassword: z.string().min(8, "New password must be at least 8 characters."),
     confirmPassword: z.string(),
   })
   .refine((d) => d.newPassword === d.confirmPassword, {

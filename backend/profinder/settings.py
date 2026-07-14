@@ -113,6 +113,19 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    # Rate limiting. ScopedRateThrottle only throttles views that set
+    # `throttle_scope` (the auth-sensitive endpoints), so normal API traffic
+    # and polling are unaffected.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '10/min',            # brute-force protection
+        'register': '5/min',
+        'password_reset': '5/min',    # email-flood protection
+        'email_verification': '5/min',
+        'google_login': '20/min',
+    },
 }
 
 SIMPLE_JWT = {
@@ -145,6 +158,20 @@ if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Security hardening (enforced outside local development so DEBUG dev over http
+# still works). SSL redirect is intentionally off — Render already terminates
+# TLS and an app-level redirect would fight the platform health check.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30  # 30 days
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # Public URL of the frontend, used to build verification/password-reset links.
 # Render's fromService gives a bare internal hostname (e.g. "profinder-s2ln"
