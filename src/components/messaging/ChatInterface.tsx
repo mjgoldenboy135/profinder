@@ -10,7 +10,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from 'date-fns';
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { sendMessage, subscribeToChat } from "@/services/chatService";
+import { sendMessage, subscribeToChat, markChatRead } from "@/services/chatService";
 import { useToast } from "@/hooks/use-toast";
 
 interface ChatInterfaceProps {
@@ -44,10 +44,14 @@ export default function ChatInterface({ chat, initialMessages, currentUserId }: 
           if (exists) return prev;
           return [...prev, msg].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
         });
+        // The chat is open, so anything sent to me is read the moment it lands.
+        if (msg.receiver_id === Number(currentUserId)) {
+          markChatRead(chat.id);
+        }
       }
     );
     return unsubscribe;
-  }, [chat.id]);
+  }, [chat.id, currentUserId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();

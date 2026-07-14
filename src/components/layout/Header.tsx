@@ -71,30 +71,36 @@ export default function Header() {
   }, [lastScrollTop, headerHideThreshold, scrollThreshold]);
 
   useEffect(() => {
-    if (isAuthenticatedAndVerified && currentUser) {
-      if (pathname.startsWith('/messages')) {
-        setHasUnreadActivity(false);
-        return;
-      }
+    if (!isAuthenticatedAndVerified || !currentUser) {
+      setHasUnreadActivity(false);
+      return;
+    }
 
-      setCheckingMessages(true);
+    // Real unread state from the server (messages addressed to me that I
+    // haven't opened yet), refreshed on navigation and every 15 seconds —
+    // previously the badge only updated on page changes and treated any chat
+    // whose last message wasn't mine as "unread" forever.
+    let cancelled = false;
+    const check = () => {
       getUserChats()
         .then(userChats => {
-          const unread = userChats.some(chat =>
-            chat.last_message_text && chat.last_message_sender_id !== currentUser.id
-          );
-          setHasUnreadActivity(unread);
+          if (cancelled) return;
+          setHasUnreadActivity(userChats.some(chat => (chat.unread_count ?? 0) > 0));
         })
-        .catch(err => {
-          console.error("Error fetching chats for notification in Header:", err);
-          setHasUnreadActivity(false);
+        .catch(() => {
+          if (!cancelled) setHasUnreadActivity(false);
         })
         .finally(() => {
-          setCheckingMessages(false);
+          if (!cancelled) setCheckingMessages(false);
         });
-    } else {
-      setHasUnreadActivity(false);
-    }
+    };
+
+    check();
+    const interval = setInterval(check, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [isAuthenticatedAndVerified, currentUser, pathname]);
 
 
