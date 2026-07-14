@@ -44,6 +44,7 @@ export interface Chat {
   id: number;
   participants_data: ChatParticipant[];
   other_participant?: ChatParticipant | null;
+  unread_count?: number;
   last_message_text?: string;
   last_message_sender_id?: number | null;
   last_message_at?: string | null;

@@ -41,6 +41,13 @@ export async function deleteChat(chatId: number): Promise<void> {
   await apiFetch(`/chats/${chatId}/`, { method: 'DELETE' });
 }
 
+// Tell the server every message sent to me in this chat has been seen.
+export async function markChatRead(chatId: number): Promise<void> {
+  try {
+    await apiFetch(`/chats/${chatId}/read/`, { method: 'POST' });
+  } catch {}
+}
+
 export function subscribeToChat(
   chatId: number,
   onMessage: (message: Message) => void,

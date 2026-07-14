@@ -46,14 +46,21 @@ class MessageSerializer(serializers.ModelSerializer):
 class ChatSerializer(serializers.ModelSerializer):
     participants_data = ParticipantSerializer(source='participants', many=True, read_only=True)
     other_participant = serializers.SerializerMethodField()
+    unread_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Chat
         fields = [
-            'id', 'participants_data', 'other_participant',
+            'id', 'participants_data', 'other_participant', 'unread_count',
             'last_message_text', 'last_message_sender_id', 'last_message_at',
             'created_at', 'updated_at',
         ]
+
+    def get_unread_count(self, obj):
+        request = self.context.get('request')
+        if not request:
+            return 0
+        return obj.messages.filter(receiver=request.user).exclude(status='read').count()
 
     def get_other_participant(self, obj):
         request = self.context.get('request')

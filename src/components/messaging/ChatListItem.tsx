@@ -60,6 +60,8 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
     onInitiateDelete(String(chat.id));
   };
 
+  const unread = chat.unread_count ?? 0;
+
   return (
     <div className={cn(
       "relative group p-3 hover:bg-muted/80 dark:hover:bg-muted/30 transition-colors",
@@ -78,14 +80,27 @@ export default function ChatListItem({ chat, currentUserId, isActive, onInitiate
                 <p className="text-xs text-muted-foreground whitespace-nowrap">{lastMessageTimeDisplay}</p>
               )}
             </div>
-            {chat.last_message_text ? (
-              <p className="text-sm text-muted-foreground truncate">
-                {chat.last_message_sender_id === Number(currentUserId) && "You: "}
-                {chat.last_message_text}
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">No messages yet</p>
-            )}
+            <div className="flex items-center justify-between gap-2">
+              {chat.last_message_text ? (
+                <p className={cn(
+                  "text-sm truncate",
+                  unread > 0 ? "font-semibold text-foreground" : "text-muted-foreground"
+                )}>
+                  {chat.last_message_sender_id === Number(currentUserId) && "You: "}
+                  {chat.last_message_text}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">No messages yet</p>
+              )}
+              {unread > 0 && (
+                <span
+                  className="shrink-0 inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-gradient-primary text-primary-foreground text-xs font-bold"
+                  aria-label={`${unread} unread messages`}
+                >
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Link>

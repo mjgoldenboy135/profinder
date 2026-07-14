@@ -55,9 +55,18 @@ class ChatDetailView(APIView):
         return Response({'message': 'Chat hidden.'})
 
 
+class MarkChatReadView(APIView):
+    def post(self, request, pk):
+        chat = generics.get_object_or_404(Chat, id=pk, participants=request.user)
+        updated = chat.messages.filter(receiver=request.user).exclude(status='read').update(status='read')
+        return Response({'marked_read': updated})
+
+
 class MessageListView(APIView):
     def get(self, request, pk):
         chat = generics.get_object_or_404(Chat, id=pk, participants=request.user)
+        # Opening a chat means the reader has seen everything sent to them.
+        chat.messages.filter(receiver=request.user).exclude(status='read').update(status='read')
         messages = chat.messages.select_related('sender', 'receiver').all()
         serializer = MessageSerializer(messages, many=True, context={'request': request})
         return Response(serializer.data)
