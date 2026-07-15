@@ -43,14 +43,44 @@ export async function getAllUsers(params?: {
   search?: string;
   profession?: string;
   online?: boolean;
+  availability?: string;
 }): Promise<UserProfile[]> {
   const query = new URLSearchParams();
   if (params?.search) query.set('search', params.search);
   if (params?.profession) query.set('profession', params.profession);
   if (params?.online) query.set('online', 'true');
+  if (params?.availability && params.availability !== 'none') query.set('availability', params.availability);
   const res = await apiFetch(`/users/?${query.toString()}`);
   if (!res.ok) return [];
   return res.json();
+}
+
+export async function blockUser(targetUserId: number): Promise<void> {
+  const res = await apiFetch(`/users/${targetUserId}/block/`, { method: 'POST' });
+  if (!res.ok) throw new Error('Failed to block user.');
+}
+
+export async function unblockUser(targetUserId: number): Promise<void> {
+  const res = await apiFetch(`/users/${targetUserId}/block/`, { method: 'DELETE' });
+  if (!res.ok) throw new Error('Failed to unblock user.');
+}
+
+export async function getBlockedUsers(): Promise<UserProfile[]> {
+  const res = await apiFetch('/users/me/blocked/');
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function reportUser(
+  targetUserId: number,
+  reason: string,
+  details: string
+): Promise<void> {
+  const res = await apiFetch(`/users/${targetUserId}/report/`, {
+    method: 'POST',
+    body: JSON.stringify({ reason, details }),
+  });
+  if (!res.ok) throw new Error('Failed to submit report.');
 }
 
 export async function getFavoriteUsers(): Promise<UserProfile[]> {

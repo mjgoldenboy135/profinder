@@ -49,7 +49,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'id', 'email', 'email_verified', 'full_name', 'profession', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
             'phone_number', 'bio', 'interests', 'profile_picture_url',
-            'lat', 'lng', 'address', 'is_online',
+            'lat', 'lng', 'address', 'is_online', 'availability',
             'location_visibility', 'show_contact',
             'created_at', 'updated_at',
         ]
@@ -61,20 +61,29 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class PublicUserProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     id = serializers.IntegerField(source='user.id', read_only=True)
+    email_verified = serializers.BooleanField(source='user.email_verified', read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
+    is_blocked = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'email', 'full_name', 'profession', 'education',
+            'id', 'email', 'email_verified', 'full_name', 'profession', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
             'phone_number', 'bio', 'interests', 'profile_picture_url',
-            'lat', 'lng', 'address', 'is_online',
-            'location_visibility', 'show_contact',
+            'lat', 'lng', 'address', 'is_online', 'availability',
+            'location_visibility', 'show_contact', 'is_blocked', 'created_at',
         ]
 
     def get_profile_picture_url(self, obj):
         return obj.get_picture_url(self.context.get('request'))
+
+    def get_is_blocked(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        from .models import BlockedUser
+        return BlockedUser.objects.filter(blocker=request.user, blocked_id=obj.user_id).exists()
 
     def to_representation(self, instance):
         data = super().to_representation(instance)

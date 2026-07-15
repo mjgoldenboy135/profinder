@@ -16,11 +16,43 @@ export interface UserProfile {
   lng?: number | null;
   address?: string;
   is_online?: boolean;
+  availability?: Availability;
   location_visibility?: 'public' | 'favorites' | 'none';
   show_contact?: boolean;
+  is_blocked?: boolean;
   created_at?: string;
   updated_at?: string;
 }
+
+export type Availability =
+  | 'none'
+  | 'open_to_work'
+  | 'hiring'
+  | 'networking'
+  | 'mentoring'
+  | 'collaborating';
+
+export const AVAILABILITY_OPTIONS: { value: Availability; label: string; color: string }[] = [
+  { value: 'none', label: 'Not specified', color: '' },
+  { value: 'open_to_work', label: 'Open to work', color: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300' },
+  { value: 'hiring', label: 'Hiring', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300' },
+  { value: 'networking', label: 'Networking', color: 'bg-violet-100 text-violet-800 dark:bg-violet-900/50 dark:text-violet-300' },
+  { value: 'mentoring', label: 'Open to mentoring', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300' },
+  { value: 'collaborating', label: 'Open to collaborate', color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/50 dark:text-pink-300' },
+];
+
+export function availabilityMeta(value?: Availability) {
+  return AVAILABILITY_OPTIONS.find((o) => o.value === value) || AVAILABILITY_OPTIONS[0];
+}
+
+export const REPORT_REASONS: { value: string; label: string }[] = [
+  { value: 'spam', label: 'Spam or advertising' },
+  { value: 'harassment', label: 'Harassment or abuse' },
+  { value: 'inappropriate', label: 'Inappropriate content' },
+  { value: 'fake', label: 'Fake profile or impersonation' },
+  { value: 'scam', label: 'Scam or fraud' },
+  { value: 'other', label: 'Other' },
+];
 
 export interface Message {
   id: number;

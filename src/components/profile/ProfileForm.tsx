@@ -21,12 +21,12 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning, ShieldOff, Compass } from "lucide-react";
 import Link from "next/link";
 import { sendVerificationEmail } from "@/services/authService";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { updateUserProfile, uploadProfilePicture, removeProfilePicture } from "@/services/userService";
+import { updateUserProfile, uploadProfilePicture, removeProfilePicture, getBlockedUsers, unblockUser } from "@/services/userService";
 import { apiFetch } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import {
@@ -41,6 +41,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { UserProfile } from "@/lib/types";
+import { AVAILABILITY_OPTIONS } from "@/lib/types";
 import { COMMON_PROFESSIONS } from "@/lib/professions";
 
 const MAX_FILE_SIZE_MB = 5;
@@ -64,6 +65,7 @@ const profileSchema = z.object({
   show_contact: z.boolean().optional().default(false),
   bio: z.string().max(250, "Bio should not exceed 250 characters.").optional(),
   location_visibility: z.enum(['public', 'favorites', 'none']).default('public').optional(),
+  availability: z.enum(['none', 'open_to_work', 'hiring', 'networking', 'mentoring', 'collaborating']).default('none').optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -83,6 +85,7 @@ const defaultFormValues: ProfileFormValues = {
   show_contact: false,
   bio: "",
   location_visibility: 'public',
+  availability: 'none',
 };
 
 async function resizeImage(file: File, maxWidth: number, maxHeight: number): Promise<File> {
@@ -145,6 +148,33 @@ export default function ProfileForm() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingProfile, setIsDeletingProfile] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [blockedUsers, setBlockedUsers] = useState<UserProfile[]>([]);
+  const [unblockingId, setUnblockingId] = useState<number | null>(null);
+
+  const loadBlockedUsers = useCallback(async () => {
+    try {
+      setBlockedUsers(await getBlockedUsers());
+    } catch {
+      setBlockedUsers([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (currentUser) loadBlockedUsers();
+  }, [currentUser, loadBlockedUsers]);
+
+  const handleUnblock = async (targetId: number, name: string) => {
+    setUnblockingId(targetId);
+    try {
+      await unblockUser(targetId);
+      setBlockedUsers((prev) => prev.filter((u) => u.id !== targetId));
+      toast({ title: "User Unblocked", description: `${name} has been unblocked.` });
+    } catch {
+      toast({ title: "Error", description: "Could not unblock user. Please try again.", variant: "destructive" });
+    } finally {
+      setUnblockingId(null);
+    }
+  };
 
   const handleSendVerification = async () => {
     setIsSendingVerification(true);
@@ -185,6 +215,7 @@ export default function ProfileForm() {
         show_contact: profile.show_contact || false,
         bio: profile.bio || "",
         location_visibility: profile.location_visibility || 'public',
+        availability: profile.availability || 'none',
       };
       form.reset(initialData);
       setPreviewImage(profile.profile_picture_url || null);
@@ -422,6 +453,7 @@ export default function ProfileForm() {
         show_contact: values.show_contact,
         bio: values.bio,
         location_visibility: values.location_visibility,
+        availability: values.availability,
       };
 
       await updateUserProfile(currentUser.id, finalData);
@@ -604,6 +636,31 @@ export default function ProfileForm() {
                   <FormLabel>Bio / Short Summary</FormLabel>
                   <FormControl><Textarea placeholder="A brief introduction about yourself." {...field} value={field.value ?? ''} maxLength={250} /></FormControl>
                   <FormDescription>Max 250 characters.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="availability"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><Compass className="mr-2 h-5 w-5 text-primary" /> What I&apos;m Here For</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? 'none'}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your availability" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {AVAILABILITY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    Let others know what you&apos;re looking for. Shown as a tag on your profile and used in discovery filters.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -816,6 +873,56 @@ export default function ProfileForm() {
             </Button>
           </form>
         </Form>
+
+        <Card className="mt-8">
+          <CardHeader>
+            <CardTitle className="text-lg font-headline flex items-center">
+              <ShieldOff className="mr-2 h-5 w-5 text-primary" /> Blocked Users
+            </CardTitle>
+            <CardDescription>
+              Blocked users can&apos;t message you or see that you blocked them, and they won&apos;t appear in your discovery results.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {blockedUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">You haven&apos;t blocked anyone.</p>
+            ) : (
+              <ul className="space-y-2">
+                {blockedUsers.map((u) => {
+                  const initials = u.full_name ? u.full_name.split(" ").map((n) => n[0]).join("").toUpperCase() : "?";
+                  return (
+                    <li key={u.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {u.profile_picture_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={u.profile_picture_url} alt={u.full_name} className="h-9 w-9 rounded-full object-cover" />
+                        ) : (
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm text-muted-foreground">{initials}</div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{u.full_name}</p>
+                          {u.profession && <p className="truncate text-xs text-muted-foreground">{u.profession}</p>}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUnblock(u.id, u.full_name)}
+                        disabled={unblockingId === u.id}
+                        className="shrink-0"
+                      >
+                        {unblockingId === u.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Unblock
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <Button type="button" variant="outline" className="w-full sm:w-auto" asChild>
             <Link href="/change-password"><KeyRound className="mr-2 h-4 w-4" /> Change Password</Link>

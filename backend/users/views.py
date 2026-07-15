@@ -127,16 +127,29 @@ def serve_profile_picture(request, pk):
     return HttpResponse(bytes(profile.profile_picture_data), content_type=content_type)
 
 
+def blocked_user_ids(user):
+    """Ids the given user shouldn't see: people they blocked AND people who
+    blocked them (blocking is bidirectional for visibility)."""
+    from .models import BlockedUser
+    made = BlockedUser.objects.filter(blocker=user).values_list('blocked_id', flat=True)
+    got = BlockedUser.objects.filter(blocked=user).values_list('blocker_id', flat=True)
+    return set(made) | set(got)
+
+
 class UserListView(generics.ListAPIView):
     serializer_class = PublicUserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        qs = UserProfile.objects.select_related('user').all()
+        qs = UserProfile.objects.select_related('user').exclude(user=self.request.user)
+        # Hide anyone involved in a block relationship with me, both directions.
+        qs = qs.exclude(user_id__in=blocked_user_ids(self.request.user))
+
         search = self.request.query_params.get('search')
         profession = self.request.query_params.get('profession')
         online = self.request.query_params.get('online')
         has_location = self.request.query_params.get('has_location')
+        availability = self.request.query_params.get('availability')
 
         if search:
             qs = qs.filter(
@@ -150,6 +163,8 @@ class UserListView(generics.ListAPIView):
             qs = qs.filter(is_online=True)
         if has_location == 'true':
             qs = qs.filter(lat__isnull=False, lng__isnull=False)
+        if availability and availability != 'none':
+            qs = qs.filter(availability=availability)
         return qs
 
 
@@ -180,3 +195,51 @@ class FavoritesView(APIView):
         target = generics.get_object_or_404(UserProfile, user__id=pk)
         profile.favorites.remove(target)
         return Response({'message': 'Removed from favorites.'})
+
+
+class BlockView(APIView):
+    """POST /api/users/<id>/block/ to block, DELETE to unblock."""
+    def post(self, request, pk):
+        from .models import BlockedUser
+        if str(pk) == str(request.user.id):
+            return Response({'detail': "You can't block yourself."}, status=400)
+        target = generics.get_object_or_404(User, id=pk)
+        BlockedUser.objects.get_or_create(blocker=request.user, blocked=target)
+        # A block also removes any favorite link between the two.
+        try:
+            request.user.profile.favorites.remove(target.profile)
+            target.profile.favorites.remove(request.user.profile)
+        except UserProfile.DoesNotExist:
+            pass
+        return Response({'message': 'User blocked.', 'blocked': True})
+
+    def delete(self, request, pk):
+        from .models import BlockedUser
+        BlockedUser.objects.filter(blocker=request.user, blocked_id=pk).delete()
+        return Response({'message': 'User unblocked.', 'blocked': False})
+
+
+class BlockedListView(APIView):
+    """GET /api/users/me/blocked/ — profiles the current user has blocked."""
+    def get(self, request):
+        from .models import BlockedUser
+        blocked_ids = BlockedUser.objects.filter(blocker=request.user).values_list('blocked_id', flat=True)
+        profiles = UserProfile.objects.select_related('user').filter(user_id__in=blocked_ids)
+        serializer = PublicUserProfileSerializer(profiles, many=True, context={'request': request})
+        return Response(serializer.data)
+
+
+class ReportView(APIView):
+    """POST /api/users/<id>/report/ with {reason, details}."""
+    def post(self, request, pk):
+        from .models import Report
+        if str(pk) == str(request.user.id):
+            return Response({'detail': "You can't report yourself."}, status=400)
+        target = generics.get_object_or_404(User, id=pk)
+        reason = request.data.get('reason', 'other')
+        valid = {c[0] for c in Report.REASON_CHOICES}
+        if reason not in valid:
+            reason = 'other'
+        details = (request.data.get('details') or '')[:2000]
+        Report.objects.create(reporter=request.user, reported=target, reason=reason, details=details)
+        return Response({'message': 'Thank you. Your report has been submitted.'}, status=201)

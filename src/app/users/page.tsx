@@ -12,6 +12,7 @@ import { getAllUsers } from "@/services/userService";
 interface Filters {
   searchTerm: string;
   profession: string;
+  availability: string;
   location: string;
   onlineOnly: boolean;
 }
@@ -24,6 +25,7 @@ export default function UserListPage() {
   const [filters, setFilters] = useState<Filters>({
     searchTerm: "",
     profession: "",
+    availability: "",
     location: "",
     onlineOnly: false,
   });
@@ -52,10 +54,11 @@ export default function UserListPage() {
         user.profession?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
         user.bio?.toLowerCase().includes(filters.searchTerm.toLowerCase());
       const professionMatch = !filters.profession || user.profession === filters.profession;
+      const availabilityMatch = !filters.availability || user.availability === filters.availability;
       const locationMatch = !filters.location ||
         user.address?.toLowerCase().includes(filters.location.toLowerCase());
       const onlineMatch = !filters.onlineOnly || !!user.is_online;
-      return searchTermMatch && professionMatch && locationMatch && onlineMatch;
+      return searchTermMatch && professionMatch && availabilityMatch && locationMatch && onlineMatch;
     });
   }, [allUsers, filters]);
 
