@@ -36,6 +36,8 @@ class UserProfile(models.Model):
     professional_details = models.TextField(blank=True, default='')
     years_of_experience = models.IntegerField(null=True, blank=True)
     linkedin_profile_url = models.URLField(blank=True, default='')
+    website_url = models.URLField(blank=True, default='')
+    website_name = models.CharField(max_length=100, blank=True, default='')
     phone_number = models.CharField(max_length=50, blank=True, default='')
     bio = models.TextField(blank=True, default='')
     interests = models.JSONField(default=list, blank=True)

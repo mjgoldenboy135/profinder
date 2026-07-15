@@ -9,6 +9,8 @@ export interface UserProfile {
   professional_details?: string;
   years_of_experience?: number | null;
   linkedin_profile_url?: string;
+  website_url?: string;
+  website_name?: string;
   phone_number?: string;
   bio?: string;
   interests?: string[];

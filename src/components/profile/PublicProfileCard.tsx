@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check, Navigation, BadgeCheck, Ban, ShieldOff, Flag, CalendarDays } from "lucide-react";
+import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check, Navigation, BadgeCheck, Ban, ShieldOff, Flag, CalendarDays, Globe } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -99,6 +99,15 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
 
   const fallbackName = user.full_name ? user.full_name.split(" ").map(n => n[0]).join("") : "PN";
   const availability = availabilityMeta(user.availability);
+  const websiteLabel = (() => {
+    if (!user.website_url) return "";
+    if (user.website_name?.trim()) return user.website_name.trim();
+    try {
+      return new URL(user.website_url).hostname.replace(/^www\./, "");
+    } catch {
+      return "Website";
+    }
+  })();
   const memberSince = user.created_at
     ? new Date(user.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long" })
     : null;
@@ -367,6 +376,13 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
             <Button variant="outline" className="w-full sm:w-auto" asChild>
               <a href={user.linkedin_profile_url} target="_blank" rel="noopener noreferrer">
                 <Linkedin className="mr-2 h-5 w-5 text-primary" /> LinkedIn
+              </a>
+            </Button>
+          )}
+          {user.website_url && (
+            <Button variant="outline" className="w-full sm:w-auto max-w-full" asChild>
+              <a href={user.website_url} target="_blank" rel="noopener noreferrer">
+                <Globe className="mr-2 h-5 w-5 text-primary shrink-0" /> <span className="truncate">{websiteLabel}</span>
               </a>
             </Button>
           )}
