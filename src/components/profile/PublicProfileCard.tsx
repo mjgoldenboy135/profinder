@@ -19,7 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check, Navigation, BadgeCheck, MoreVertical, Ban, ShieldOff, Flag, CalendarDays } from "lucide-react";
+import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check, Navigation, BadgeCheck, Ban, ShieldOff, Flag, CalendarDays } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
@@ -89,7 +89,6 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [isBlocked, setIsBlocked] = useState(!!user.is_blocked);
   const [isBlocking, setIsBlocking] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
@@ -239,49 +238,12 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
     }
   };
 
-  const showModerationMenu = currentUser && currentUser.id !== user.id;
+  const isOwnProfile = currentUser && currentUser.id === user.id;
+  const canModerate = currentUser && !isOwnProfile;
 
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl">
       <CardHeader className="items-center text-center relative">
-        {showModerationMenu && (
-          <div className="absolute right-4 top-4">
-            <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label="More options">
-                  <MoreVertical className="h-5 w-5" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-52 p-2" align="end">
-                {isBlocked ? (
-                  <button
-                    onClick={() => { setMenuOpen(false); handleUnblock(); }}
-                    disabled={isBlocking}
-                    className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm disabled:opacity-50"
-                  >
-                    <ShieldOff className="h-4 w-4 text-muted-foreground" />
-                    <span>Unblock user</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setMenuOpen(false); setBlockConfirmOpen(true); }}
-                    className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm"
-                  >
-                    <Ban className="h-4 w-4 text-destructive" />
-                    <span>Block user</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => { setMenuOpen(false); setReportOpen(true); }}
-                  className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm"
-                >
-                  <Flag className="h-4 w-4 text-destructive" />
-                  <span>Report user</span>
-                </button>
-              </PopoverContent>
-            </Popover>
-          </div>
-        )}
         <Avatar className="w-32 h-32 mb-4 border-4 border-primary shadow-md">
           <AvatarImage src={user.profile_picture_url || `https://placehold.co/128x128.png?text=${fallbackName}`} alt={user.full_name} />
           <AvatarFallback className="text-4xl">{fallbackName}</AvatarFallback>
@@ -366,59 +328,61 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-6 border-t flex-wrap">
-        {user.lat != null && user.lng != null && (
-          <Button variant="outline" asChild>
-            <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${user.lat},${user.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Navigation className="mr-2 h-5 w-5 text-primary" /> Directions
-            </a>
-          </Button>
-        )}
-        {user.linkedin_profile_url && (
-          <Button variant="outline" asChild>
-            <a href={user.linkedin_profile_url} target="_blank" rel="noopener noreferrer">
-              <Linkedin className="mr-2 h-5 w-5 text-primary" /> LinkedIn
-            </a>
-          </Button>
-        )}
-        {user.show_contact && user.email && (
-          <Button variant="outline" asChild>
-            <a href={`mailto:${user.email}`}><Mail className="mr-2 h-5 w-5 text-primary" /> Email</a>
-          </Button>
-        )}
-        {currentUser && currentUser.id !== user.id && !isBlocked && (
-          <Button onClick={handleStartChat} disabled={isStartingChat}>
-            {isStartingChat ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <MessageSquare className="mr-2 h-5 w-5" />}
-            Message
-          </Button>
-        )}
-        {showFavoriteButton && !authLoading && (
-          <Button
-            variant={isFavorited ? "outline" : "default"}
-            onClick={handleToggleFavorite}
-            disabled={isUpdatingFavorite || authLoading}
-            className="w-full sm:w-auto"
-          >
-            {isUpdatingFavorite ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current text-yellow-400' : 'text-muted-foreground'}`} />
-            )}
-            {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
-          </Button>
-        )}
-
-        {/* Share Profile */}
-        <Popover open={shareOpen} onOpenChange={setShareOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline">
-              <Share2 className="mr-2 h-5 w-5" /> Share Profile
+      <CardFooter className="flex-col gap-4 pt-6 border-t">
+        {/* Primary actions: consistent, professional styling */}
+        <div className="flex flex-col sm:flex-row justify-center items-stretch gap-3 w-full flex-wrap">
+          {currentUser && currentUser.id !== user.id && !isBlocked && (
+            <Button onClick={handleStartChat} disabled={isStartingChat} className="w-full sm:w-auto">
+              {isStartingChat ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <MessageSquare className="mr-2 h-5 w-5" />}
+              Message
             </Button>
-          </PopoverTrigger>
+          )}
+          {showFavoriteButton && !authLoading && (
+            <Button
+              variant="outline"
+              onClick={handleToggleFavorite}
+              disabled={isUpdatingFavorite || authLoading}
+              className="w-full sm:w-auto"
+            >
+              {isUpdatingFavorite ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <StarIcon className={`mr-2 h-5 w-5 ${isFavorited ? 'fill-current text-yellow-500' : 'text-primary'}`} />
+              )}
+              {isFavorited ? 'Remove from Favorites' : 'Add to Favorites'}
+            </Button>
+          )}
+          {user.lat != null && user.lng != null && (
+            <Button variant="outline" className="w-full sm:w-auto" asChild>
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${user.lat},${user.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Navigation className="mr-2 h-5 w-5 text-primary" /> Directions
+              </a>
+            </Button>
+          )}
+          {user.linkedin_profile_url && (
+            <Button variant="outline" className="w-full sm:w-auto" asChild>
+              <a href={user.linkedin_profile_url} target="_blank" rel="noopener noreferrer">
+                <Linkedin className="mr-2 h-5 w-5 text-primary" /> LinkedIn
+              </a>
+            </Button>
+          )}
+          {user.show_contact && user.email && (
+            <Button variant="outline" className="w-full sm:w-auto" asChild>
+              <a href={`mailto:${user.email}`}><Mail className="mr-2 h-5 w-5 text-primary" /> Email</a>
+            </Button>
+          )}
+
+          {/* Share Profile */}
+          <Popover open={shareOpen} onOpenChange={setShareOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Share2 className="mr-2 h-5 w-5 text-primary" /> Share Profile
+              </Button>
+            </PopoverTrigger>
           <PopoverContent className="w-64 p-3" align="center">
             <p className="text-sm font-semibold mb-3 text-center">Share {user.full_name}&apos;s Profile</p>
             <div className="grid grid-cols-1 gap-2">
@@ -446,16 +410,50 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
 
               <div className="border-t my-1" />
 
-              <button
-                onClick={handleCopyLink}
-                className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm"
+                <button
+                  onClick={handleCopyLink}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm"
+                >
+                  {copied ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5 text-muted-foreground" />}
+                  <span className="text-foreground font-medium">{copied ? 'Copied!' : 'Copy Link'}</span>
+                </button>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
+        {/* Moderation actions: block/unblock + report */}
+        {canModerate && (
+          <div className="flex flex-col sm:flex-row justify-center items-stretch gap-3 w-full flex-wrap border-t pt-4">
+            {isBlocked ? (
+              <Button
+                variant="outline"
+                onClick={handleUnblock}
+                disabled={isBlocking}
+                className="w-full sm:w-auto"
               >
-                {copied ? <Check className="h-5 w-5 text-green-500" /> : <Copy className="h-5 w-5 text-muted-foreground" />}
-                <span className="text-foreground font-medium">{copied ? 'Copied!' : 'Copy Link'}</span>
-              </button>
-            </div>
-          </PopoverContent>
-        </Popover>
+                {isBlocking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <ShieldOff className="mr-2 h-5 w-5 text-primary" />}
+                Unblock User
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                onClick={() => setBlockConfirmOpen(true)}
+                disabled={isBlocking}
+                className="w-full sm:w-auto border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              >
+                <Ban className="mr-2 h-5 w-5" /> Block User
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setReportOpen(true)}
+              className="w-full sm:w-auto border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Flag className="mr-2 h-5 w-5" /> Report User
+            </Button>
+          </div>
+        )}
       </CardFooter>
 
       {/* Block confirmation */}
