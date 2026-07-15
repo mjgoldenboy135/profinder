@@ -19,6 +19,15 @@ class UserProfile(models.Model):
         ('none', 'Nobody'),
     ]
 
+    AVAILABILITY_CHOICES = [
+        ('none', 'Not specified'),
+        ('open_to_work', 'Open to work'),
+        ('hiring', 'Hiring'),
+        ('networking', 'Networking'),
+        ('mentoring', 'Open to mentoring'),
+        ('collaborating', 'Open to collaborate'),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=255)
     profession = models.CharField(max_length=255, blank=True, default='')
@@ -44,6 +53,9 @@ class UserProfile(models.Model):
         default='public'
     )
     show_contact = models.BooleanField(default=True)
+    availability = models.CharField(
+        max_length=20, choices=AVAILABILITY_CHOICES, default='none'
+    )
     favorites = models.ManyToManyField('self', symmetrical=False, blank=True, related_name='favorited_by')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -65,3 +77,39 @@ class UserProfile(models.Model):
             except Exception:
                 return None
         return None
+
+
+class BlockedUser(models.Model):
+    """`blocker` has blocked `blocked`: hide each from the other and stop
+    messaging between them."""
+    blocker = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocks_made')
+    blocked = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('blocker', 'blocked')
+
+    def __str__(self):
+        return f"{self.blocker_id} blocked {self.blocked_id}"
+
+
+class Report(models.Model):
+    REASON_CHOICES = [
+        ('spam', 'Spam or advertising'),
+        ('harassment', 'Harassment or abuse'),
+        ('inappropriate', 'Inappropriate content'),
+        ('fake', 'Fake profile or impersonation'),
+        ('scam', 'Scam or fraud'),
+        ('other', 'Other'),
+    ]
+    reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_made')
+    reported = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_received')
+    reason = models.CharField(max_length=30, choices=REASON_CHOICES)
+    details = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Report {self.reason} by {self.reporter_id} on {self.reported_id}"

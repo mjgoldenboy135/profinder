@@ -1,15 +1,29 @@
 "use client";
 
 import type { UserProfile } from "@/lib/types";
+import { availabilityMeta, REPORT_REASONS } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check, Navigation } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Linkedin, Mail, Phone, MessageSquare, Star as StarIcon, Briefcase, GraduationCap, MapPin, Loader2, Share2, Copy, Check, Navigation, BadgeCheck, MoreVertical, Ban, ShieldOff, Flag, CalendarDays } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
-import { addFavoriteUser, removeFavoriteUser, getFavoriteUsers } from "@/services/userService";
+import { addFavoriteUser, removeFavoriteUser, getFavoriteUsers, blockUser, unblockUser, reportUser } from "@/services/userService";
 import { useToast } from "@/hooks/use-toast";
 import { findOrCreateChat } from "@/services/chatService";
 
@@ -75,8 +89,24 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [copied, setCopied] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(!!user.is_blocked);
+  const [isBlocking, setIsBlocking] = useState(false);
+  const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reportDetails, setReportDetails] = useState("");
+  const [isReporting, setIsReporting] = useState(false);
 
   const fallbackName = user.full_name ? user.full_name.split(" ").map(n => n[0]).join("") : "PN";
+  const availability = availabilityMeta(user.availability);
+  const memberSince = user.created_at
+    ? new Date(user.created_at).toLocaleDateString(undefined, { year: "numeric", month: "long" })
+    : null;
+
+  useEffect(() => {
+    setIsBlocked(!!user.is_blocked);
+  }, [user.is_blocked]);
 
   useEffect(() => {
     if (!currentUser || currentUser.id === user.id) return;
@@ -114,7 +144,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
     }
   };
 
-  const showFavoriteButton = currentUser && currentUser.id !== user.id;
+  const showFavoriteButton = currentUser && currentUser.id !== user.id && !isBlocked;
 
   const getProfileUrl = () =>
     typeof window !== 'undefined' ? window.location.href : '';
@@ -161,19 +191,127 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
     }
   };
 
+  const handleBlock = async () => {
+    setIsBlocking(true);
+    try {
+      await blockUser(user.id);
+      setIsBlocked(true);
+      setIsFavorited(false);
+      toast({ title: "User Blocked", description: `${user.full_name} can no longer message you.` });
+      if (refreshUserProfile) await refreshUserProfile();
+    } catch {
+      toast({ title: "Error", description: "Could not block this user. Please try again.", variant: "destructive" });
+    } finally {
+      setIsBlocking(false);
+      setBlockConfirmOpen(false);
+    }
+  };
+
+  const handleUnblock = async () => {
+    setIsBlocking(true);
+    try {
+      await unblockUser(user.id);
+      setIsBlocked(false);
+      toast({ title: "User Unblocked", description: `${user.full_name} has been unblocked.` });
+    } catch {
+      toast({ title: "Error", description: "Could not unblock this user. Please try again.", variant: "destructive" });
+    } finally {
+      setIsBlocking(false);
+    }
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportReason) {
+      toast({ title: "Select a Reason", description: "Please choose a reason for reporting.", variant: "destructive" });
+      return;
+    }
+    setIsReporting(true);
+    try {
+      await reportUser(user.id, reportReason, reportDetails.trim());
+      toast({ title: "Report Submitted", description: "Thank you. Our team will review this report." });
+      setReportOpen(false);
+      setReportReason("");
+      setReportDetails("");
+    } catch {
+      toast({ title: "Error", description: "Could not submit your report. Please try again.", variant: "destructive" });
+    } finally {
+      setIsReporting(false);
+    }
+  };
+
+  const showModerationMenu = currentUser && currentUser.id !== user.id;
+
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl">
-      <CardHeader className="items-center text-center">
+      <CardHeader className="items-center text-center relative">
+        {showModerationMenu && (
+          <div className="absolute right-4 top-4">
+            <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" aria-label="More options">
+                  <MoreVertical className="h-5 w-5" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-52 p-2" align="end">
+                {isBlocked ? (
+                  <button
+                    onClick={() => { setMenuOpen(false); handleUnblock(); }}
+                    disabled={isBlocking}
+                    className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm disabled:opacity-50"
+                  >
+                    <ShieldOff className="h-4 w-4 text-muted-foreground" />
+                    <span>Unblock user</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setMenuOpen(false); setBlockConfirmOpen(true); }}
+                    className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm"
+                  >
+                    <Ban className="h-4 w-4 text-destructive" />
+                    <span>Block user</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => { setMenuOpen(false); setReportOpen(true); }}
+                  className="flex items-center gap-3 w-full px-3 py-2 rounded-md hover:bg-muted transition-colors text-left text-sm"
+                >
+                  <Flag className="h-4 w-4 text-destructive" />
+                  <span>Report user</span>
+                </button>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
         <Avatar className="w-32 h-32 mb-4 border-4 border-primary shadow-md">
           <AvatarImage src={user.profile_picture_url || `https://placehold.co/128x128.png?text=${fallbackName}`} alt={user.full_name} />
           <AvatarFallback className="text-4xl">{fallbackName}</AvatarFallback>
         </Avatar>
-        <CardTitle className="text-3xl font-headline">{user.full_name}</CardTitle>
+        <CardTitle className="text-3xl font-headline flex items-center justify-center gap-2">
+          {user.full_name}
+          {user.email_verified && <BadgeCheck className="h-6 w-6 text-primary" aria-label="Verified account" />}
+        </CardTitle>
         <CardDescription className="text-lg text-accent-foreground">{user.profession || "Profession not specified"}</CardDescription>
+        {user.availability && user.availability !== 'none' && (
+          <span className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${availability.color}`}>
+            {availability.label}
+          </span>
+        )}
         {user.address && (
           <div className="flex items-center text-muted-foreground mt-1">
             <MapPin className="h-4 w-4 mr-1" />
             <span>{user.address}</span>
+          </div>
+        )}
+        {memberSince && (
+          <div className="flex items-center text-muted-foreground text-sm mt-1">
+            <CalendarDays className="h-4 w-4 mr-1" />
+            <span>Member since {memberSince}</span>
+          </div>
+        )}
+        {isBlocked && (
+          <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
+            <Ban className="h-4 w-4" />
+            <span>You have blocked this user.</span>
           </div>
         )}
       </CardHeader>
@@ -252,7 +390,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
             <a href={`mailto:${user.email}`}><Mail className="mr-2 h-5 w-5 text-primary" /> Email</a>
           </Button>
         )}
-        {currentUser && currentUser.id !== user.id && (
+        {currentUser && currentUser.id !== user.id && !isBlocked && (
           <Button onClick={handleStartChat} disabled={isStartingChat}>
             {isStartingChat ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <MessageSquare className="mr-2 h-5 w-5" />}
             Message
@@ -319,6 +457,82 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           </PopoverContent>
         </Popover>
       </CardFooter>
+
+      {/* Block confirmation */}
+      <AlertDialog open={blockConfirmOpen} onOpenChange={setBlockConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+              <Ban className="mr-2 h-5 w-5 text-destructive" /> Block {user.full_name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They won&apos;t be able to message you, and any existing chats will be closed. They won&apos;t be told that you blocked them, and they&apos;ll disappear from your discovery results. You can unblock them anytime from your profile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBlocking}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleBlock(); }}
+              disabled={isBlocking}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBlocking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Block
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Report dialog */}
+      <AlertDialog open={reportOpen} onOpenChange={(open) => { setReportOpen(open); if (!open) { setReportReason(""); setReportDetails(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+              <Flag className="mr-2 h-5 w-5 text-destructive" /> Report {user.full_name}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Reports are confidential. Tell us what&apos;s wrong and our team will review this profile.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="report-reason">Reason</Label>
+              <Select value={reportReason} onValueChange={setReportReason}>
+                <SelectTrigger id="report-reason">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_REASONS.map((r) => (
+                    <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="report-details">Additional details (optional)</Label>
+              <Textarea
+                id="report-details"
+                placeholder="Add any details that will help us understand the issue."
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                maxLength={2000}
+                rows={4}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isReporting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleSubmitReport(); }}
+              disabled={isReporting || !reportReason}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isReporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Submit Report
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

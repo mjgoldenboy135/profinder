@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Search, FilterX } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
+import { AVAILABILITY_OPTIONS } from "@/lib/types";
 import { useMemo } from "react";
 
 interface UserFiltersProps {
@@ -17,6 +18,7 @@ interface UserFiltersProps {
 }
 
 const ANY_PROFESSION_VALUE = "__ANY_PROFESSION__";
+const ANY_AVAILABILITY_VALUE = "__ANY_AVAILABILITY__";
 
 
 export default function UserFilters({ onFilterChange, initialFilters, users }: UserFiltersProps) {
@@ -36,6 +38,9 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
     if (name === "profession" && value === ANY_PROFESSION_VALUE) {
       processedValue = "";
     }
+    if (name === "availability" && value === ANY_AVAILABILITY_VALUE) {
+      processedValue = "";
+    }
     onFilterChange({ ...initialFilters, [name]: processedValue });
   };
   
@@ -47,6 +52,7 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
     onFilterChange({
       searchTerm: "",
       profession: "",
+      availability: "",
       location: "",
       onlineOnly: false,
     });
@@ -89,6 +95,25 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
           </Select>
         </div>
         
+        <div>
+          <Label htmlFor="availability">Availability</Label>
+          <Select
+            name="availability"
+            value={initialFilters.availability || ANY_AVAILABILITY_VALUE}
+            onValueChange={(value) => handleSelectChange("availability", value)}
+          >
+            <SelectTrigger id="availability">
+              <SelectValue placeholder="Anyone" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANY_AVAILABILITY_VALUE}>Anyone</SelectItem>
+              {AVAILABILITY_OPTIONS.filter(o => o.value !== 'none').map(o => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div>
           <Label htmlFor="location">Location</Label>
           <Input

@@ -2,11 +2,20 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.utils import timezone
 from .models import Chat, Message, HiddenChat
 from .serializers import ChatSerializer, MessageSerializer
 
 User = get_user_model()
+
+
+def is_blocked_between(user_a, user_b):
+    """True if either user has blocked the other."""
+    from users.models import BlockedUser
+    return BlockedUser.objects.filter(
+        Q(blocker=user_a, blocked=user_b) | Q(blocker=user_b, blocked=user_a)
+    ).exists()
 
 
 class ChatListView(APIView):
@@ -28,6 +37,9 @@ class ChatListView(APIView):
             other_user = User.objects.get(id=other_user_id)
         except User.DoesNotExist:
             return Response({'detail': 'User not found.'}, status=404)
+
+        if is_blocked_between(request.user, other_user):
+            return Response({'detail': 'You cannot message this user.'}, status=403)
 
         # Find existing chat between the two users
         existing = Chat.objects.filter(participants=request.user).filter(participants=other_user)
@@ -89,6 +101,8 @@ class MessageListView(APIView):
         receiver = chat.participants.exclude(id=request.user.id).first()
         if not receiver:
             return Response({'detail': 'No receiver found.'}, status=400)
+        if is_blocked_between(request.user, receiver):
+            return Response({'detail': 'You cannot message this user.'}, status=403)
 
         message = Message.objects.create(
             chat=chat,

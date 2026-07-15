@@ -1,11 +1,12 @@
 "use client";
 
 import type { UserProfile } from "@/lib/types";
+import { availabilityMeta } from "@/lib/types";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Briefcase, MapPin, MessageSquare, MapPinIcon as ViewOnMapIcon } from "lucide-react";
+import { Briefcase, MapPin, MessageSquare, MapPinIcon as ViewOnMapIcon, BadgeCheck } from "lucide-react";
 
 interface UserListItemProps {
   user: UserProfile;
@@ -14,6 +15,7 @@ interface UserListItemProps {
 export default function UserListItem({ user }: UserListItemProps) {
   const fallbackName = user.full_name ? user.full_name.split(" ").map(n => n[0]).join("") : "PN";
   const hasValidLocation = user.lat != null && user.lng != null;
+  const availability = availabilityMeta(user.availability);
 
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-lg flex flex-col h-full">
@@ -24,7 +26,10 @@ export default function UserListItem({ user }: UserListItemProps) {
         </Avatar>
         <div className="flex-1">
           <CardTitle className="text-xl font-headline mb-1">
-            <Link href={`/users/${user.id}`} className="hover:underline">{user.full_name}</Link>
+            <Link href={`/users/${user.id}`} className="hover:underline inline-flex items-center gap-1">
+              {user.full_name}
+              {user.email_verified && <BadgeCheck className="h-4 w-4 text-primary" aria-label="Verified" />}
+            </Link>
           </CardTitle>
           {user.profession && (
             <div className="flex items-center text-sm text-primary">
@@ -38,13 +43,18 @@ export default function UserListItem({ user }: UserListItemProps) {
               <span>{user.address}</span>
             </div>
           )}
-          {user.is_online && (
-            <div className="mt-1">
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {user.is_online && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
                 Online
               </span>
-            </div>
-          )}
+            )}
+            {user.availability && user.availability !== 'none' && (
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${availability.color}`}>
+                {availability.label}
+              </span>
+            )}
+          </div>
         </div>
       </CardHeader>
       {user.bio && (
