@@ -46,7 +46,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'email', 'email_verified', 'full_name', 'profession', 'education',
+            'id', 'email', 'email_verified', 'full_name', 'profession', 'company', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
             'phone_number', 'bio', 'interests', 'profile_picture_url',
             'lat', 'lng', 'address', 'is_online', 'availability',
@@ -68,7 +68,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
         fields = [
-            'id', 'email', 'email_verified', 'full_name', 'profession', 'education',
+            'id', 'email', 'email_verified', 'full_name', 'profession', 'company', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
             'phone_number', 'bio', 'interests', 'profile_picture_url',
             'lat', 'lng', 'address', 'is_online', 'availability',

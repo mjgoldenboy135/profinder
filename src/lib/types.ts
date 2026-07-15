@@ -4,6 +4,7 @@ export interface UserProfile {
   email_verified?: boolean;
   full_name: string;
   profession?: string;
+  company?: string;
   education?: string;
   professional_details?: string;
   years_of_experience?: number | null;
@@ -43,6 +44,17 @@ export const AVAILABILITY_OPTIONS: { value: Availability; label: string; color: 
 
 export function availabilityMeta(value?: Availability) {
   return AVAILABILITY_OPTIONS.find((o) => o.value === value) || AVAILABILITY_OPTIONS[0];
+}
+
+/** "Pharmacist at Nahdi Pharmacy" style label. Falls back gracefully when
+ * either the profession or company is missing. */
+export function professionLabel(profession?: string, company?: string): string {
+  const p = (profession || '').trim();
+  const c = (company || '').trim();
+  if (p && c) return `${p} at ${c}`;
+  if (p) return p;
+  if (c) return `Works at ${c}`;
+  return '';
 }
 
 export const REPORT_REASONS: { value: string; label: string }[] = [

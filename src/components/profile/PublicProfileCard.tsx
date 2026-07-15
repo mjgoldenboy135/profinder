@@ -1,7 +1,7 @@
 "use client";
 
 import type { UserProfile } from "@/lib/types";
-import { availabilityMeta, REPORT_REASONS } from "@/lib/types";
+import { availabilityMeta, professionLabel, REPORT_REASONS } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -252,7 +252,7 @@ export default function PublicProfileCard({ user }: PublicProfileCardProps) {
           {user.full_name}
           {user.email_verified && <BadgeCheck className="h-6 w-6 text-primary" aria-label="Verified account" />}
         </CardTitle>
-        <CardDescription className="text-lg text-accent-foreground">{user.profession || "Profession not specified"}</CardDescription>
+        <CardDescription className="text-lg text-accent-foreground">{professionLabel(user.profession, user.company) || "Profession not specified"}</CardDescription>
         {user.availability && user.availability !== 'none' && (
           <span className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${availability.color}`}>
             {availability.label}

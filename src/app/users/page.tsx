@@ -52,6 +52,7 @@ export default function UserListPage() {
       const searchTermMatch = !filters.searchTerm ||
         user.full_name?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
         user.profession?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
+        user.company?.toLowerCase().includes(filters.searchTerm.toLowerCase()) ||
         user.bio?.toLowerCase().includes(filters.searchTerm.toLowerCase());
       const professionMatch = !filters.profession || user.profession === filters.profession;
       const availabilityMatch = !filters.availability || user.availability === filters.availability;
