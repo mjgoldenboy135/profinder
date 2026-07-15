@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning, ShieldOff, Compass, Building2 } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning, ShieldOff, Compass, Building2, Link as LinkIcon } from "lucide-react";
 import Link from "next/link";
 import { sendVerificationEmail } from "@/services/authService";
 import { cn } from "@/lib/utils";
@@ -59,6 +59,8 @@ const profileSchema = z.object({
   professional_details: z.string().max(250, "Professional details should not exceed 250 characters.").optional(),
   years_of_experience: z.coerce.number().min(0).optional(),
   linkedin_profile_url: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
+  website_url: z.string().url("Please enter a valid URL (include https://).").optional().or(z.literal("")),
+  website_name: z.string().max(100, "Website name should not exceed 100 characters.").optional(),
   email: z.string().email(),
   phone_number: z.string().optional(),
   address: z.string().max(150, "Location address should not exceed 150 characters.").optional(),
@@ -81,6 +83,8 @@ const defaultFormValues: ProfileFormValues = {
   professional_details: "",
   years_of_experience: 0,
   linkedin_profile_url: "",
+  website_url: "",
+  website_name: "",
   phone_number: "",
   address: "",
   is_online: false,
@@ -212,6 +216,8 @@ export default function ProfileForm() {
         professional_details: profile.professional_details || "",
         years_of_experience: profile.years_of_experience || 0,
         linkedin_profile_url: profile.linkedin_profile_url || "",
+        website_url: profile.website_url || "",
+        website_name: profile.website_name || "",
         phone_number: profile.phone_number || "",
         address: profile.address || "",
         is_online: profile.location_visibility === 'none' ? false : (profile.is_online || false),
@@ -451,6 +457,8 @@ export default function ProfileForm() {
         professional_details: values.professional_details,
         years_of_experience: values.years_of_experience,
         linkedin_profile_url: values.linkedin_profile_url,
+        website_url: values.website_url,
+        website_name: values.website_name,
         phone_number: values.phone_number,
         address: values.address,
         is_online: finalIsOnline,
@@ -768,6 +776,32 @@ export default function ProfileForm() {
                 </FormItem>
               )}
             />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="website_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center"><LinkIcon className="mr-2 h-5 w-5 text-primary" /> Website URL</FormLabel>
+                    <FormControl><Input placeholder="https://yourwebsite.com" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormDescription>Your personal site, portfolio, or blog.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="website_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Website Name</FormLabel>
+                    <FormControl><Input placeholder="e.g., My Portfolio" {...field} value={field.value ?? ''} maxLength={100} /></FormControl>
+                    <FormDescription>The name shown for the link. Defaults to the address.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               control={form.control}
               name="phone_number"

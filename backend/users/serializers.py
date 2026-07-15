@@ -48,7 +48,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'email_verified', 'full_name', 'profession', 'company', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
-            'phone_number', 'bio', 'interests', 'profile_picture_url',
+            'phone_number', 'website_url', 'website_name', 'bio', 'interests', 'profile_picture_url',
             'lat', 'lng', 'address', 'is_online', 'availability',
             'location_visibility', 'show_contact',
             'created_at', 'updated_at',
@@ -70,7 +70,7 @@ class PublicUserProfileSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'email_verified', 'full_name', 'profession', 'company', 'education',
             'professional_details', 'years_of_experience', 'linkedin_profile_url',
-            'phone_number', 'bio', 'interests', 'profile_picture_url',
+            'phone_number', 'website_url', 'website_name', 'bio', 'interests', 'profile_picture_url',
             'lat', 'lng', 'address', 'is_online', 'availability',
             'location_visibility', 'show_contact', 'is_blocked', 'created_at',
         ]
