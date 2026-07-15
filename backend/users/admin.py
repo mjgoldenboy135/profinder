@@ -9,8 +9,8 @@ class UserAdmin(BaseUserAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ['full_name', 'user', 'profession', 'availability', 'is_online', 'created_at']
-    search_fields = ['full_name', 'user__email', 'profession']
+    list_display = ['full_name', 'user', 'profession', 'company', 'availability', 'is_online', 'created_at']
+    search_fields = ['full_name', 'user__email', 'profession', 'company']
 
 @admin.register(BlockedUser)
 class BlockedUserAdmin(admin.ModelAdmin):

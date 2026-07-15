@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Switch } from "@/components/ui/switch";
-import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning, ShieldOff, Compass } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning, ShieldOff, Compass, Building2 } from "lucide-react";
 import Link from "next/link";
 import { sendVerificationEmail } from "@/services/authService";
 import { cn } from "@/lib/utils";
@@ -55,6 +55,7 @@ const profileSchema = z.object({
   profile_picture_url: z.string().url().optional().or(z.literal("")),
   education: z.string().max(200, "Education details should not exceed 200 characters.").optional(),
   profession: z.string().max(100, "Profession should not exceed 100 characters.").optional(),
+  company: z.string().max(150, "Company should not exceed 150 characters.").optional(),
   professional_details: z.string().max(250, "Professional details should not exceed 250 characters.").optional(),
   years_of_experience: z.coerce.number().min(0).optional(),
   linkedin_profile_url: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
@@ -76,6 +77,7 @@ const defaultFormValues: ProfileFormValues = {
   profile_picture_url: "",
   education: "",
   profession: "",
+  company: "",
   professional_details: "",
   years_of_experience: 0,
   linkedin_profile_url: "",
@@ -206,6 +208,7 @@ export default function ProfileForm() {
         profile_picture_url: profile.profile_picture_url || "",
         education: profile.education || "",
         profession: profile.profession || "",
+        company: profile.company || "",
         professional_details: profile.professional_details || "",
         years_of_experience: profile.years_of_experience || 0,
         linkedin_profile_url: profile.linkedin_profile_url || "",
@@ -444,6 +447,7 @@ export default function ProfileForm() {
         full_name: values.full_name,
         education: values.education,
         profession: values.profession,
+        company: values.company,
         professional_details: values.professional_details,
         years_of_experience: values.years_of_experience,
         linkedin_profile_url: values.linkedin_profile_url,
@@ -686,6 +690,22 @@ export default function ProfileForm() {
                     ))}
                   </datalist>
                   <FormDescription>Max 100 characters.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="company"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><Building2 className="mr-2 h-5 w-5 text-primary" /> Company / Organisation</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Nahdi Pharmacy" {...field} value={field.value ?? ''} maxLength={150} />
+                  </FormControl>
+                  <FormDescription>
+                    Shown next to your profession, e.g. &quot;Pharmacist at Nahdi Pharmacy&quot;. Max 150 characters.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

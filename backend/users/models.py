@@ -31,6 +31,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=255)
     profession = models.CharField(max_length=255, blank=True, default='')
+    company = models.CharField(max_length=150, blank=True, default='')
     education = models.CharField(max_length=500, blank=True, default='')
     professional_details = models.TextField(blank=True, default='')
     years_of_experience = models.IntegerField(null=True, blank=True)

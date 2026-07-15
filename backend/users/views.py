@@ -155,6 +155,7 @@ class UserListView(generics.ListAPIView):
             qs = qs.filter(
                 Q(full_name__icontains=search) |
                 Q(profession__icontains=search) |
+                Q(company__icontains=search) |
                 Q(bio__icontains=search)
             )
         if profession:

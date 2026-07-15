@@ -1,7 +1,7 @@
 "use client";
 
 import type { UserProfile } from "@/lib/types";
-import { availabilityMeta } from "@/lib/types";
+import { availabilityMeta, professionLabel } from "@/lib/types";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,10 +12,15 @@ interface UserListItemProps {
   user: UserProfile;
 }
 
+// Shared sky-blue button palette (Facebook-suggestions style).
+const PRIMARY_BTN = "flex-1 bg-sky-500 hover:bg-sky-600 text-white font-semibold shadow-none";
+const SECONDARY_BTN = "flex-1 bg-slate-200 hover:bg-slate-300 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 font-semibold border-0 shadow-none";
+
 export default function UserListItem({ user }: UserListItemProps) {
   const fallbackName = user.full_name ? user.full_name.split(" ").map(n => n[0]).join("") : "PN";
   const hasValidLocation = user.lat != null && user.lng != null;
   const availability = availabilityMeta(user.availability);
+  const roleLabel = professionLabel(user.profession, user.company);
 
   return (
     <Card className="overflow-hidden transition-shadow hover:shadow-lg flex flex-col h-full">
@@ -25,21 +30,21 @@ export default function UserListItem({ user }: UserListItemProps) {
           <AvatarFallback className="text-xl">{fallbackName}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <CardTitle className="text-xl font-headline mb-1">
+          <CardTitle className="text-xl font-bold mb-1">
             <Link href={`/users/${user.id}`} className="hover:underline inline-flex items-center gap-1">
               {user.full_name}
-              {user.email_verified && <BadgeCheck className="h-4 w-4 text-primary" aria-label="Verified" />}
+              {user.email_verified && <BadgeCheck className="h-4 w-4 text-sky-500" aria-label="Verified" />}
             </Link>
           </CardTitle>
-          {user.profession && (
-            <div className="flex items-center text-sm text-primary">
-              <Briefcase className="h-4 w-4 mr-1.5" />
-              <span>{user.profession}</span>
+          {roleLabel && (
+            <div className="flex items-center text-sm text-sky-600 dark:text-sky-400 font-medium">
+              <Briefcase className="h-4 w-4 mr-1.5 shrink-0" />
+              <span>{roleLabel}</span>
             </div>
           )}
           {user.address && (
-            <div className="flex items-center text-sm text-primary mt-0.5">
-              <MapPin className="h-4 w-4 mr-1.5" />
+            <div className="flex items-center text-sm text-muted-foreground mt-0.5">
+              <MapPin className="h-4 w-4 mr-1.5 shrink-0" />
               <span>{user.address}</span>
             </div>
           )}
@@ -63,17 +68,19 @@ export default function UserListItem({ user }: UserListItemProps) {
         </CardContent>
       )}
       <CardFooter className="p-4 border-t mt-auto">
-        <div className="flex flex-col sm:flex-row gap-2 w-full">
-          <Button variant="outline" size="sm" className="flex-1" asChild>
-            <Link href={`/users/${user.id}`}>View Profile</Link>
-          </Button>
-          <Button size="sm" className="flex-1" asChild>
-            <Link href={`/messages?chatWith=${user.id}`}>
-              <MessageSquare className="mr-2 h-4 w-4" /> Message
-            </Link>
-          </Button>
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex gap-2 w-full">
+            <Button size="sm" className={PRIMARY_BTN} asChild>
+              <Link href={`/messages?chatWith=${user.id}`}>
+                <MessageSquare className="mr-2 h-4 w-4" /> Message
+              </Link>
+            </Button>
+            <Button size="sm" className={SECONDARY_BTN} asChild>
+              <Link href={`/users/${user.id}`}>View Profile</Link>
+            </Button>
+          </div>
           {hasValidLocation && (
-            <Button variant="secondary" size="sm" className="flex-1" asChild>
+            <Button size="sm" className={SECONDARY_BTN} asChild>
               <Link href={`/map?userId=${user.id}&lat=${user.lat}&lng=${user.lng}`}>
                 <ViewOnMapIcon className="mr-2 h-4 w-4" /> View on Map
               </Link>
