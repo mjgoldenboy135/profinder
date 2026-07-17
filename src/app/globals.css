@@ -11,19 +11,19 @@
     --card-foreground: 230 25% 18%;
     --popover: 0 0% 100%;
     --popover-foreground: 230 25% 18%;
-    --primary: 243 75% 58%;          /* Vibrant Indigo */
+    --primary: 199 89% 48%;          /* Sky blue (matches sky-500 buttons) */
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 30% 96%;
-    --secondary-foreground: 243 40% 30%;
+    --secondary: 205 40% 96%;
+    --secondary-foreground: 200 80% 28%;
     --muted: 240 24% 95%;
     --muted-foreground: 235 16% 46%;
-    --accent: 243 70% 95%;           /* Soft indigo tint for hovers */
-    --accent-foreground: 243 75% 45%;
+    --accent: 200 90% 95%;           /* Soft sky tint for hovers */
+    --accent-foreground: 200 98% 39%;
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
     --border: 240 22% 87%;
     --input: 240 26% 80%;            /* Clearly visible input border */
-    --ring: 243 75% 58%;
+    --ring: 199 89% 48%;
 
     /* Brand gradient stops (indigo -> violet -> pink) */
     --grad-1: 243 75% 58%;
@@ -54,19 +54,19 @@
     --card-foreground: 225 25% 92%;
     --popover: 231 22% 15%;
     --popover-foreground: 225 25% 92%;
-    --primary: 243 80% 70%;
+    --primary: 198 93% 60%;
     --primary-foreground: 232 40% 10%;
     --secondary: 232 18% 22%;
     --secondary-foreground: 225 25% 90%;
     --muted: 232 16% 20%;
     --muted-foreground: 230 15% 66%;
-    --accent: 243 40% 26%;
-    --accent-foreground: 243 75% 88%;
+    --accent: 200 60% 26%;
+    --accent-foreground: 199 90% 88%;
     --destructive: 0 65% 55%;
     --destructive-foreground: 0 0% 100%;
     --border: 232 16% 27%;
     --input: 232 16% 32%;
-    --ring: 243 80% 70%;
+    --ring: 198 93% 60%;
 
     --grad-1: 243 80% 66%;
     --grad-2: 268 80% 68%;
