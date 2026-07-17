@@ -167,7 +167,9 @@ export default function MapView() {
   const searchParams = useSearchParams();
   const [selectedProfession, setSelectedProfession] = useState<string>("");
   const [availableProfessions, setAvailableProfessions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
   const { currentUser } = useAuthContext();
 
   const targetUserId = searchParams.get("userId");
@@ -234,6 +236,34 @@ export default function MapView() {
     }
   }, [allOnlineUsers]);
 
+  // Suggestions rendered on the page (not the browser's datalist / keyboard
+  // strip): case-insensitive match on the typed text, capped for readability.
+  const professionSuggestions = useMemo(() => {
+    const q = selectedProfession.trim().toLowerCase();
+    const matches = q
+      ? availableProfessions.filter((p) => p.toLowerCase().includes(q))
+      : availableProfessions;
+    // Hide the list if the only match is exactly what's already typed.
+    if (matches.length === 1 && matches[0].toLowerCase() === q) return [];
+    return matches.slice(0, 8);
+  }, [availableProfessions, selectedProfession]);
+
+  // Close the suggestion dropdown when clicking/tapping outside the search box.
+  useEffect(() => {
+    if (!showSuggestions) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [showSuggestions]);
+
   const initialCenter = useMemo(() => {
     const targetUser = allOnlineUsers.find((u) => String(u.id) === targetUserId);
     if (targetLatParam && targetLngParam) {
@@ -275,23 +305,55 @@ export default function MapView() {
             </CardDescription>
           </div>
           {availableProfessions.length > 0 || allOnlineUsers.length > 0 ? (
-            <div className="w-full sm:w-auto sm:min-w-[200px] relative z-[1000]">
+            <div ref={searchBoxRef} className="w-full sm:w-auto sm:min-w-[220px] relative z-[1000]">
               <Label htmlFor="profession-filter" className="sr-only">
                 Search by Profession
               </Label>
               <Input
                 id="profession-filter"
-                type="search"
+                type="text"
+                inputMode="text"
                 placeholder="Search profession"
                 value={selectedProfession}
-                onChange={(e) => setSelectedProfession(e.target.value)}
-                list="profession-suggestions"
+                onChange={(e) => {
+                  setSelectedProfession(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                role="combobox"
+                aria-expanded={showSuggestions && professionSuggestions.length > 0}
+                aria-controls="profession-suggestions"
+                aria-autocomplete="list"
               />
-              <datalist id="profession-suggestions">
-                {availableProfessions.map((prof) => (
-                  <option key={prof} value={prof} />
-                ))}
-              </datalist>
+              {showSuggestions && professionSuggestions.length > 0 && (
+                <ul
+                  id="profession-suggestions"
+                  role="listbox"
+                  className="absolute left-0 right-0 top-full mt-1 max-h-64 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-[1001]"
+                >
+                  {professionSuggestions.map((prof) => (
+                    <li key={prof} role="option" aria-selected={prof === selectedProfession}>
+                      <button
+                        type="button"
+                        // onMouseDown fires before the input blurs, so the click
+                        // isn't lost to the outside-click handler.
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setSelectedProfession(prof);
+                          setShowSuggestions(false);
+                        }}
+                        className="block w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                      >
+                        {prof}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : null}
         </div>
