@@ -19,27 +19,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Switch } from "@/components/ui/switch";
-import { Eye, Globe, Heart, Loader2, MapPin, Users, AlertTriangle, KeyRound, BadgeCheck, MailWarning, ShieldOff, Compass, Building2, Link as LinkIcon } from "lucide-react";
-import Link from "next/link";
+import { useState, useEffect, useCallback } from "react";
+import { Loader2, BadgeCheck, MailWarning, Compass, Building2 } from "lucide-react";
 import { sendVerificationEmail } from "@/services/authService";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
-import { updateUserProfile, uploadProfilePicture, removeProfilePicture, getBlockedUsers, unblockUser } from "@/services/userService";
-import { apiFetch } from "@/lib/api";
-import { useRouter } from "next/navigation";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { updateUserProfile, uploadProfilePicture, removeProfilePicture } from "@/services/userService";
 import type { UserProfile } from "@/lib/types";
 import { AVAILABILITY_OPTIONS } from "@/lib/types";
 import { COMMON_PROFESSIONS } from "@/lib/professions";
@@ -59,15 +44,9 @@ const profileSchema = z.object({
   professional_details: z.string().max(250, "Professional details should not exceed 250 characters.").optional(),
   years_of_experience: z.coerce.number().min(0).optional(),
   linkedin_profile_url: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
-  website_url: z.string().url("Please enter a valid URL (include https://).").optional().or(z.literal("")),
-  website_name: z.string().max(100, "Website name should not exceed 100 characters.").optional(),
   email: z.string().email(),
   phone_number: z.string().optional(),
-  address: z.string().max(150, "Location address should not exceed 150 characters.").optional(),
-  is_online: z.boolean().optional().default(false),
-  show_contact: z.boolean().optional().default(false),
   bio: z.string().max(250, "Bio should not exceed 250 characters.").optional(),
-  location_visibility: z.enum(['public', 'favorites', 'none']).default('public').optional(),
   availability: z.enum(['none', 'open_to_work', 'hiring', 'networking', 'mentoring', 'collaborating']).default('none').optional(),
 });
 
@@ -83,14 +62,8 @@ const defaultFormValues: ProfileFormValues = {
   professional_details: "",
   years_of_experience: 0,
   linkedin_profile_url: "",
-  website_url: "",
-  website_name: "",
   phone_number: "",
-  address: "",
-  is_online: false,
-  show_contact: false,
   bio: "",
-  location_visibility: 'public',
   availability: 'none',
 };
 
@@ -143,44 +116,12 @@ async function resizeImage(file: File, maxWidth: number, maxHeight: number): Pro
 
 export default function ProfileForm() {
   const { toast } = useToast();
-  const router = useRouter();
-  const { currentUser, currentUserProfile, loading: authLoading, refreshUserProfile, logout } = useAuthContext();
+  const { currentUser, currentUserProfile, loading: authLoading, refreshUserProfile } = useAuthContext();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isFetchingProfile, setIsFetchingProfile] = useState(true);
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
   const [isResizingImage, setIsResizingImage] = useState(false);
-  const locationWatchId = useRef<number | null>(null);
-  const [isLocationPermissionDenied, setIsLocationPermissionDenied] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isDeletingProfile, setIsDeletingProfile] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
-  const [blockedUsers, setBlockedUsers] = useState<UserProfile[]>([]);
-  const [unblockingId, setUnblockingId] = useState<number | null>(null);
-
-  const loadBlockedUsers = useCallback(async () => {
-    try {
-      setBlockedUsers(await getBlockedUsers());
-    } catch {
-      setBlockedUsers([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) loadBlockedUsers();
-  }, [currentUser, loadBlockedUsers]);
-
-  const handleUnblock = async (targetId: number, name: string) => {
-    setUnblockingId(targetId);
-    try {
-      await unblockUser(targetId);
-      setBlockedUsers((prev) => prev.filter((u) => u.id !== targetId));
-      toast({ title: "User Unblocked", description: `${name} has been unblocked.` });
-    } catch {
-      toast({ title: "Error", description: "Could not unblock user. Please try again.", variant: "destructive" });
-    } finally {
-      setUnblockingId(null);
-    }
-  };
 
   const handleSendVerification = async () => {
     setIsSendingVerification(true);
@@ -199,10 +140,6 @@ export default function ProfileForm() {
     defaultValues: defaultFormValues,
   });
 
-  const watchedIsOnline = form.watch("is_online");
-  const watchedLocationVisibility = form.watch("location_visibility");
-  const watchedAddress = form.watch("address");
-
   const resetFormWithProfileData = useCallback((profile: UserProfile | null) => {
     if (currentUser && profile) {
       const initialData: ProfileFormValues = {
@@ -216,14 +153,8 @@ export default function ProfileForm() {
         professional_details: profile.professional_details || "",
         years_of_experience: profile.years_of_experience || 0,
         linkedin_profile_url: profile.linkedin_profile_url || "",
-        website_url: profile.website_url || "",
-        website_name: profile.website_name || "",
         phone_number: profile.phone_number || "",
-        address: profile.address || "",
-        is_online: profile.location_visibility === 'none' ? false : (profile.is_online || false),
-        show_contact: profile.show_contact || false,
         bio: profile.bio || "",
-        location_visibility: profile.location_visibility || 'public',
         availability: profile.availability || 'none',
       };
       form.reset(initialData);
@@ -241,117 +172,6 @@ export default function ProfileForm() {
       setIsFetchingProfile(false);
     }
   }, [currentUser, currentUserProfile, authLoading, resetFormWithProfileData, form]);
-
-  useEffect(() => {
-    if (watchedLocationVisibility === 'none') {
-      if (form.getValues("is_online")) {
-        form.setValue("is_online", false, { shouldDirty: true });
-      }
-    }
-  }, [watchedLocationVisibility, form]);
-
-  useEffect(() => {
-    if (!currentUser || isFetchingProfile || form.formState.isSubmitting || typeof watchedIsOnline === 'undefined') {
-      if (locationWatchId.current !== null) {
-        navigator.geolocation.clearWatch(locationWatchId.current);
-        locationWatchId.current = null;
-      }
-      return;
-    }
-
-    const manageLiveLocation = async (enable: boolean) => {
-      const currentAddress = watchedAddress || "";
-
-      if (enable && watchedLocationVisibility !== 'none') {
-        setIsLocationPermissionDenied(false);
-        if (!navigator.geolocation) {
-          toast({ title: "Geolocation Not Supported", description: "Live location tracking is not available on your browser.", variant: "destructive" });
-          form.setValue("is_online", false, { shouldDirty: true });
-          await apiFetch('/auth/online/', { method: 'POST', body: JSON.stringify({ is_online: false }) });
-          return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            try {
-              await updateUserProfile(currentUser.id, {
-                is_online: true,
-                lat: latitude,
-                lng: longitude,
-                address: currentAddress,
-                location_visibility: watchedLocationVisibility,
-              });
-              toast({ title: "You are now Online!", description: "Your location is being shared based on your visibility settings." });
-            } catch (dbError) {
-              toast({ title: "Database Error", description: "Could not save online status.", variant: "destructive" });
-              form.setValue("is_online", false, { shouldDirty: true });
-              return;
-            }
-            if (locationWatchId.current !== null) navigator.geolocation.clearWatch(locationWatchId.current);
-            locationWatchId.current = navigator.geolocation.watchPosition(
-              async (pos) => {
-                try {
-                  await updateUserProfile(currentUser.id, {
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    address: form.getValues("address") || "",
-                  });
-                } catch (watchDbError) {
-                  console.warn("Silent fail for watch position update:", watchDbError);
-                }
-              },
-              (watchErr) => {
-                console.error("Location Tracking Error:", watchErr);
-              },
-              { enableHighAccuracy: true, timeout: 20000, maximumAge: 10000 }
-            );
-          },
-          async (error) => {
-            let message = "Could not get your location to go online.";
-            if (error.code === error.PERMISSION_DENIED) {
-              message = "Location permission denied. Please enable it in your browser settings.";
-              setIsLocationPermissionDenied(true);
-            } else {
-              message = `Could not get location: ${error.message}. Please try again.`;
-            }
-            toast({ title: "Location Error", description: message, variant: "destructive" });
-            form.setValue("is_online", false, { shouldDirty: true });
-            try {
-              await updateUserProfile(currentUser.id, { is_online: false });
-            } catch {}
-          }
-        );
-      } else {
-        if (locationWatchId.current !== null) {
-          navigator.geolocation.clearWatch(locationWatchId.current);
-          locationWatchId.current = null;
-        }
-        const isCurrentlyOnline = form.getValues("is_online");
-        if (isCurrentlyOnline || watchedLocationVisibility === 'none') {
-          try {
-            await updateUserProfile(currentUser.id, { is_online: false });
-            if (enable === false && watchedLocationVisibility !== 'none') {
-              toast({ title: "You are now Offline", description: "You will no longer appear on the map." });
-            }
-          } catch (dbError) {
-            toast({ title: "Database Error", description: "Could not update offline status.", variant: "destructive" });
-          }
-        }
-      }
-    };
-
-    manageLiveLocation(watchedIsOnline);
-
-    return () => {
-      if (locationWatchId.current !== null) {
-        navigator.geolocation.clearWatch(locationWatchId.current);
-        locationWatchId.current = null;
-      }
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, watchedIsOnline, watchedLocationVisibility, watchedAddress, isFetchingProfile, form.formState.isSubmitting]);
-
 
   const handleProfilePictureChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -420,7 +240,7 @@ export default function ProfileForm() {
       return;
     }
 
-    const { profilePicture, profile_picture_url: currentFormPicUrl, ...dataForApi } = values;
+    const { profilePicture, profile_picture_url: currentFormPicUrl } = values;
     let newPicUrl = currentFormPicUrl || currentUserProfile?.profile_picture_url || "";
 
     try {
@@ -447,8 +267,6 @@ export default function ProfileForm() {
         newPicUrl = "";
       }
 
-      const finalIsOnline = values.location_visibility === 'none' ? false : values.is_online;
-
       const finalData: Partial<UserProfile> = {
         full_name: values.full_name,
         education: values.education,
@@ -457,14 +275,8 @@ export default function ProfileForm() {
         professional_details: values.professional_details,
         years_of_experience: values.years_of_experience,
         linkedin_profile_url: values.linkedin_profile_url,
-        website_url: values.website_url,
-        website_name: values.website_name,
         phone_number: values.phone_number,
-        address: values.address,
-        is_online: finalIsOnline,
-        show_contact: values.show_contact,
         bio: values.bio,
-        location_visibility: values.location_visibility,
         availability: values.availability,
       };
 
@@ -479,7 +291,6 @@ export default function ProfileForm() {
         ...values,
         profile_picture_url: newPicUrl || "",
         profilePicture: undefined,
-        is_online: finalIsOnline,
       });
       setPreviewImage(newPicUrl || null);
       if (refreshUserProfile) await refreshUserProfile();
@@ -494,34 +305,6 @@ export default function ProfileForm() {
     }
   }
 
-  const handleDeleteProfile = async () => {
-    if (!currentUser) return;
-    setIsDeletingProfile(true);
-    try {
-      const res = await apiFetch('/users/me/', { method: 'DELETE' });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || 'Server rejected the deletion.');
-      }
-      logout();
-      toast({
-        title: "Profile Deleted",
-        description: "Your account has been permanently removed.",
-      });
-      router.push('/login');
-    } catch (error) {
-      console.error("Error deleting profile:", error);
-      toast({
-        title: "Deletion Failed",
-        description: "Could not delete profile. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeletingProfile(false);
-      setIsDeleteDialogOpen(false);
-    }
-  };
-
   if (authLoading || isFetchingProfile) {
     return <div className="flex justify-center items-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary" /><p className="ml-2">Loading profile...</p></div>;
   }
@@ -534,7 +317,6 @@ export default function ProfileForm() {
   const initials = currentFullName.split(" ").map(n => n[0]).join("").toUpperCase() || "?";
 
   const isSaveDisabled = form.formState.isSubmitting || authLoading || isFetchingProfile || isUploadingPicture || isResizingImage;
-  const isOnlineSwitchDisabled = watchedLocationVisibility === 'none';
 
   return (
     <Card className="w-full max-w-3xl mx-auto shadow-xl">
@@ -776,32 +558,6 @@ export default function ProfileForm() {
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="website_url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center"><LinkIcon className="mr-2 h-5 w-5 text-primary" /> Website URL</FormLabel>
-                    <FormControl><Input placeholder="https://yourwebsite.com" {...field} value={field.value ?? ''} /></FormControl>
-                    <FormDescription>Your personal site, portfolio, or blog.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="website_name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website Name</FormLabel>
-                    <FormControl><Input placeholder="e.g., My Portfolio" {...field} value={field.value ?? ''} maxLength={100} /></FormControl>
-                    <FormDescription>The name shown for the link. Defaults to the address.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
             <FormField
               control={form.control}
               name="phone_number"
@@ -814,200 +570,12 @@ export default function ProfileForm() {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> Location Address (Optional)</FormLabel>
-                  <FormControl><Input placeholder="e.g., San Francisco, CA (for public display)" {...field} value={field.value ?? ''} maxLength={150} /></FormControl>
-                  <FormDescription>
-                    Max 150 characters. A general address for display on your profile. Your precise map location is handled by the &quot;Appear Online&quot; switch.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <Card>
-              <CardHeader><CardTitle className="text-lg font-headline">Status &amp; Privacy</CardTitle></CardHeader>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="location_visibility"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center"><Eye className="mr-2 h-5 w-5 text-primary" /> Location Visibility on Map</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value ?? 'public'}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select who can see your location" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="public">
-                            <div className="flex items-center gap-2">
-                              <Users className="h-4 w-4" /> Public on Map
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="favorites">
-                            <div className="flex items-center gap-2">
-                              <Heart className="h-4 w-4" /> Visible to My Favorites Only
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="none">
-                            <div className="flex items-center gap-2">
-                              <Globe className="h-4 w-4" /> Private (Not on Map)
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        {field.value === 'public' && "Your location is visible to everyone on the map when you're online."}
-                        {field.value === 'favorites' && "Only users you've favorited can see your location on the map when you're online."}
-                        {field.value === 'none' && "Your location will not be shared on the map, regardless of the 'Appear Online' switch."}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="is_online"
-                  render={({ field }) => (
-                    <FormItem className={cn("flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm", isOnlineSwitchDisabled && "opacity-70")}>
-                      <div className="space-y-0.5">
-                        <FormLabel className={cn("flex items-center", isOnlineSwitchDisabled && "cursor-not-allowed")}>
-                          <Globe className="mr-2 h-5 w-5 text-primary" />
-                          Appear Online &amp; on Map
-                        </FormLabel>
-                        <FormDescription className={cn(isOnlineSwitchDisabled && "cursor-not-allowed")}>
-                          {isOnlineSwitchDisabled
-                            ? "Set Location Visibility above to 'Public' or 'Favorites' to enable this."
-                            : (field.value ? "You are set to appear online. Live location is active if permission granted." : "You are set to appear offline.")
-                          }
-                          {isLocationPermissionDenied && !isOnlineSwitchDisabled && <span className="text-destructive block"> Location permission denied. Please enable it in browser settings.</span>}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={isOnlineSwitchDisabled ? false : field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={isOnlineSwitchDisabled}
-                          aria-readonly={isOnlineSwitchDisabled}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="show_contact"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                      <div className="space-y-0.5">
-                        <FormLabel>Show Contact Information</FormLabel>
-                        <FormDescription>Allow others to see your email on your public profile.</FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
-
             <Button type="submit" className="w-full sm:w-auto" disabled={isSaveDisabled}>
               {(form.formState.isSubmitting || isUploadingPicture || isResizingImage) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {isResizingImage ? "Processing Image..." : (isUploadingPicture ? "Uploading..." : (form.formState.isSubmitting ? "Saving Profile..." : "Save Changes"))}
             </Button>
           </form>
         </Form>
-
-        <Card className="mt-8">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline flex items-center">
-              <ShieldOff className="mr-2 h-5 w-5 text-primary" /> Blocked Users
-            </CardTitle>
-            <CardDescription>
-              Blocked users can&apos;t message you or see that you blocked them, and they won&apos;t appear in your discovery results.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {blockedUsers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">You haven&apos;t blocked anyone.</p>
-            ) : (
-              <ul className="space-y-2">
-                {blockedUsers.map((u) => {
-                  const initials = u.full_name ? u.full_name.split(" ").map((n) => n[0]).join("").toUpperCase() : "?";
-                  return (
-                    <li key={u.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {u.profile_picture_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={u.profile_picture_url} alt={u.full_name} className="h-9 w-9 rounded-full object-cover" />
-                        ) : (
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm text-muted-foreground">{initials}</div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{u.full_name}</p>
-                          {u.profession && <p className="truncate text-xs text-muted-foreground">{u.profession}</p>}
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleUnblock(u.id, u.full_name)}
-                        disabled={unblockingId === u.id}
-                        className="shrink-0"
-                      >
-                        {unblockingId === u.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Unblock
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <Button type="button" variant="outline" className="w-full sm:w-auto" asChild>
-            <Link href="/change-password"><KeyRound className="mr-2 h-4 w-4" /> Change Password</Link>
-          </Button>
-          <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-            <AlertDialogTrigger asChild>
-              <Button type="button" variant="destructive" className="w-full sm:w-auto">Delete Profile</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle className="flex items-center">
-                  <AlertTriangle className="mr-2 h-5 w-5 text-destructive" /> Confirm Deletion
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete your profile. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isDeletingProfile}>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteProfile}
-                  disabled={isDeletingProfile}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  {isDeletingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {isDeletingProfile ? "Deleting..." : "Delete"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
       </CardContent>
     </Card>
   );

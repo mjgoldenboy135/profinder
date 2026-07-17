@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2 } from 'lucide-react';
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2, ShieldCheck, Settings } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from 'react';
@@ -173,6 +173,30 @@ export default function Header() {
                           >
                             <Star className="h-5 w-5" />
                             Favorites
+                          </Link>
+                        </SheetClose>
+                        <SheetClose asChild>
+                          <Link
+                            href="/status-privacy"
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                              pathname === "/status-privacy" ? "bg-accent text-accent-foreground" : "text-foreground"
+                            )}
+                          >
+                            <ShieldCheck className="h-5 w-5" />
+                            Status &amp; Privacy
+                          </Link>
+                        </SheetClose>
+                        <SheetClose asChild>
+                          <Link
+                            href="/settings"
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                              pathname === "/settings" ? "bg-accent text-accent-foreground" : "text-foreground"
+                            )}
+                          >
+                            <Settings className="h-5 w-5" />
+                            Settings
                           </Link>
                         </SheetClose>
                         <Separator className="my-3"/>
