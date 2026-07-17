@@ -148,6 +148,13 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r.strip() for r in config('CORS_ALLOWED_ORIGIN_REGEXES', default='').split(',') if r.strip()
 ]
+# Always trust our own Render deployments and the profinderhome.com custom
+# domain (apex + any subdomain such as www), so the frontend keeps working on
+# the custom domain even if the CORS_ALLOWED_ORIGINS env var wasn't updated.
+CORS_ALLOWED_ORIGIN_REGEXES += [
+    r'^https://([a-z0-9-]+\.)*onrender\.com$',
+    r'^https://([a-z0-9-]+\.)*profinderhome\.com$',
+]
 CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
 CORS_ALLOW_CREDENTIALS = True
 
@@ -156,6 +163,11 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 if RENDER_EXTERNAL_HOSTNAME:
     CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+# Trust the custom domain for CSRF-protected flows (admin, browsable API).
+CSRF_TRUSTED_ORIGINS += [
+    'https://profinderhome.com',
+    'https://www.profinderhome.com',
+]
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
