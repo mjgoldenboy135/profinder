@@ -12,8 +12,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { getOnlineUsersWithLocation } from "@/services/userService";
 
-import { MapContainer, TileLayer, Marker, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Tooltip, useMap, ZoomControl } from "react-leaflet";
 import L from "leaflet";
+import { professionLabel } from "@/lib/types";
 
 // Leaflet needs to recompute its size when the map container resizes (e.g.
 // entering/leaving fullscreen), otherwise tiles render in the wrong place.
@@ -389,12 +390,16 @@ export default function MapView() {
               zoom={initialZoom}
               className="h-full w-full"
               scrollWheelZoom
+              // Zoom control is placed at the bottom-left instead of the default
+              // top-left so it sits at the bottom of the map.
+              zoomControl={false}
               // Show a single world: no horizontal wrapping/copies when zoomed out.
               minZoom={2}
               maxBounds={[[-85, -180], [85, 180]]}
               maxBoundsViscosity={1.0}
               worldCopyJump={false}
             >
+              <ZoomControl position="bottomleft" />
               <TileLayer
                 url={`https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key=${MAPTILER_API_KEY}&language=en`}
                 attribution="&copy; <a href='https://www.maptiler.com/copyright/'>MapTiler</a> &copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
@@ -405,9 +410,12 @@ export default function MapView() {
 
               {visibleUsers.map((user) => {
                 if (user.lat == null || user.lng == null) return null;
+                // "Doctor at KGM Medical College" when a company is set, else
+                // just the profession.
+                const roleLabel = professionLabel(user.profession, user.company);
                 const icon = createAvatarIcon(
                   user.full_name || '',
-                  user.profession,
+                  roleLabel,
                   user.profile_picture_url || undefined
                 );
                 return (
@@ -419,7 +427,7 @@ export default function MapView() {
                       click: () => router.push(`/users/${user.id}`),
                     }}
                   >
-                    {user.profession && <Tooltip>{user.profession}</Tooltip>}
+                    {roleLabel && <Tooltip>{roleLabel}</Tooltip>}
                   </Marker>
                 );
               })}

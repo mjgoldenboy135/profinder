@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Search, FilterX } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
-import { AVAILABILITY_OPTIONS } from "@/lib/types";
-import { useMemo } from "react";
+import { AVAILABILITY_OPTIONS, professionLabel } from "@/lib/types";
+import { useMemo, useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 interface UserFiltersProps {
   onFilterChange: (filters: any) => void; // Replace 'any' with a proper filter type
@@ -22,12 +23,44 @@ const ANY_AVAILABILITY_VALUE = "__ANY_AVAILABILITY__";
 
 
 export default function UserFilters({ onFilterChange, initialFilters, users }: UserFiltersProps) {
-  
+  const router = useRouter();
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+
   const uniqueProfessions = useMemo(() => {
     if (!users || users.length === 0) return [];
     // Filter out undefined/null professions and then get unique values
     return Array.from(new Set(users.map(u => u.profession).filter((p): p is string => Boolean(p))));
   }, [users]);
+
+  // People matching the typed text (name / profession / company), rendered as
+  // an on-page suggestion dropdown like the map search. Capped for readability.
+  const suggestions = useMemo(() => {
+    const q = (initialFilters.searchTerm || "").trim().toLowerCase();
+    if (!q) return [];
+    return (users || [])
+      .filter((u) =>
+        u.full_name?.toLowerCase().includes(q) ||
+        u.profession?.toLowerCase().includes(q) ||
+        u.company?.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [users, initialFilters.searchTerm]);
+
+  useEffect(() => {
+    if (!showSuggestions) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [showSuggestions]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     onFilterChange({ ...initialFilters, [e.target.name]: e.target.value });
@@ -61,7 +94,7 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
   return (
     <div className="p-6 bg-card rounded-lg shadow-lg mb-8">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 items-end">
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2" ref={searchBoxRef}>
           <Label htmlFor="searchTerm">Search by Name/Keyword</Label>
           <div className="relative">
             <Input
@@ -69,10 +102,38 @@ export default function UserFilters({ onFilterChange, initialFilters, users }: U
               name="searchTerm"
               placeholder="e.g., John Doe, Developer"
               value={initialFilters.searchTerm}
-              onChange={handleInputChange}
+              onChange={(e) => { handleInputChange(e); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              autoComplete="off"
               className="pr-10"
             />
             <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            {showSuggestions && suggestions.length > 0 && (
+              <ul
+                role="listbox"
+                className="absolute left-0 right-0 top-full mt-1 max-h-72 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-50"
+              >
+                {suggestions.map((u) => {
+                  const role = professionLabel(u.profession, u.company);
+                  return (
+                    <li key={u.id} role="option">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setShowSuggestions(false);
+                          router.push(`/users/${u.id}`);
+                        }}
+                        className="flex w-full flex-col items-start px-3 py-2 text-left hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <span className="text-sm font-medium">{u.full_name}</span>
+                        {role && <span className="text-xs text-muted-foreground">{role}</span>}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
         </div>
 
