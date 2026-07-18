@@ -19,8 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
-import { useState, useEffect, useCallback } from "react";
-import { Loader2, BadgeCheck, MailWarning, Compass, Building2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Loader2, BadgeCheck, MailWarning, Compass, Building2, MapPin } from "lucide-react";
 import { sendVerificationEmail } from "@/services/authService";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
@@ -46,6 +46,7 @@ const profileSchema = z.object({
   linkedin_profile_url: z.string().url("Please enter a valid URL.").optional().or(z.literal("")),
   email: z.string().email(),
   phone_number: z.string().optional(),
+  address: z.string().max(150, "Address should not exceed 150 characters.").optional(),
   bio: z.string().max(250, "Bio should not exceed 250 characters.").optional(),
   availability: z.enum(['none', 'open_to_work', 'hiring', 'networking', 'mentoring', 'collaborating']).default('none').optional(),
 });
@@ -63,6 +64,7 @@ const defaultFormValues: ProfileFormValues = {
   years_of_experience: 0,
   linkedin_profile_url: "",
   phone_number: "",
+  address: "",
   bio: "",
   availability: 'none',
 };
@@ -122,6 +124,8 @@ export default function ProfileForm() {
   const [isUploadingPicture, setIsUploadingPicture] = useState(false);
   const [isResizingImage, setIsResizingImage] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [showProfessionSuggestions, setShowProfessionSuggestions] = useState(false);
+  const professionBoxRef = useRef<HTMLDivElement>(null);
 
   const handleSendVerification = async () => {
     setIsSendingVerification(true);
@@ -140,6 +144,34 @@ export default function ProfileForm() {
     defaultValues: defaultFormValues,
   });
 
+  const watchedProfession = form.watch("profession");
+
+  // On-page profession suggestions (not the browser's datalist / keyboard
+  // strip). Typing is never blocked — the field stays free text and the list
+  // is purely optional.
+  const professionSuggestions = useMemo(() => {
+    const q = (watchedProfession || "").trim().toLowerCase();
+    if (!q) return [];
+    const matches = COMMON_PROFESSIONS.filter((p) => p.toLowerCase().includes(q));
+    if (matches.length === 1 && matches[0].toLowerCase() === q) return [];
+    return matches.slice(0, 8);
+  }, [watchedProfession]);
+
+  useEffect(() => {
+    if (!showProfessionSuggestions) return;
+    const onPointerDown = (e: MouseEvent | TouchEvent) => {
+      if (professionBoxRef.current && !professionBoxRef.current.contains(e.target as Node)) {
+        setShowProfessionSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("touchstart", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("touchstart", onPointerDown);
+    };
+  }, [showProfessionSuggestions]);
+
   const resetFormWithProfileData = useCallback((profile: UserProfile | null) => {
     if (currentUser && profile) {
       const initialData: ProfileFormValues = {
@@ -154,6 +186,7 @@ export default function ProfileForm() {
         years_of_experience: profile.years_of_experience || 0,
         linkedin_profile_url: profile.linkedin_profile_url || "",
         phone_number: profile.phone_number || "",
+        address: profile.address || "",
         bio: profile.bio || "",
         availability: profile.availability || 'none',
       };
@@ -276,6 +309,7 @@ export default function ProfileForm() {
         years_of_experience: values.years_of_experience,
         linkedin_profile_url: values.linkedin_profile_url,
         phone_number: values.phone_number,
+        address: values.address,
         bio: values.bio,
         availability: values.availability,
       };
@@ -466,20 +500,49 @@ export default function ProfileForm() {
                 <FormItem>
                   <FormLabel>Profession</FormLabel>
                   <FormControl>
-                    <Input
-                      list="profession-options"
-                      placeholder="e.g., Software Engineer, Marketing Manager"
-                      {...field}
-                      value={field.value ?? ""}
-                      maxLength={100}
-                    />
+                    <div className="relative" ref={professionBoxRef}>
+                      <Input
+                        placeholder="e.g., Software Engineer, Marketing Manager"
+                        {...field}
+                        value={field.value ?? ""}
+                        maxLength={100}
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        onChange={(e) => { field.onChange(e); setShowProfessionSuggestions(true); }}
+                        onFocus={() => setShowProfessionSuggestions(true)}
+                        role="combobox"
+                        aria-expanded={showProfessionSuggestions && professionSuggestions.length > 0}
+                        aria-autocomplete="list"
+                      />
+                      {showProfessionSuggestions && professionSuggestions.length > 0 && (
+                        <ul
+                          role="listbox"
+                          className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-50"
+                        >
+                          {professionSuggestions.map((prof) => (
+                            <li key={prof} role="option">
+                              <button
+                                type="button"
+                                // onMouseDown fires before blur so the click isn't
+                                // lost, and preventDefault keeps focus in the input
+                                // so typing is never interrupted.
+                                onMouseDown={(e) => {
+                                  e.preventDefault();
+                                  field.onChange(prof);
+                                  setShowProfessionSuggestions(false);
+                                }}
+                                className="block w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground"
+                              >
+                                {prof}
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </FormControl>
-                  <datalist id="profession-options">
-                    {COMMON_PROFESSIONS.map((prof) => (
-                      <option key={prof} value={prof} />
-                    ))}
-                  </datalist>
-                  <FormDescription>Max 100 characters.</FormDescription>
+                  <FormDescription>Type freely, or pick a suggestion. Max 100 characters.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -491,10 +554,10 @@ export default function ProfileForm() {
                 <FormItem>
                   <FormLabel className="flex items-center"><Building2 className="mr-2 h-5 w-5 text-primary" /> Company / Organisation</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Nahdi Pharmacy" {...field} value={field.value ?? ''} maxLength={150} />
+                    <Input placeholder="e.g., XYZ Company" {...field} value={field.value ?? ''} maxLength={150} />
                   </FormControl>
                   <FormDescription>
-                    Shown next to your profession, e.g. &quot;Pharmacist at Nahdi Pharmacy&quot;. Max 150 characters.
+                    Shown next to your profession, e.g. &quot;Doctor at XYZ Hospital&quot;. Max 150 characters.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -565,6 +628,20 @@ export default function ProfileForm() {
                 <FormItem>
                   <FormLabel>Phone Number (Optional)</FormLabel>
                   <FormControl><Input type="tel" placeholder="Your contact phone number" {...field} value={field.value ?? ''} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="address"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> City / Address (Optional)</FormLabel>
+                  <FormControl><Input placeholder="e.g., Riyadh, Saudi Arabia" {...field} value={field.value ?? ''} maxLength={150} /></FormControl>
+                  <FormDescription>
+                    Your city or general address, shown on your profile. Max 150 characters. Your precise live map location is controlled separately in Status &amp; Privacy.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

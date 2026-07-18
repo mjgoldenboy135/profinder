@@ -48,7 +48,7 @@ export function availabilityMeta(value?: Availability) {
   return AVAILABILITY_OPTIONS.find((o) => o.value === value) || AVAILABILITY_OPTIONS[0];
 }
 
-/** "Pharmacist at Nahdi Pharmacy" style label. Falls back gracefully when
+/** "Doctor at XYZ Hospital" style label. Falls back gracefully when
  * either the profession or company is missing. */
 export function professionLabel(profession?: string, company?: string): string {
   const p = (profession || '').trim();
