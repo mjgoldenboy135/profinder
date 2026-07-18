@@ -58,6 +58,12 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    // Serve the Android TWA Digital Asset Links file at the well-known path.
+    return [
+      { source: "/.well-known/assetlinks.json", destination: "/api/assetlinks" },
+    ];
+  },
   experimental: {
     allowedDevOrigins: [
         'http://9000-firebase-studio-1749131851806.cluster-c23mj7ubf5fxwq6nrbev4ugaxa.cloudworkstations.dev',
