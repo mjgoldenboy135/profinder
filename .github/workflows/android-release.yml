@@ -64,11 +64,25 @@ jobs:
 
       - name: Configure Bubblewrap (use runner's JDK + Android SDK, no prompts)
         run: |
+          set -e
+          # Locate the installed cmdline-tools (prefer "latest").
+          CLT="$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          if [ ! -d "$CLT" ]; then
+            CLT="$(ls -d "$ANDROID_SDK_ROOT"/cmdline-tools/*/ 2>/dev/null | head -1)"
+          fi
+          echo "cmdline-tools: $CLT"
+          # Bubblewrap validates the SDK by requiring a `tools/` (or `bin/`) folder
+          # at the SDK root and runs `tools/bin/sdkmanager`. GitHub runners only ship
+          # `cmdline-tools/`, so alias it as `tools` to satisfy both.
+          if [ ! -e "$ANDROID_SDK_ROOT/tools" ]; then
+            ln -s "$CLT" "$ANDROID_SDK_ROOT/tools" 2>/dev/null || sudo ln -s "$CLT" "$ANDROID_SDK_ROOT/tools"
+          fi
+          test -x "$ANDROID_SDK_ROOT/tools/bin/sdkmanager" && echo "sdkmanager reachable at tools/bin"
           mkdir -p ~/.bubblewrap
           printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' "$JAVA_HOME" "$ANDROID_SDK_ROOT" > ~/.bubblewrap/config.json
           cat ~/.bubblewrap/config.json
           # Pre-accept SDK licenses so Bubblewrap can pull any missing build-tools.
-          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          yes | "$CLT/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
 
       - name: Apply version overrides
         working-directory: android
