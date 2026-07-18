@@ -13,13 +13,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Eye, Globe, Heart, Loader2, MapPin, Users } from "lucide-react";
+import { Eye, Globe, Heart, Loader2, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { updateUserProfile } from "@/services/userService";
@@ -27,7 +26,6 @@ import { apiFetch } from "@/lib/api";
 import type { UserProfile } from "@/lib/types";
 
 const schema = z.object({
-  address: z.string().max(150, "Location address should not exceed 150 characters.").optional(),
   is_online: z.boolean().optional().default(false),
   show_contact: z.boolean().optional().default(false),
   location_visibility: z.enum(['public', 'favorites', 'none']).default('public').optional(),
@@ -36,7 +34,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 const defaults: FormValues = {
-  address: "",
   is_online: false,
   show_contact: false,
   location_visibility: 'public',
@@ -56,12 +53,10 @@ export default function StatusPrivacyForm() {
 
   const watchedIsOnline = form.watch("is_online");
   const watchedLocationVisibility = form.watch("location_visibility");
-  const watchedAddress = form.watch("address");
 
   const resetFormWithProfileData = useCallback((profile: UserProfile | null) => {
     if (currentUser && profile) {
       form.reset({
-        address: profile.address || "",
         is_online: profile.location_visibility === 'none' ? false : (profile.is_online || false),
         show_contact: profile.show_contact || false,
         location_visibility: profile.location_visibility || 'public',
@@ -97,8 +92,6 @@ export default function StatusPrivacyForm() {
     }
 
     const manageLiveLocation = async (enable: boolean) => {
-      const currentAddress = watchedAddress || "";
-
       if (enable && watchedLocationVisibility !== 'none') {
         setIsLocationPermissionDenied(false);
         if (!navigator.geolocation) {
@@ -116,7 +109,6 @@ export default function StatusPrivacyForm() {
                 is_online: true,
                 lat: latitude,
                 lng: longitude,
-                address: currentAddress,
                 location_visibility: watchedLocationVisibility,
               });
               toast({ title: "You are now Online!", description: "Your location is being shared based on your visibility settings." });
@@ -132,7 +124,6 @@ export default function StatusPrivacyForm() {
                   await updateUserProfile(currentUser.id, {
                     lat: pos.coords.latitude,
                     lng: pos.coords.longitude,
-                    address: form.getValues("address") || "",
                   });
                 } catch (watchDbError) {
                   console.warn("Silent fail for watch position update:", watchDbError);
@@ -187,14 +178,13 @@ export default function StatusPrivacyForm() {
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, watchedIsOnline, watchedLocationVisibility, watchedAddress, isFetchingProfile, form.formState.isSubmitting]);
+  }, [currentUser, watchedIsOnline, watchedLocationVisibility, isFetchingProfile, form.formState.isSubmitting]);
 
   async function onSubmit(values: FormValues) {
     if (!currentUser) return;
     const finalIsOnline = values.location_visibility === 'none' ? false : values.is_online;
     try {
       await updateUserProfile(currentUser.id, {
-        address: values.address,
         is_online: finalIsOnline,
         show_contact: values.show_contact,
         location_visibility: values.location_visibility,
@@ -226,21 +216,9 @@ export default function StatusPrivacyForm() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="address"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center"><MapPin className="mr-2 h-5 w-5 text-primary" /> Location Address (Optional)</FormLabel>
-                  <FormControl><Input placeholder="e.g., San Francisco, CA (for public display)" {...field} value={field.value ?? ''} maxLength={150} /></FormControl>
-                  <FormDescription>
-                    Max 150 characters. A general address for display on your profile. Your precise map location is handled by the &quot;Appear Online&quot; switch.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
+            <p className="text-sm text-muted-foreground">
+              Your city / address is set on your <a href="/profile" className="text-primary underline underline-offset-2">Profile</a>. This page controls your live map location and what others can see.
+            </p>
             <FormField
               control={form.control}
               name="location_visibility"
