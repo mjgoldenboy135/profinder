@@ -14,12 +14,22 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
+// The app's own upload-key SHA-256 fingerprint (public info, safe to commit).
+// This is what the sideloaded / CI-built APK is signed with, so listing it here
+// lets the installed TWA verify the domain and run full-screen (no URL bar).
+// Add Google's Play App Signing fingerprint via TWA_SHA256_FINGERPRINTS once the
+// app is on the Play Store (both can be listed).
+const DEFAULT_FINGERPRINTS = [
+  "1E:DD:8E:36:D2:71:ED:8B:25:E5:F0:3D:7D:1D:E1:77:FE:34:B4:3D:CE:77:C0:B6:A8:4F:9C:64:1C:06:68:0E",
+];
+
 export function GET() {
   const packageName = process.env.TWA_PACKAGE_NAME || "com.profinderhome.app";
-  const fingerprints = (process.env.TWA_SHA256_FINGERPRINTS || "")
+  const envFingerprints = (process.env.TWA_SHA256_FINGERPRINTS || "")
     .split(",")
     .map((f) => f.trim())
     .filter(Boolean);
+  const fingerprints = Array.from(new Set([...DEFAULT_FINGERPRINTS, ...envFingerprints]));
 
   const body = [
     {
