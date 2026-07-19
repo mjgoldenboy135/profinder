@@ -97,16 +97,21 @@ jobs:
       - name: Build and sign
         working-directory: android
         env:
-          KS_PW: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_PW: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          # Bubblewrap reads these directly, so no interactive password prompt.
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [ -z "$KS_PW" ] || [ -z "$KEY_PW" ]; then
+          set -e
+          if [ -z "$BUBBLEWRAP_KEYSTORE_PASSWORD" ] || [ -z "$BUBBLEWRAP_KEY_PASSWORD" ]; then
             echo "::error::ANDROID_KEYSTORE_PASSWORD and/or ANDROID_KEY_PASSWORD secrets are not set."
             exit 1
           fi
-          # Bubblewrap generates the Android project from twa-manifest.json, then
-          # builds. It prompts for the keystore password then the key password.
-          printf '%s\n%s\n' "$KS_PW" "$KEY_PW" | bubblewrap build --skipPwaValidation
+          # 1) Generate the native project + manifest checksum non-interactively.
+          #    (--skipVersionUpgrade avoids the "new version name?" prompt.) Writing
+          #    the checksum means `build` won't stop to ask about regenerating.
+          bubblewrap update --skipVersionUpgrade
+          # 2) Build & sign. Passwords come from the env vars above → no prompts.
+          bubblewrap build --skipPwaValidation
           echo "Build outputs:"; ls -la *.aab *.apk 2>/dev/null || true
 
       - name: Upload signed bundle
