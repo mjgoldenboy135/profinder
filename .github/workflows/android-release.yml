@@ -110,6 +110,11 @@ jobs:
           #    (--skipVersionUpgrade avoids the "new version name?" prompt.) Writing
           #    the checksum means `build` won't stop to ask about regenerating.
           bubblewrap update --skipVersionUpgrade
+          # 1b) Target Android 16 (API 36) to satisfy Google Play's target API
+          #     level requirement (deadline 31 Aug 2026). compileSdkVersion is
+          #     already 36, so this only raises targetSdkVersion.
+          sed -i -E 's/targetSdkVersion[[:space:]]+[0-9]+/targetSdkVersion 36/' app/build.gradle
+          echo "SDK levels:"; grep -E "compileSdkVersion|targetSdkVersion|minSdkVersion" app/build.gradle
           # 2) Build & sign. Passwords come from the env vars above → no prompts.
           bubblewrap build --skipPwaValidation
           echo "Build outputs:"; ls -la *.aab *.apk 2>/dev/null || true
