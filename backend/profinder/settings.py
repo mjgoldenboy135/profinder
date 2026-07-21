@@ -1,0 +1,233 @@
+import os
+from pathlib import Path
+from decouple import config
+from datetime import timedelta
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
+DEBUG = config('DEBUG', default=True, cast=bool)
+ALLOWED_HOSTS = [h.strip() for h in config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',') if h.strip()]
+
+# Render provides the external hostname at runtime.
+RENDER_EXTERNAL_HOSTNAME = config('RENDER_EXTERNAL_HOSTNAME', default='')
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
+INSTALLED_APPS = [
+    'daphne',
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'corsheaders',
+    'channels',
+    'users',
+    'chat',
+]
+
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+ROOT_URLCONF = 'profinder.urls'
+
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.debug',
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
+
+ASGI_APPLICATION = 'profinder.asgi.application'
+WSGI_APPLICATION = 'profinder.wsgi.application'
+
+DATABASE_URL = config('DATABASE_URL', default=f'sqlite:///{BASE_DIR}/db.sqlite3')
+
+if DATABASE_URL.startswith('sqlite'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    import dj_database_url
+    DATABASES = {'default': dj_database_url.parse(DATABASE_URL)}
+
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
+
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+
+STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = config('MEDIA_ROOT', default=str(BASE_DIR / 'media'))
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+AUTH_USER_MODEL = 'users.User'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    # Rate limiting. ScopedRateThrottle only throttles views that set
+    # `throttle_scope` (the auth-sensitive endpoints), so normal API traffic
+    # and polling are unaffected.
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.ScopedRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '10/min',            # brute-force protection
+        'register': '5/min',
+        'password_reset': '5/min',    # email-flood protection
+        'email_verification': '5/min',
+        'google_login': '20/min',
+    },
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'UPDATE_LAST_LOGIN': True,
+}
+
+# Google Sign-In. Leave empty to disable; set to your OAuth 2.0 Web Client ID
+# to enable "Sign in with Google" (the same value the frontend uses).
+GOOGLE_CLIENT_ID = config('GOOGLE_CLIENT_ID', default='')
+
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:3000,http://localhost:9002'
+    ).split(',') if o.strip()
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r.strip() for r in config('CORS_ALLOWED_ORIGIN_REGEXES', default='').split(',') if r.strip()
+]
+# Always trust our own Render deployments and the profinderhome.com custom
+# domain (apex + any subdomain such as www), so the frontend keeps working on
+# the custom domain even if the CORS_ALLOWED_ORIGINS env var wasn't updated.
+CORS_ALLOWED_ORIGIN_REGEXES += [
+    r'^https://([a-z0-9-]+\.)*onrender\.com$',
+    r'^https://([a-z0-9-]+\.)*profinderhome\.com$',
+]
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=False, cast=bool)
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in config('CSRF_TRUSTED_ORIGINS', default='').split(',') if o.strip()
+]
+if RENDER_EXTERNAL_HOSTNAME:
+    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
+# Trust the custom domain for CSRF-protected flows (admin, browsable API).
+CSRF_TRUSTED_ORIGINS += [
+    'https://profinderhome.com',
+    'https://www.profinderhome.com',
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Security hardening (enforced outside local development so DEBUG dev over http
+# still works). SSL redirect is intentionally off — Render already terminates
+# TLS and an app-level redirect would fight the platform health check.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = 'same-origin'
+X_FRAME_OPTIONS = 'DENY'
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SECURE_HSTS_SECONDS = 60 * 60 * 24 * 30  # 30 days
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+# Public URL of the frontend, used to build verification/password-reset links.
+# Render's fromService gives a bare internal hostname (e.g. "profinder-s2ln"
+# with no dots) — turn that into the public https://<host>.onrender.com URL.
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:9002')
+if FRONTEND_URL and not FRONTEND_URL.startswith(('http://', 'https://')):
+    if '.' not in FRONTEND_URL and ':' not in FRONTEND_URL:
+        FRONTEND_URL = f'{FRONTEND_URL}.onrender.com'
+    FRONTEND_URL = 'https://' + FRONTEND_URL
+
+# Email delivery. Priority:
+#   1. BREVO_API_KEY set -> Brevo HTTPS API (works on Render's free tier,
+#      which blocks all outbound SMTP ports 25/465/587).
+#   2. EMAIL_HOST set    -> classic SMTP (local dev or paid hosts).
+#   3. otherwise         -> console backend (emails printed to logs).
+BREVO_API_KEY = config('BREVO_API_KEY', default='')
+EMAIL_HOST = config('EMAIL_HOST', default='')
+if BREVO_API_KEY:
+    EMAIL_BACKEND = 'users.emailing.BrevoApiBackend'
+elif EMAIL_HOST:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+else:
+    EMAIL_BACKEND = config(
+        'EMAIL_BACKEND',
+        default='django.core.mail.backends.console.EmailBackend',
+    )
+EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
+# Never let an email send block indefinitely (SMTP connects hang forever on
+# hosts that block the port).
+EMAIL_TIMEOUT = config('EMAIL_TIMEOUT', default=10, cast=int)
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Profinder <noreply@profinder.app>')
+
+# Require users to verify their email before they can log in. Enabled by
+# default only when real email sending is configured, so a console-only setup
+# doesn't lock everyone out. Override with the env var.
+REQUIRE_EMAIL_VERIFICATION = config(
+    'REQUIRE_EMAIL_VERIFICATION', default=bool(BREVO_API_KEY or EMAIL_HOST), cast=bool
+)
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}

@@ -1,0 +1,129 @@
+name: Build signed Android app (TWA)
+
+# Builds the Trusted Web Activity wrapper of the live site into a signed
+# .aab (for Play Store) and .apk (for sideload testing) using Bubblewrap.
+#
+# Run it manually from the Actions tab (workflow_dispatch).
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   ANDROID_KEYSTORE_BASE64   base64 of your signing keystore file
+#                             (see android/README.md to generate it)
+#   ANDROID_KEYSTORE_PASSWORD keystore password
+#   ANDROID_KEY_PASSWORD      key password (often the same)
+#
+# The signed .aab is uploaded as a build artifact you download and upload to
+# the Play Console. The keystore never lives in the repo.
+
+on:
+  workflow_dispatch:
+    inputs:
+      versionName:
+        description: "Version name (e.g. 1.0.0)"
+        required: false
+        default: ""
+      versionCode:
+        description: "Version code (integer, must increase each release)"
+        required: false
+        default: ""
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Bubblewrap
+        run: npm install -g @bubblewrap/cli
+
+      - name: Restore signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::Secret ANDROID_KEYSTORE_BASE64 is not set. Add it under Settings → Secrets and variables → Actions (see android/README.md)."
+            exit 1
+          fi
+          # tr strips any whitespace/newlines so a line-wrapped paste still decodes.
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > android/android.keystore
+          if [ ! -s android/android.keystore ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 did not decode to a valid file. Re-copy the FULL base64 string (it starts with MIIK...)."
+            exit 1
+          fi
+          echo "Keystore restored ($(stat -c%s android/android.keystore) bytes)."
+
+      - name: Configure Bubblewrap (use runner's JDK + Android SDK, no prompts)
+        run: |
+          set -e
+          # Locate the installed cmdline-tools (prefer "latest").
+          CLT="$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          if [ ! -d "$CLT" ]; then
+            CLT="$(ls -d "$ANDROID_SDK_ROOT"/cmdline-tools/*/ 2>/dev/null | head -1)"
+          fi
+          echo "cmdline-tools: $CLT"
+          # Bubblewrap validates the SDK by requiring a `tools/` (or `bin/`) folder
+          # at the SDK root and runs `tools/bin/sdkmanager`. GitHub runners only ship
+          # `cmdline-tools/`, so alias it as `tools` to satisfy both.
+          if [ ! -e "$ANDROID_SDK_ROOT/tools" ]; then
+            ln -s "$CLT" "$ANDROID_SDK_ROOT/tools" 2>/dev/null || sudo ln -s "$CLT" "$ANDROID_SDK_ROOT/tools"
+          fi
+          test -x "$ANDROID_SDK_ROOT/tools/bin/sdkmanager" && echo "sdkmanager reachable at tools/bin"
+          mkdir -p ~/.bubblewrap
+          printf '{"jdkPath":"%s","androidSdkPath":"%s"}\n' "$JAVA_HOME" "$ANDROID_SDK_ROOT" > ~/.bubblewrap/config.json
+          cat ~/.bubblewrap/config.json
+          # Pre-accept SDK licenses so Bubblewrap can pull any missing build-tools.
+          yes | "$CLT/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+
+      - name: Apply version overrides
+        working-directory: android
+        run: |
+          if [ -n "${{ github.event.inputs.versionName }}" ]; then
+            node -e "const f='twa-manifest.json';const m=require('./'+f);m.appVersionName='${{ github.event.inputs.versionName }}';require('fs').writeFileSync(f,JSON.stringify(m,null,2))"
+          fi
+          if [ -n "${{ github.event.inputs.versionCode }}" ]; then
+            node -e "const f='twa-manifest.json';const m=require('./'+f);m.appVersionCode=Number('${{ github.event.inputs.versionCode }}');require('fs').writeFileSync(f,JSON.stringify(m,null,2))"
+          fi
+
+      - name: Build and sign
+        working-directory: android
+        env:
+          # Bubblewrap reads these directly, so no interactive password prompt.
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -e
+          if [ -z "$BUBBLEWRAP_KEYSTORE_PASSWORD" ] || [ -z "$BUBBLEWRAP_KEY_PASSWORD" ]; then
+            echo "::error::ANDROID_KEYSTORE_PASSWORD and/or ANDROID_KEY_PASSWORD secrets are not set."
+            exit 1
+          fi
+          # 1) Generate the native project + manifest checksum non-interactively.
+          #    (--skipVersionUpgrade avoids the "new version name?" prompt.) Writing
+          #    the checksum means `build` won't stop to ask about regenerating.
+          bubblewrap update --skipVersionUpgrade
+          # 1b) Target Android 16 (API 36) to satisfy Google Play's target API
+          #     level requirement (deadline 31 Aug 2026). compileSdkVersion is
+          #     already 36, so this only raises targetSdkVersion.
+          sed -i -E 's/targetSdkVersion[[:space:]]+[0-9]+/targetSdkVersion 36/' app/build.gradle
+          echo "SDK levels:"; grep -E "compileSdkVersion|targetSdkVersion|minSdkVersion" app/build.gradle
+          # 2) Build & sign. Passwords come from the env vars above → no prompts.
+          bubblewrap build --skipPwaValidation
+          echo "Build outputs:"; ls -la *.aab *.apk 2>/dev/null || true
+
+      - name: Upload signed bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: profinder-android-release
+          path: |
+            android/app-release-bundle.aab
+            android/app-release-signed.apk
+          if-no-files-found: error

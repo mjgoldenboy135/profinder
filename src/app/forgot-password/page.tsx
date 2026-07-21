@@ -1,4 +1,3 @@
-
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,8 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
-import { auth } from "@/lib/firebase"; // Import Firebase auth
-import { sendPasswordResetEmail } from "firebase/auth"; // Import Firebase auth functions
+import { apiFetch } from "@/lib/api";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -31,33 +29,22 @@ export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(forgotPasswordSchema),
-    defaultValues: {
-      email: "",
-    },
+    defaultValues: { email: "" },
   });
 
   async function onSubmit(values: ForgotPasswordFormValues) {
     try {
-      await sendPasswordResetEmail(auth, values.email);
+      await apiFetch('/auth/password-reset/', {
+        method: 'POST',
+        body: JSON.stringify({ email: values.email }),
+      });
       toast({
         title: "Password Reset Email Sent",
         description: "If an account exists for this email, you will receive reset instructions.",
       });
       form.reset();
-    } catch (error: any) {
-      console.error("Forgot password error:", error);
-      let errorMessage = "Failed to send password reset email. Please try again.";
-      // Firebase often doesn't confirm if an email exists for privacy reasons
-      // So a generic message is usually best here.
-      if (error.code === "auth/user-not-found") {
-         // Still show generic message to user, but log specific error
-         console.warn("Attempt to reset password for non-existent user:", values.email);
-      }
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
+    } catch {
+      toast({ title: "Error", description: "Failed to send password reset email.", variant: "destructive" });
     }
   }
 
@@ -91,9 +78,7 @@ export default function ForgotPasswordPage() {
           </Form>
           <div className="mt-6 text-center">
             <Button variant="link" asChild className="text-primary">
-              <Link href="/login">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Login
-              </Link>
+              <Link href="/login"><ArrowLeft className="mr-2 h-4 w-4" /> Back to Login</Link>
             </Button>
           </div>
         </CardContent>

@@ -6,10 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import AppLogo from '@/components/AppLogo';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2 } from 'lucide-react';
+import { MapPin, Users, MessageCircle, UserCircle, LogOut, Menu, Star, Loader2, ShieldCheck, Settings } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { auth } from '@/lib/firebase';
-import { signOut } from 'firebase/auth';
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from 'react';
 import {
@@ -17,6 +15,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
   SheetTrigger,
   SheetClose,
   SheetFooter,
@@ -35,7 +34,7 @@ const mainHeaderNavLinks = [
 export default function Header() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, loading: authLoading } = useAuthContext();
+  const { currentUser, loading: authLoading, logout } = useAuthContext();
   const { toast } = useToast();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -72,50 +71,44 @@ export default function Header() {
   }, [lastScrollTop, headerHideThreshold, scrollThreshold]);
 
   useEffect(() => {
-    if (isAuthenticatedAndVerified && currentUser) {
-      if (pathname.startsWith('/messages')) {
-        setHasUnreadActivity(false);
-        return;
-      }
+    if (!isAuthenticatedAndVerified || !currentUser) {
+      setHasUnreadActivity(false);
+      return;
+    }
 
-      setCheckingMessages(true);
-      getUserChats(currentUser.uid)
+    // Real unread state from the server (messages addressed to me that I
+    // haven't opened yet), refreshed on navigation and every 15 seconds —
+    // previously the badge only updated on page changes and treated any chat
+    // whose last message wasn't mine as "unread" forever.
+    let cancelled = false;
+    const check = () => {
+      getUserChats()
         .then(userChats => {
-          const unread = userChats.some(chat =>
-            chat.lastMessageText && chat.lastMessageSenderId !== currentUser.uid
-          );
-          setHasUnreadActivity(unread);
+          if (cancelled) return;
+          setHasUnreadActivity(userChats.some(chat => (chat.unread_count ?? 0) > 0));
         })
-        .catch(err => {
-          console.error("Error fetching chats for notification in Header:", err);
-          setHasUnreadActivity(false);
+        .catch(() => {
+          if (!cancelled) setHasUnreadActivity(false);
         })
         .finally(() => {
-          setCheckingMessages(false);
+          if (!cancelled) setCheckingMessages(false);
         });
-    } else {
-      setHasUnreadActivity(false);
-    }
+    };
+
+    check();
+    const interval = setInterval(check, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [isAuthenticatedAndVerified, currentUser, pathname]);
 
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      toast({
-        title: "Logged Out",
-        description: "You have been successfully logged out.",
-      });
-      setIsSidebarOpen(false);
-      router.push('/login');
-    } catch (error) {
-      console.error("Logout error:", error);
-      toast({
-        title: "Logout Failed",
-        description: "An error occurred while logging out. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleLogout = () => {
+    logout();
+    toast({ title: "Logged Out", description: "You have been successfully logged out." });
+    setIsSidebarOpen(false);
+    router.push('/login');
   };
 
   if (authLoading) {
@@ -151,6 +144,7 @@ export default function Header() {
                 <SheetTitle className="flex items-center gap-2">
                   <AppLogo key="logo-sheet-header" />
                 </SheetTitle>
+                <SheetDescription className="sr-only">Main navigation menu</SheetDescription>
               </SheetHeader>
               <nav className="flex-grow p-4 space-y-2">
                 {!!currentUser && ( // Show if user object exists (verified or not)
@@ -179,6 +173,30 @@ export default function Header() {
                           >
                             <Star className="h-5 w-5" />
                             Favorites
+                          </Link>
+                        </SheetClose>
+                        <SheetClose asChild>
+                          <Link
+                            href="/status-privacy"
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                              pathname === "/status-privacy" ? "bg-accent text-accent-foreground" : "text-foreground"
+                            )}
+                          >
+                            <ShieldCheck className="h-5 w-5" />
+                            Status &amp; Privacy
+                          </Link>
+                        </SheetClose>
+                        <SheetClose asChild>
+                          <Link
+                            href="/settings"
+                            className={cn(
+                              "flex items-center gap-3 rounded-md px-3 py-2 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                              pathname === "/settings" ? "bg-accent text-accent-foreground" : "text-foreground"
+                            )}
+                          >
+                            <Settings className="h-5 w-5" />
+                            Settings
                           </Link>
                         </SheetClose>
                         <Separator className="my-3"/>
